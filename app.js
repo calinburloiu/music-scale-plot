@@ -3,7 +3,7 @@ const PX_PER_CENT = 1;
 const RECT_WIDTH = 200;
 const TEXT_MARGIN = 12;
 const CANVAS_PADDING = 20;
-const DPR = 10; //window.devicePixelRatio || 2;
+const DPR = window.devicePixelRatio || 2;
 
 const editor = document.getElementById("editor");
 const canvas = document.getElementById("chart");
@@ -11,6 +11,16 @@ const ctx = canvas.getContext("2d");
 const addBtn = document.getElementById("add-note");
 const removeBtn = document.getElementById("remove-note");
 const saveBtn = document.getElementById("save-png");
+const zoomSlider = document.getElementById("zoom");
+const zoomValue = document.getElementById("zoom-value");
+
+let displayZoom = 1;
+
+function updateZoom() {
+  displayZoom = parseInt(zoomSlider.value, 10) / 100;
+  zoomValue.textContent = zoomSlider.value + "%";
+  canvas.style.transform = "scale(" + displayZoom + ")";
+}
 
 function getDegreeCount() {
   return editor.querySelectorAll(".note-row").length;
@@ -123,18 +133,18 @@ function render() {
   }
 
   if (intervals.length === 0) {
-    canvas.style.width = "0";
-    canvas.style.height = "0";
     canvas.width = 0;
     canvas.height = 0;
+    canvas.style.width = "0";
+    canvas.style.height = "0";
     return;
   }
 
   const totalCents = intervals.reduce((sum, iv) => sum + iv.cents, 0);
   const stackHeight = totalCents * PX_PER_CENT;
 
-  const font = "14px -apple-system, BlinkMacSystemFont, sans-serif";
-  const monoFont = '13px "SF Mono", "Fira Code", Consolas, monospace';
+  const font = "24px -apple-system, BlinkMacSystemFont, sans-serif";
+  const monoFont = '21px "SF Mono", "Fira Code", Consolas, monospace';
 
   ctx.font = font;
   let maxTextWidth = 0;
@@ -154,10 +164,10 @@ function render() {
   const displayWidth = CANVAS_PADDING + RECT_WIDTH + TEXT_MARGIN + textAreaWidth + CANVAS_PADDING;
   const displayHeight = CANVAS_PADDING * 2 + stackHeight;
 
-  canvas.style.width = displayWidth + "px";
-  canvas.style.height = displayHeight + "px";
   canvas.width = Math.round(displayWidth * DPR);
   canvas.height = Math.round(displayHeight * DPR);
+  canvas.style.width = displayWidth + "px";
+  canvas.style.height = displayHeight + "px";
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
   ctx.clearRect(0, 0, displayWidth, displayHeight);
@@ -190,10 +200,10 @@ function render() {
       const ratioText = iv.ratio || "";
       if (labelText && ratioText) {
         ctx.font = font;
-        ctx.fillText(labelText, textX, midY - 9);
+        ctx.fillText(labelText, textX, midY - 12);
         ctx.font = monoFont;
         ctx.fillStyle = "#666";
-        ctx.fillText(ratioText, textX, midY + 9);
+        ctx.fillText(ratioText, textX, midY + 12);
         ctx.fillStyle = "#000";
       } else if (labelText) {
         ctx.font = font;
@@ -233,6 +243,8 @@ editor.addEventListener("input", render);
 addBtn.addEventListener("click", addNote);
 removeBtn.addEventListener("click", removeLastNote);
 saveBtn.addEventListener("click", savePNG);
+zoomSlider.addEventListener("input", updateZoom);
 
 updateRemoveBtn();
+updateZoom();
 render();

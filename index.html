@@ -30,8 +30,13 @@
       </div>
     </div>
     <div class="panel chart-panel">
+      <div class="chart-toolbar">
+        <label for="zoom">Zoom</label>
+        <input type="range" id="zoom" min="10" max="100" value="100" step="5">
+        <span id="zoom-value">100%</span>
+        <button id="save-png">Save as PNG</button>
+      </div>
       <canvas id="chart"></canvas>
-      <button id="save-png">Save as PNG</button>
     </div>
   </div>
   <script src="app.js" defer></script>
