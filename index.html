@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Music Scale Plot</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="panel editor-panel">
+      <h2>Scale Editor</h2>
+      <div id="editor">
+        <div class="row note-row" data-degree="1">
+          <label>Note 1</label>
+          <input type="text" class="note-name" placeholder="name">
+        </div>
+        <div class="row interval-row">
+          <input type="text" class="interval-ratio" placeholder="ratio" value="9/8">
+          <input type="text" class="interval-label" placeholder="label">
+        </div>
+        <div class="row note-row" data-degree="2">
+          <label>Note 2</label>
+          <input type="text" class="note-name" placeholder="name">
+        </div>
+      </div>
+      <div class="editor-controls">
+        <button id="add-note">Add note</button>
+        <button id="remove-note">Remove last note</button>
+      </div>
+    </div>
+    <div class="panel chart-panel">
+      <canvas id="chart"></canvas>
+      <button id="save-png">Save as PNG</button>
+    </div>
+  </div>
+  <script src="app.js" defer></script>
+</body>
+</html>
