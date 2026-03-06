@@ -2,23 +2,24 @@
 
 ## Overview
 
-Music Scale Plot is a zero-dependency, client-side web application consisting of a single HTML file with embedded CSS and JavaScript. No build tools, frameworks, or external libraries are used. The app runs by opening `index.html` directly in a browser.
+Music Scale Plot is a zero-dependency, client-side web application with separate HTML, CSS, and JavaScript files. No build tools, frameworks, or external libraries are used. The app runs by opening `index.html` directly in a browser.
 
 ## File Structure
 
 ```
 music-scale-plot/
-├── index.html      # Single-page application (HTML + CSS + JS)
+├── index.html      # Page structure and markup
+├── style.css       # All styles
+├── app.js          # All application logic
+├── docs/
+│   └── PLAN-01.md  # This document
 ├── LICENSE
-├── README.md
-└── PLAN.md         # This document
+└── README.md
 ```
 
-Everything lives in one `index.html` file for maximum simplicity and portability. The HTML contains three embedded sections:
-
-- `<style>` — all CSS
-- `<body>` — the markup skeleton
-- `<script>` — all JavaScript logic
+- `index.html` — contains the page skeleton, links to `style.css`, and loads `app.js` (deferred).
+- `style.css` — all visual styling.
+- `app.js` — all JavaScript: editor management, canvas rendering, and PNG export.
 
 ## HTML Layout
 
@@ -56,12 +57,16 @@ The editor is a vertical list of rows, alternating between **note rows** and **i
 
 ### Interval row
 
-- Text input: ratio in `p/q` format (placeholder "ratio", e.g. `9/8`)
-- Text input: interval label (optional, placeholder "label")
+- Text input: ratio in `p/q` format (placeholder "ratio", e.g. `9/8`). Defaults to `9/8` when a new interval is added.
+- Text input: interval label (optional, initially empty, placeholder "label")
+
+### Initial state
+
+The editor starts with Note 1, one interval (ratio defaulting to `9/8`, label empty), and Note 2. Both note name fields are initially empty. The user fills in only what they need — names and labels are optional and omitted from the chart when left blank.
 
 ### Controls
 
-- **Add note** button: appends one interval row + one note row at the bottom. The new note's degree increments automatically.
+- **Add note** button: appends one interval row (ratio defaulting to `9/8`, label empty) + one note row (name empty) at the bottom. The new note's degree increments automatically.
 - **Remove last note** button: removes the last note row and its preceding interval row. Disabled when only two notes remain (minimum viable scale = one interval).
 
 All inputs fire an `input` event listener that triggers a chart re-render, giving real-time feedback.
@@ -84,17 +89,14 @@ The chart is a vertical stack of rectangles drawn on an HTML5 `<canvas>`. The st
 
 For each interval (bottom to top):
 
-1. Draw a white-filled rectangle with a black 1 px border.
-2. Draw the **interval label** (if any) vertically centered inside the rectangle, to the right of the stack.
-3. Draw the **note name** of the note below aligned with the bottom edge, and the note name above aligned with the top edge, to the right of the stack.
-
-Additionally, **note degree numbers** are drawn to the left of the stack at each note boundary, along with the cumulative cents value from the root.
+1. Draw a white-filled rectangle with a black border. The border thickness is stored in a named constant (`BORDER_WIDTH`, default 3 px) at the top of `app.js` so it can be easily adjusted.
+2. Draw the **interval label** (if present) vertically centered inside the rectangle, to the right of the stack.
+3. Draw the **note name** (if present) of the note below aligned with the bottom edge, and the note name above aligned with the top edge, to the right of the stack.
 
 ### Text layout
 
-- Note names and degree numbers are placed at the horizontal line boundaries.
-- Interval labels are placed at the vertical midpoint of each rectangle.
-- All text is rendered to the right (or left for degrees) of the rectangle stack to avoid overlap.
+- Note names are placed at the horizontal line boundaries, to the right of the stack.
+- Interval labels are placed at the vertical midpoint of each rectangle, to the right of the stack.
 
 ### Canvas resolution
 
@@ -141,3 +143,4 @@ Add/Remove note buttons modify the DOM (insert or remove rows) and then trigger 
 | Export | `canvas.toDataURL()` + programmatic download |
 | Dependencies | None |
 | Build step | None — open `index.html` in a browser |
+| Code organisation | Separate `index.html`, `style.css`, and `app.js` files |

@@ -6,7 +6,7 @@ Supports scales from various traditions including Byzantine/psaltic music, Ottom
 
 ## Usage
 
-Open `index.html` in a browser. No build step or server required.
+Open `index.html` in a browser. No build step or server required. The page loads `style.css` and `app.js` from the same directory.
 
 1. Use the scale editor to define notes and intervals.
 2. The chart updates in real-time as you type.
