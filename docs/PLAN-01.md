@@ -2,24 +2,25 @@
 
 ## Overview
 
-Music Scale Plot is a zero-dependency, client-side web application with separate HTML, CSS, and JavaScript files. No build tools, frameworks, or external libraries are used. The app runs by opening `index.html` directly in a browser.
+Music Scale Plot is a zero-dependency, client-side web application with separate HTML, CSS, and JavaScript files. No build tools, frameworks, or external libraries are used. The app runs by opening `src/index.html` directly in a browser.
 
 ## File Structure
 
 ```
 music-scale-plot/
-├── index.html      # Page structure and markup
-├── style.css       # All styles
-├── app.js          # All application logic
+├── src/
+│   ├── index.html  # Page structure and markup
+│   ├── style.css   # All styles
+│   └── app.js      # All application logic
 ├── docs/
 │   └── PLAN-01.md  # This document
 ├── LICENSE
 └── README.md
 ```
 
-- `index.html` — contains the page skeleton, links to `style.css`, and loads `app.js` (deferred).
-- `style.css` — all visual styling.
-- `app.js` — all JavaScript: editor management, canvas rendering, and PNG export.
+- `src/index.html` — contains the page skeleton, links to `style.css`, and loads `app.js` (deferred).
+- `src/style.css` — all visual styling.
+- `src/app.js` — all JavaScript: editor management, canvas rendering, and PNG export.
 
 ## HTML Layout
 
@@ -142,5 +143,5 @@ Add/Remove note buttons modify the DOM (insert or remove rows) and then trigger 
 | Reactivity | Single `input` event listener on the editor container (event delegation) |
 | Export | `canvas.toDataURL()` + programmatic download |
 | Dependencies | None |
-| Build step | None — open `index.html` in a browser |
-| Code organisation | Separate `index.html`, `style.css`, and `app.js` files |
+| Build step | None — open `src/index.html` in a browser |
+| Code organisation | Separate files in the `src/` directory |
