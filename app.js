@@ -13,8 +13,67 @@ const removeBtn = document.getElementById("remove-note");
 const saveBtn = document.getElementById("save-png");
 const zoomSlider = document.getElementById("zoom");
 const zoomValue = document.getElementById("zoom-value");
+const baseNoteSelect = document.getElementById("base-note");
 
 let displayZoom = 1;
+let audioCtx = null;
+
+function getAudioContext() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function getBaseFrequency() {
+  const semitones = parseInt(baseNoteSelect.value, 10);
+  return 220 * Math.pow(2, semitones / 12);
+}
+
+function getFrequencyForDegree(degree) {
+  const rows = Array.from(editor.querySelectorAll(".row"));
+  let freq = getBaseFrequency();
+  let notesSeen = 0;
+  for (const row of rows) {
+    if (row.classList.contains("note-row")) {
+      notesSeen++;
+      if (notesSeen === degree) return freq;
+    } else if (row.classList.contains("interval-row")) {
+      const ratioStr = row.querySelector(".interval-ratio").value.trim();
+      const ratio = parseRatio(ratioStr);
+      if (!isNaN(ratio) && ratio > 0) freq *= ratio;
+    }
+  }
+  return freq;
+}
+
+let activeOsc = null;
+let activeGain = null;
+
+function startTone(frequency) {
+  stopTone();
+  const ctx = getAudioContext();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = "triangle";
+  osc.frequency.value = frequency;
+  gain.gain.setValueAtTime(0, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.02);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(ctx.currentTime);
+  activeOsc = osc;
+  activeGain = gain;
+}
+
+function stopTone() {
+  if (!activeOsc) return;
+  const ctx = getAudioContext();
+  activeGain.gain.cancelScheduledValues(ctx.currentTime);
+  activeGain.gain.setValueAtTime(activeGain.gain.value, ctx.currentTime);
+  activeGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.05);
+  activeOsc.stop(ctx.currentTime + 0.05);
+  activeOsc = null;
+  activeGain = null;
+}
 
 function updateZoom() {
   displayZoom = parseInt(zoomSlider.value, 10) / 100;
@@ -45,7 +104,8 @@ function addNote() {
   noteRow.dataset.degree = degree;
   noteRow.innerHTML =
     "<label>Note " + degree + "</label>" +
-    '<input type="text" class="note-name" placeholder="name">';
+    '<input type="text" class="note-name" placeholder="name">' +
+    '<button class="play-note" title="Play note">&#9654;</button>';
 
   editor.appendChild(intervalRow);
   editor.appendChild(noteRow);
@@ -263,6 +323,19 @@ editor.addEventListener("input", function () {
   updateCentsLabels();
   render();
 });
+function handlePlayStart(e) {
+  const btn = e.target.closest(".play-note");
+  if (!btn) return;
+  e.preventDefault();
+  const noteRow = btn.closest(".note-row");
+  if (!noteRow) return;
+  const degree = parseInt(noteRow.dataset.degree, 10);
+  startTone(getFrequencyForDegree(degree));
+}
+editor.addEventListener("mousedown", handlePlayStart);
+editor.addEventListener("touchstart", handlePlayStart);
+document.addEventListener("mouseup", stopTone);
+document.addEventListener("touchend", stopTone);
 addBtn.addEventListener("click", addNote);
 removeBtn.addEventListener("click", removeLastNote);
 saveBtn.addEventListener("click", savePNG);

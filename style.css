@@ -33,6 +33,33 @@ body {
   font-weight: 600;
 }
 
+.base-note-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.base-note-row label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.base-note-row select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.base-note-row select:focus {
+  outline: none;
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
+}
+
 #editor {
   display: flex;
   flex-direction: column;
@@ -67,6 +94,30 @@ body {
   outline: none;
   border-color: #4a90d9;
   box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
+}
+
+.play-note {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: #e8e8e8;
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.play-note:hover {
+  background: #d0d0d0;
+}
+
+.play-note:active {
+  background: #b8b8b8;
 }
 
 .interval-row {

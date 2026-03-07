@@ -10,10 +10,23 @@
   <div class="container">
     <div class="panel editor-panel">
       <h2>Scale Editor</h2>
+      <div class="base-note-row">
+        <label for="base-note">Base Note</label>
+        <select id="base-note">
+          <option value="0">A</option>
+          <option value="2">B</option>
+          <option value="3">C</option>
+          <option value="5">D</option>
+          <option value="7">E</option>
+          <option value="8">F</option>
+          <option value="10">G</option>
+        </select>
+      </div>
       <div id="editor">
         <div class="row note-row" data-degree="1">
           <label>Note 1</label>
           <input type="text" class="note-name" placeholder="name">
+          <button class="play-note" title="Play note">&#9654;</button>
         </div>
         <div class="row interval-row">
           <input type="text" class="interval-ratio" placeholder="ratio" value="9/8">
@@ -23,6 +36,7 @@
         <div class="row note-row" data-degree="2">
           <label>Note 2</label>
           <input type="text" class="note-name" placeholder="name">
+          <button class="play-note" title="Play note">&#9654;</button>
         </div>
       </div>
       <div class="editor-controls">
