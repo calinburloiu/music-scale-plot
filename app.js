@@ -105,12 +105,14 @@ function addNote() {
   noteRow.innerHTML =
     "<label>Note " + degree + "</label>" +
     '<input type="text" class="note-name" placeholder="name">' +
+    '<span class="cumulative-cents"></span>' +
     '<button class="play-note" title="Play note">&#9654;</button>';
 
   editor.appendChild(intervalRow);
   editor.appendChild(noteRow);
   updateRemoveBtn();
   updateCentsLabels();
+  updateCumulativeCents();
   render();
 }
 
@@ -121,6 +123,7 @@ function removeLastNote() {
   editor.removeChild(rows[rows.length - 1]);
   updateRemoveBtn();
   updateCentsLabels();
+  updateCumulativeCents();
   render();
 }
 
@@ -297,6 +300,21 @@ function render() {
   }
 }
 
+function updateCumulativeCents() {
+  const rows = Array.from(editor.querySelectorAll(".row"));
+  let cumulative = 0;
+  for (const row of rows) {
+    if (row.classList.contains("note-row")) {
+      const span = row.querySelector(".cumulative-cents");
+      if (span) span.textContent = cumulative.toFixed(2) + "￠";
+    } else if (row.classList.contains("interval-row")) {
+      const ratioStr = row.querySelector(".interval-ratio").value.trim();
+      const ratio = parseRatio(ratioStr);
+      if (!isNaN(ratio) && ratio > 0) cumulative += ratioToCents(ratio);
+    }
+  }
+}
+
 function updateCentsLabels() {
   const rows = editor.querySelectorAll(".interval-row");
   for (const row of rows) {
@@ -321,6 +339,7 @@ function savePNG() {
 
 editor.addEventListener("input", function () {
   updateCentsLabels();
+  updateCumulativeCents();
   render();
 });
 function handlePlayStart(e) {
@@ -344,4 +363,5 @@ zoomSlider.addEventListener("input", updateZoom);
 updateRemoveBtn();
 updateZoom();
 updateCentsLabels();
+updateCumulativeCents();
 render();

@@ -120,6 +120,16 @@ body {
   background: #b8b8b8;
 }
 
+.note-row .cumulative-cents {
+  flex: 0 0 auto;
+  min-width: 72px;
+  font-size: 0.8rem;
+  color: #888;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+}
+
 .interval-row {
   padding-left: 1rem;
   opacity: 0.85;
