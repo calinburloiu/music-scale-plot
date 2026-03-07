@@ -37,6 +37,7 @@ function addNote() {
   intervalRow.className = "row interval-row";
   intervalRow.innerHTML =
     '<input type="text" class="interval-ratio" placeholder="ratio" value="9/8">' +
+    '<span class="cents-label"></span>' +
     '<input type="text" class="interval-label" placeholder="label">';
 
   const noteRow = document.createElement("div");
@@ -49,6 +50,7 @@ function addNote() {
   editor.appendChild(intervalRow);
   editor.appendChild(noteRow);
   updateRemoveBtn();
+  updateCentsLabels();
   render();
 }
 
@@ -58,6 +60,7 @@ function removeLastNote() {
   editor.removeChild(rows[rows.length - 1]);
   editor.removeChild(rows[rows.length - 1]);
   updateRemoveBtn();
+  updateCentsLabels();
   render();
 }
 
@@ -234,6 +237,21 @@ function render() {
   }
 }
 
+function updateCentsLabels() {
+  const rows = editor.querySelectorAll(".interval-row");
+  for (const row of rows) {
+    const ratioStr = row.querySelector(".interval-ratio").value.trim();
+    const span = row.querySelector(".cents-label");
+    const ratio = parseRatio(ratioStr);
+    if (isNaN(ratio) || ratio <= 0) {
+      span.textContent = "";
+    } else {
+      const cents = ratioToCents(ratio);
+      span.textContent = cents.toFixed(2) + "￠";
+    }
+  }
+}
+
 function savePNG() {
   const link = document.createElement("a");
   link.download = "scale.png";
@@ -241,7 +259,10 @@ function savePNG() {
   link.click();
 }
 
-editor.addEventListener("input", render);
+editor.addEventListener("input", function () {
+  updateCentsLabels();
+  render();
+});
 addBtn.addEventListener("click", addNote);
 removeBtn.addEventListener("click", removeLastNote);
 saveBtn.addEventListener("click", savePNG);
@@ -249,4 +270,5 @@ zoomSlider.addEventListener("input", updateZoom);
 
 updateRemoveBtn();
 updateZoom();
+updateCentsLabels();
 render();
