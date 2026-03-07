@@ -195,25 +195,27 @@ function render() {
 
     if (iv.label || iv.ratio) {
       const midY = rectY + h / 2;
-      ctx.font = font;
+      const centerX = baseX + RECT_WIDTH / 2;
+      ctx.textAlign = "center";
       const labelText = iv.label || "";
       const ratioText = iv.ratio || "";
       if (labelText && ratioText) {
         ctx.font = font;
-        ctx.fillText(labelText, textX, midY - 12);
+        ctx.fillText(labelText, centerX, midY - 12);
         ctx.font = monoFont;
         ctx.fillStyle = "#666";
-        ctx.fillText(ratioText, textX, midY + 12);
+        ctx.fillText(ratioText, centerX, midY + 12);
         ctx.fillStyle = "#000";
       } else if (labelText) {
         ctx.font = font;
-        ctx.fillText(labelText, textX, midY);
+        ctx.fillText(labelText, centerX, midY);
       } else {
         ctx.font = monoFont;
         ctx.fillStyle = "#666";
-        ctx.fillText(ratioText, textX, midY);
+        ctx.fillText(ratioText, centerX, midY);
         ctx.fillStyle = "#000";
       }
+      ctx.textAlign = "left";
     }
 
     if (j === 0 && iv.noteBelow) {
