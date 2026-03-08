@@ -21,13 +21,18 @@ body {
   padding: 2rem;
 }
 
-/* --- Editor Panel --- */
+/* --- Left Column --- */
 
-.editor-panel {
+.left-column {
   flex: 0 0 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
 }
 
-.editor-panel h2 {
+/* --- Settings Panel --- */
+
+.settings-panel h2 {
   margin-bottom: 1rem;
   font-size: 1.25rem;
   font-weight: 600;
@@ -37,7 +42,14 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-bottom: 0.75rem;
+}
+
+/* --- Editor Panel --- */
+
+.editor-panel h2 {
+  margin-bottom: 1rem;
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
 .base-note-row label {
@@ -189,6 +201,11 @@ body {
   gap: 1rem;
 }
 
+.chart-panel h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
 .chart-toolbar {
   display: flex;
   align-items: center;
@@ -240,7 +257,7 @@ body {
     padding: 1rem;
   }
 
-  .editor-panel {
+  .left-column {
     flex: none;
     width: 100%;
   }

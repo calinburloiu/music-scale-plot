@@ -8,8 +8,9 @@
 </head>
 <body>
   <div class="container">
-    <div class="panel editor-panel">
-      <h2>Scale Editor</h2>
+    <div class="left-column">
+    <div class="panel settings-panel">
+      <h2>Settings</h2>
       <div class="base-note-row">
         <label for="base-note">Base Note</label>
         <select id="base-note">
@@ -22,6 +23,9 @@
           <option value="10">G</option>
         </select>
       </div>
+    </div>
+    <div class="panel editor-panel">
+      <h2>Scale Editor</h2>
       <div id="editor">
         <div class="row note-row" data-degree="1">
           <label>Note 1</label>
@@ -46,7 +50,9 @@
         <button id="remove-note">Remove last note</button>
       </div>
     </div>
+    </div>
     <div class="panel chart-panel">
+      <h2>Chart</h2>
       <div class="chart-toolbar">
         <label for="zoom">Zoom</label>
         <input type="range" id="zoom" min="10" max="100" value="100" step="5">
