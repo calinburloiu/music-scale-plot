@@ -23,6 +23,19 @@
           <option value="10">G</option>
         </select>
       </div>
+      <div class="interval-type-row">
+        <label for="interval-type">Interval Type</label>
+        <select id="interval-type">
+          <option value="ratio">Ratios</option>
+          <option value="edo">Equal Division of the Octave (EDO)</option>
+          <option value="cents">Cents</option>
+        </select>
+      </div>
+      <div class="edo-settings-row" id="edo-settings" style="display: none;">
+        <label for="edo-divisions">Divisions per Octave</label>
+        <input type="number" id="edo-divisions" value="12" min="1">
+        <span id="edo-cents-label"></span>
+      </div>
     </div>
     <div class="panel editor-panel">
       <h2>Scale Editor</h2>

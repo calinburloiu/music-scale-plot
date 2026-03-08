@@ -14,6 +14,10 @@ const saveBtn = document.getElementById("save-png");
 const zoomSlider = document.getElementById("zoom");
 const zoomValue = document.getElementById("zoom-value");
 const baseNoteSelect = document.getElementById("base-note");
+const intervalTypeSelect = document.getElementById("interval-type");
+const edoSettingsRow = document.getElementById("edo-settings");
+const edoDivisionsInput = document.getElementById("edo-divisions");
+const edoCentsLabel = document.getElementById("edo-cents-label");
 
 let displayZoom = 1;
 let audioCtx = null;
@@ -37,8 +41,8 @@ function getFrequencyForDegree(degree) {
       notesSeen++;
       if (notesSeen === degree) return freq;
     } else if (row.classList.contains("interval-row")) {
-      const ratioStr = row.querySelector(".interval-ratio").value.trim();
-      const ratio = parseRatio(ratioStr);
+      const valStr = row.querySelector(".interval-ratio").value;
+      const ratio = intervalToRatio(valStr);
       if (!isNaN(ratio) && ratio > 0) freq *= ratio;
     }
   }
@@ -89,15 +93,34 @@ function updateRemoveBtn() {
   removeBtn.disabled = getDegreeCount() <= 2;
 }
 
+function getDefaultIntervalValue() {
+  const type = getIntervalType();
+  if (type === "ratio") return "9/8";
+  if (type === "edo") return String(Math.round(200 / getCentsPerEdoDivision()));
+  return "200";
+}
+
+function getIntervalPlaceholder() {
+  const type = getIntervalType();
+  if (type === "ratio") return "ratio";
+  if (type === "edo") return "steps";
+  return "cents";
+}
+
+function makeIntervalRowHTML(value) {
+  return '<input type="text" class="interval-ratio" placeholder="' +
+    getIntervalPlaceholder() + '" value="' + value + '">' +
+    '<span class="cents-label"></span>' +
+    '<input type="text" class="interval-label" placeholder="label">';
+}
+
 function addNote() {
   const degree = getDegreeCount() + 1;
+  const defaultVal = getDefaultIntervalValue();
 
   const intervalRow = document.createElement("div");
   intervalRow.className = "row interval-row";
-  intervalRow.innerHTML =
-    '<input type="text" class="interval-ratio" placeholder="ratio" value="9/8">' +
-    '<span class="cents-label"></span>' +
-    '<input type="text" class="interval-label" placeholder="label">';
+  intervalRow.innerHTML = makeIntervalRowHTML(defaultVal);
 
   const noteRow = document.createElement("div");
   noteRow.className = "row note-row";
@@ -151,6 +174,19 @@ function readScaleData() {
   return data;
 }
 
+function getIntervalType() {
+  return intervalTypeSelect.value;
+}
+
+function getEdoDivisions() {
+  const v = parseInt(edoDivisionsInput.value, 10);
+  return (isNaN(v) || v < 1) ? 12 : v;
+}
+
+function getCentsPerEdoDivision() {
+  return 1200 / getEdoDivisions();
+}
+
 function parseRatio(str) {
   const parts = str.split("/");
   if (parts.length !== 2) return NaN;
@@ -162,6 +198,35 @@ function parseRatio(str) {
 
 function ratioToCents(r) {
   return 1200 * Math.log2(r);
+}
+
+function intervalToCents(str) {
+  const type = getIntervalType();
+  const trimmed = str.trim();
+  if (type === "ratio") {
+    const r = parseRatio(trimmed);
+    return (isNaN(r) || r <= 0) ? NaN : ratioToCents(r);
+  } else if (type === "edo") {
+    const steps = parseInt(trimmed, 10);
+    return isNaN(steps) ? NaN : steps * getCentsPerEdoDivision();
+  } else {
+    const c = parseFloat(trimmed);
+    return isNaN(c) ? NaN : c;
+  }
+}
+
+function intervalToRatio(str) {
+  const cents = intervalToCents(str);
+  if (isNaN(cents)) return NaN;
+  return Math.pow(2, cents / 1200);
+}
+
+function intervalToDisplayString(str) {
+  const type = getIntervalType();
+  const trimmed = str.trim();
+  if (type === "ratio") return trimmed;
+  if (type === "edo") return trimmed + " steps";
+  return trimmed + "￠";
 }
 
 function render() {
@@ -178,17 +243,16 @@ function render() {
       const interval = data[i + 1];
       const nextNote = i + 2 < data.length && data[i + 2].type === "note" ? data[i + 2] : null;
 
-      const ratio = parseRatio(interval.ratio);
-      if (isNaN(ratio) || ratio <= 0) {
+      const cents = intervalToCents(interval.ratio);
+      if (isNaN(cents) || cents <= 0) {
         i++;
         continue;
       }
 
-      const cents = ratioToCents(ratio);
       intervals.push({
         cents: cents,
         label: interval.label,
-        ratio: interval.ratio,
+        displayInterval: intervalToDisplayString(interval.ratio),
         noteBelow: note.name,
         noteAbove: nextNote ? nextNote.name : "",
       });
@@ -219,7 +283,7 @@ function render() {
     if (iv.noteBelow) parts.push(iv.noteBelow);
     if (iv.noteAbove) parts.push(iv.noteAbove);
     if (iv.label) parts.push(iv.label);
-    if (iv.ratio) parts.push(iv.ratio);
+    if (iv.displayInterval) parts.push(iv.displayInterval);
     for (const t of parts) {
       const w = ctx.measureText(t).width;
       if (w > maxTextWidth) maxTextWidth = w;
@@ -259,12 +323,12 @@ function render() {
     ctx.fillStyle = "#000";
     ctx.textBaseline = "middle";
 
-    if (iv.label || iv.ratio) {
+    if (iv.label || iv.displayInterval) {
       const midY = rectY + h / 2;
       const centerX = baseX + RECT_WIDTH / 2;
       ctx.textAlign = "center";
       const labelText = iv.label || "";
-      const ratioText = iv.ratio || "";
+      const ratioText = iv.displayInterval || "";
       if (labelText && ratioText) {
         ctx.font = font;
         ctx.fillText(labelText, centerX, midY - 12);
@@ -308,9 +372,9 @@ function updateCumulativeCents() {
       const span = row.querySelector(".cumulative-cents");
       if (span) span.textContent = cumulative.toFixed(2) + "￠";
     } else if (row.classList.contains("interval-row")) {
-      const ratioStr = row.querySelector(".interval-ratio").value.trim();
-      const ratio = parseRatio(ratioStr);
-      if (!isNaN(ratio) && ratio > 0) cumulative += ratioToCents(ratio);
+      const valStr = row.querySelector(".interval-ratio").value;
+      const cents = intervalToCents(valStr);
+      if (!isNaN(cents)) cumulative += cents;
     }
   }
 }
@@ -318,16 +382,69 @@ function updateCumulativeCents() {
 function updateCentsLabels() {
   const rows = editor.querySelectorAll(".interval-row");
   for (const row of rows) {
-    const ratioStr = row.querySelector(".interval-ratio").value.trim();
+    const valStr = row.querySelector(".interval-ratio").value;
     const span = row.querySelector(".cents-label");
-    const ratio = parseRatio(ratioStr);
-    if (isNaN(ratio) || ratio <= 0) {
+    const cents = intervalToCents(valStr);
+    if (isNaN(cents)) {
       span.textContent = "";
     } else {
-      const cents = ratioToCents(ratio);
       span.textContent = cents.toFixed(2) + "￠";
     }
   }
+}
+
+function resetScaleToDefault() {
+  const defaultVal = getDefaultIntervalValue();
+
+  editor.innerHTML = "";
+
+  const noteRow1 = document.createElement("div");
+  noteRow1.className = "row note-row";
+  noteRow1.dataset.degree = 1;
+  noteRow1.innerHTML =
+    "<label>Note 1</label>" +
+    '<input type="text" class="note-name" placeholder="name">' +
+    '<span class="cumulative-cents"></span>' +
+    '<button class="play-note" title="Play note">&#9654;</button>';
+
+  const intervalRow = document.createElement("div");
+  intervalRow.className = "row interval-row";
+  intervalRow.innerHTML = makeIntervalRowHTML(defaultVal);
+
+  const noteRow2 = document.createElement("div");
+  noteRow2.className = "row note-row";
+  noteRow2.dataset.degree = 2;
+  noteRow2.innerHTML =
+    "<label>Note 2</label>" +
+    '<input type="text" class="note-name" placeholder="name">' +
+    '<span class="cumulative-cents"></span>' +
+    '<button class="play-note" title="Play note">&#9654;</button>';
+
+  editor.appendChild(noteRow1);
+  editor.appendChild(intervalRow);
+  editor.appendChild(noteRow2);
+
+  updateRemoveBtn();
+  updateCentsLabels();
+  updateCumulativeCents();
+  render();
+}
+
+function updateEdoCentsLabel() {
+  const centsPerDiv = getCentsPerEdoDivision();
+  edoCentsLabel.textContent = centsPerDiv.toFixed(2) + " ￠ for each division";
+}
+
+function onIntervalTypeChange() {
+  const type = getIntervalType();
+  edoSettingsRow.style.display = type === "edo" ? "" : "none";
+  if (type === "edo") updateEdoCentsLabel();
+  resetScaleToDefault();
+}
+
+function onEdoDivisionsChange() {
+  updateEdoCentsLabel();
+  resetScaleToDefault();
 }
 
 function savePNG() {
@@ -359,6 +476,8 @@ addBtn.addEventListener("click", addNote);
 removeBtn.addEventListener("click", removeLastNote);
 saveBtn.addEventListener("click", savePNG);
 zoomSlider.addEventListener("input", updateZoom);
+intervalTypeSelect.addEventListener("change", onIntervalTypeChange);
+edoDivisionsInput.addEventListener("input", onEdoDivisionsChange);
 
 updateRemoveBtn();
 updateZoom();

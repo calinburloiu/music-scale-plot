@@ -52,12 +52,15 @@ body {
   font-weight: 600;
 }
 
-.base-note-row label {
+.base-note-row label,
+.interval-type-row label,
+.edo-settings-row label {
   font-weight: 600;
   font-size: 0.9rem;
 }
 
-.base-note-row select {
+.base-note-row select,
+.interval-type-row select {
   padding: 0.4rem 0.6rem;
   border: 1px solid #ccc;
   border-radius: 4px;
@@ -66,10 +69,46 @@ body {
   cursor: pointer;
 }
 
-.base-note-row select:focus {
+.base-note-row select:focus,
+.interval-type-row select:focus {
   outline: none;
   border-color: #4a90d9;
   box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
+}
+
+.interval-type-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.edo-settings-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.edo-settings-row input {
+  width: 70px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  background: #fff;
+}
+
+.edo-settings-row input:focus {
+  outline: none;
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.2);
+}
+
+#edo-cents-label {
+  font-size: 0.8rem;
+  color: #888;
+  white-space: nowrap;
 }
 
 #editor {
