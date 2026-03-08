@@ -5,6 +5,12 @@ const TEXT_MARGIN = 12;
 const CANVAS_PADDING = 20;
 const DPR = window.devicePixelRatio || 2;
 
+const PALETTE = [
+  "#FFFFFF", "#FFCCCC", "#FFE0C0", "#FFFFCC", "#E0FFCC", "#CCFFCC",
+  "#CCFFE6", "#CCFFFF", "#CCE5FF", "#CCCCFF", "#E5CCFF", "#FFCCFF",
+  "#FFCCE5", "#E8E8E8", "#D0D0D0", "#B8B8B8", "#A0A0A0",
+];
+
 const editor = document.getElementById("editor");
 const canvas = document.getElementById("chart");
 const ctx = canvas.getContext("2d");
@@ -111,6 +117,10 @@ function makeIntervalRowHTML(value) {
   return '<input type="text" class="interval-ratio" placeholder="' +
     getIntervalPlaceholder() + '" value="' + value + '">' +
     '<span class="cents-label"></span>' +
+    '<div class="color-picker-wrapper">' +
+      '<button type="button" class="color-swatch" data-color="#FFFFFF" style="background:#FFFFFF;"></button>' +
+      '<div class="color-dropdown"></div>' +
+    '</div>' +
     '<input type="text" class="interval-label" placeholder="label">';
 }
 
@@ -133,6 +143,13 @@ function addNote() {
 
   editor.appendChild(intervalRow);
   editor.appendChild(noteRow);
+
+  const existingColor = findColorForValue(defaultVal, intervalRow);
+  if (existingColor) {
+    const sw = intervalRow.querySelector(".color-swatch");
+    if (sw) setSwatchColor(sw, existingColor);
+  }
+
   updateRemoveBtn();
   updateCentsLabels();
   updateCumulativeCents();
@@ -164,10 +181,12 @@ function readScaleData() {
       });
     } else {
       const ratioStr = row.querySelector(".interval-ratio").value.trim();
+      const swatch = row.querySelector(".color-swatch");
       data.push({
         type: "interval",
         ratio: ratioStr,
         label: row.querySelector(".interval-label").value.trim(),
+        color: swatch ? swatch.dataset.color : "#FFFFFF",
       });
     }
   }
@@ -255,6 +274,7 @@ function render() {
         displayInterval: intervalToDisplayString(interval.ratio),
         noteBelow: note.name,
         noteAbove: nextNote ? nextNote.name : "",
+        color: interval.color || "#FFFFFF",
       });
       i += 2;
     } else {
@@ -312,7 +332,7 @@ function render() {
     const h = iv.cents * PX_PER_CENT;
     const rectY = y - h;
 
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = iv.color;
     ctx.fillRect(baseX, rectY, RECT_WIDTH, h);
     ctx.strokeStyle = "#000000";
     ctx.lineWidth = BORDER_WIDTH;
@@ -454,7 +474,107 @@ function savePNG() {
   link.click();
 }
 
-editor.addEventListener("input", function () {
+function populateDropdown(dropdown) {
+  if (dropdown.children.length > 0) return;
+  for (const hex of PALETTE) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "color-option";
+    btn.style.background = hex;
+    btn.dataset.color = hex;
+    dropdown.appendChild(btn);
+  }
+}
+
+function closeAllDropdowns() {
+  const openDropdowns = editor.querySelectorAll(".color-dropdown.open");
+  for (const dd of openDropdowns) {
+    dd.classList.remove("open");
+    const row = dd.closest(".interval-row");
+    if (row) row.classList.remove("dropdown-open");
+  }
+}
+
+function setSwatchColor(swatch, hex) {
+  swatch.dataset.color = hex;
+  swatch.style.background = hex;
+}
+
+function findColorForValue(value, excludeRow) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const allRows = editor.querySelectorAll(".interval-row");
+  for (const row of allRows) {
+    if (row === excludeRow) continue;
+    if (row.querySelector(".interval-ratio").value.trim() === trimmed) {
+      const sw = row.querySelector(".color-swatch");
+      if (sw && sw.dataset.color && sw.dataset.color !== "#FFFFFF") return sw.dataset.color;
+    }
+  }
+  return null;
+}
+
+function syncIntervalColors(sourceRow) {
+  const sourceValue = sourceRow.querySelector(".interval-ratio").value.trim();
+  const sourceSwatch = sourceRow.querySelector(".color-swatch");
+  if (!sourceSwatch || !sourceValue) return;
+  const hex = sourceSwatch.dataset.color;
+  const allRows = editor.querySelectorAll(".interval-row");
+  for (const row of allRows) {
+    if (row === sourceRow) continue;
+    if (row.querySelector(".interval-ratio").value.trim() === sourceValue) {
+      const sw = row.querySelector(".color-swatch");
+      if (sw) setSwatchColor(sw, hex);
+    }
+  }
+}
+
+editor.addEventListener("click", function (e) {
+  const swatch = e.target.closest(".color-swatch");
+  if (swatch) {
+    e.stopPropagation();
+    const dropdown = swatch.nextElementSibling;
+    const wasOpen = dropdown.classList.contains("open");
+    closeAllDropdowns();
+    if (!wasOpen) {
+      populateDropdown(dropdown);
+      dropdown.classList.add("open");
+      const row = swatch.closest(".interval-row");
+      if (row) row.classList.add("dropdown-open");
+    }
+    return;
+  }
+
+  const option = e.target.closest(".color-option");
+  if (option) {
+    e.stopPropagation();
+    const hex = option.dataset.color;
+    const wrapper = option.closest(".color-picker-wrapper");
+    const sw = wrapper.querySelector(".color-swatch");
+    setSwatchColor(sw, hex);
+    closeAllDropdowns();
+    const intervalRow = wrapper.closest(".interval-row");
+    syncIntervalColors(intervalRow);
+    render();
+    return;
+  }
+});
+
+document.addEventListener("click", function () {
+  closeAllDropdowns();
+});
+
+editor.addEventListener("input", function (e) {
+  if (e.target.classList.contains("interval-ratio")) {
+    const row = e.target.closest(".interval-row");
+    if (row) {
+      const existingColor = findColorForValue(e.target.value, row);
+      if (existingColor) {
+        const sw = row.querySelector(".color-swatch");
+        if (sw) setSwatchColor(sw, existingColor);
+      }
+    }
+  }
   updateCentsLabels();
   updateCumulativeCents();
   render();
