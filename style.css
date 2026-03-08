@@ -24,7 +24,7 @@ body {
 /* --- Left Column --- */
 
 .left-column {
-  flex: 0 0 340px;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 2rem;
@@ -131,13 +131,20 @@ body {
 
 .note-row .note-name,
 .interval-row input {
-  flex: 1;
-  padding: 0.4rem 0.6rem;
+  padding: 0.4rem 0.5rem;
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 0.9rem;
   background: #fff;
   transition: border-color 0.15s;
+}
+
+.note-row .note-name {
+  width: 5.5rem;
+}
+
+.interval-row .interval-label {
+  width: 7rem;
 }
 
 .note-row .note-name:focus,
@@ -194,7 +201,7 @@ body {
 }
 
 .interval-row .interval-ratio {
-  flex: 0 0 70px;
+  width: calc(13ch + 1rem + 2px);
   text-align: center;
   font-family: "SF Mono", "Fira Code", "Consolas", monospace;
 }

@@ -136,10 +136,10 @@ function addNote() {
   noteRow.className = "row note-row";
   noteRow.dataset.degree = degree;
   noteRow.innerHTML =
+    '<button class="play-note" title="Play note">&#9654;</button>' +
     "<label>Note " + degree + "</label>" +
     '<input type="text" class="note-name" placeholder="name">' +
-    '<span class="cumulative-cents"></span>' +
-    '<button class="play-note" title="Play note">&#9654;</button>';
+    '<span class="cumulative-cents"></span>';
 
   editor.appendChild(intervalRow);
   editor.appendChild(noteRow);
@@ -422,10 +422,10 @@ function resetScaleToDefault() {
   noteRow1.className = "row note-row";
   noteRow1.dataset.degree = 1;
   noteRow1.innerHTML =
+    '<button class="play-note" title="Play note">&#9654;</button>' +
     "<label>Note 1</label>" +
     '<input type="text" class="note-name" placeholder="name">' +
-    '<span class="cumulative-cents"></span>' +
-    '<button class="play-note" title="Play note">&#9654;</button>';
+    '<span class="cumulative-cents"></span>';
 
   const intervalRow = document.createElement("div");
   intervalRow.className = "row interval-row";
@@ -435,10 +435,10 @@ function resetScaleToDefault() {
   noteRow2.className = "row note-row";
   noteRow2.dataset.degree = 2;
   noteRow2.innerHTML =
+    '<button class="play-note" title="Play note">&#9654;</button>' +
     "<label>Note 2</label>" +
     '<input type="text" class="note-name" placeholder="name">' +
-    '<span class="cumulative-cents"></span>' +
-    '<button class="play-note" title="Play note">&#9654;</button>';
+    '<span class="cumulative-cents"></span>';
 
   editor.appendChild(noteRow1);
   editor.appendChild(intervalRow);
