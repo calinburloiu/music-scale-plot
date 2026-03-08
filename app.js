@@ -6,9 +6,9 @@ const CANVAS_PADDING = 20;
 const DPR = window.devicePixelRatio || 2;
 
 const PALETTE = [
-  "#FFFFFF", "#FFCCCC", "#FFE0C0", "#FFFFCC", "#E0FFCC", "#CCFFCC",
-  "#CCFFE6", "#CCFFFF", "#CCE5FF", "#CCCCFF", "#E5CCFF", "#FFCCFF",
-  "#FFCCE5", "#E8E8E8", "#D0D0D0", "#B8B8B8", "#A0A0A0",
+  "#FFFFFF", "#E8E8E8", "#D0D0D0", "#B8B8B8", "#A0A0A0", "#F0E0CC",
+  "#FFCCCC", "#FFE0C0", "#FFFFCC", "#E0FFCC", "#CCFFCC", "#CCFFE6",
+  "#CCFFFF", "#CCE5FF", "#CCCCFF", "#E5CCFF", "#FFCCFF", "#FFCCE5"
 ];
 
 const editor = document.getElementById("editor");
