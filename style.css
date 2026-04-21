@@ -57,6 +57,7 @@ body {
 .edo-settings-row label {
   font-weight: 600;
   font-size: 0.9rem;
+  min-width: 9rem;
 }
 
 .base-note-row select,
@@ -327,6 +328,7 @@ body {
 
 .chart-toolbar label {
   font-weight: 600;
+  min-width: 7rem;
 }
 
 .chart-toolbar #zoom {
