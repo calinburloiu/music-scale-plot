@@ -24,6 +24,7 @@ const intervalTypeSelect = document.getElementById("interval-type");
 const edoSettingsRow = document.getElementById("edo-settings");
 const edoDivisionsInput = document.getElementById("edo-divisions");
 const edoCentsLabel = document.getElementById("edo-cents-label");
+const orientationSelect = document.getElementById("orientation");
 
 let displayZoom = 1;
 let audioCtx = null;
@@ -291,7 +292,7 @@ function render() {
   }
 
   const totalCents = intervals.reduce((sum, iv) => sum + iv.cents, 0);
-  const stackHeight = totalCents * PX_PER_CENT;
+  const stackLength = totalCents * PX_PER_CENT;
 
   const font = "24px -apple-system, BlinkMacSystemFont, sans-serif";
   const monoFont = '21px "SF Mono", "Fira Code", Consolas, monospace';
@@ -310,9 +311,19 @@ function render() {
     }
   }
 
-  const textAreaWidth = maxTextWidth + TEXT_MARGIN * 2;
-  const displayWidth = CANVAS_PADDING + RECT_WIDTH + TEXT_MARGIN + textAreaWidth + CANVAS_PADDING;
-  const displayHeight = CANVAS_PADDING * 2 + stackHeight;
+  const orientation = orientationSelect.value;
+  const isHorizontal = orientation === "horizontal";
+
+  let displayWidth, displayHeight;
+  if (isHorizontal) {
+    const textAreaHeight = 28 + TEXT_MARGIN * 2;
+    displayWidth = CANVAS_PADDING * 2 + stackLength + maxTextWidth;
+    displayHeight = CANVAS_PADDING + RECT_WIDTH + TEXT_MARGIN + textAreaHeight + CANVAS_PADDING;
+  } else {
+    const textAreaWidth = maxTextWidth + TEXT_MARGIN * 2;
+    displayWidth = CANVAS_PADDING + RECT_WIDTH + TEXT_MARGIN + textAreaWidth + CANVAS_PADDING;
+    displayHeight = CANVAS_PADDING * 2 + stackLength;
+  }
 
   canvas.width = Math.round(displayWidth * DPR);
   canvas.height = Math.round(displayHeight * DPR);
@@ -322,65 +333,125 @@ function render() {
 
   ctx.clearRect(0, 0, displayWidth, displayHeight);
 
-  const baseX = CANVAS_PADDING;
-  const baseY = CANVAS_PADDING + stackHeight;
+  if (isHorizontal) {
+    const baseX = CANVAS_PADDING;
+    const baseY = CANVAS_PADDING;
+    const textY = baseY + RECT_WIDTH + TEXT_MARGIN;
 
-  let y = baseY;
+    let x = baseX;
 
-  for (let j = 0; j < intervals.length; j++) {
-    const iv = intervals[j];
-    const h = iv.cents * PX_PER_CENT;
-    const rectY = y - h;
+    for (let j = 0; j < intervals.length; j++) {
+      const iv = intervals[j];
+      const w = iv.cents * PX_PER_CENT;
 
-    ctx.fillStyle = iv.color;
-    ctx.fillRect(baseX, rectY, RECT_WIDTH, h);
-    ctx.strokeStyle = "#000000";
-    ctx.lineWidth = BORDER_WIDTH;
-    ctx.strokeRect(baseX, rectY, RECT_WIDTH, h);
+      ctx.fillStyle = iv.color;
+      ctx.fillRect(x, baseY, w, RECT_WIDTH);
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = BORDER_WIDTH;
+      ctx.strokeRect(x, baseY, w, RECT_WIDTH);
 
-    const textX = baseX + RECT_WIDTH + TEXT_MARGIN;
+      ctx.fillStyle = "#000";
 
-    ctx.fillStyle = "#000";
-    ctx.textBaseline = "middle";
-
-    if (iv.label || iv.displayInterval) {
-      const midY = rectY + h / 2;
-      const centerX = baseX + RECT_WIDTH / 2;
-      ctx.textAlign = "center";
-      const labelText = iv.label || "";
-      const ratioText = iv.displayInterval || "";
-      if (labelText && ratioText) {
-        ctx.font = font;
-        ctx.fillText(labelText, centerX, midY - 12);
-        ctx.font = monoFont;
-        ctx.fillStyle = "#666";
-        ctx.fillText(ratioText, centerX, midY + 12);
-        ctx.fillStyle = "#000";
-      } else if (labelText) {
-        ctx.font = font;
-        ctx.fillText(labelText, centerX, midY);
-      } else {
-        ctx.font = monoFont;
-        ctx.fillStyle = "#666";
-        ctx.fillText(ratioText, centerX, midY);
-        ctx.fillStyle = "#000";
+      if (iv.label || iv.displayInterval) {
+        const centerX = x + w / 2;
+        const midY = baseY + RECT_WIDTH / 2;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const labelText = iv.label || "";
+        const ratioText = iv.displayInterval || "";
+        if (labelText && ratioText) {
+          ctx.font = font;
+          ctx.fillText(labelText, centerX, midY - 12);
+          ctx.font = monoFont;
+          ctx.fillStyle = "#666";
+          ctx.fillText(ratioText, centerX, midY + 12);
+          ctx.fillStyle = "#000";
+        } else if (labelText) {
+          ctx.font = font;
+          ctx.fillText(labelText, centerX, midY);
+        } else {
+          ctx.font = monoFont;
+          ctx.fillStyle = "#666";
+          ctx.fillText(ratioText, centerX, midY);
+          ctx.fillStyle = "#000";
+        }
       }
-      ctx.textAlign = "left";
-    }
 
-    if (j === 0 && iv.noteBelow) {
       ctx.font = font;
-      ctx.textBaseline = "middle";
-      ctx.fillText(iv.noteBelow, textX, y);
-    }
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
 
-    if (iv.noteAbove) {
-      ctx.font = font;
-      ctx.textBaseline = "middle";
-      ctx.fillText(iv.noteAbove, textX, rectY);
-    }
+      if (j === 0 && iv.noteBelow) {
+        ctx.fillText(iv.noteBelow, x, textY);
+      }
 
-    y = rectY;
+      if (iv.noteAbove) {
+        ctx.fillText(iv.noteAbove, x + w, textY);
+      }
+
+      x += w;
+    }
+  } else {
+    const baseX = CANVAS_PADDING;
+    const baseY = CANVAS_PADDING + stackLength;
+
+    let y = baseY;
+
+    for (let j = 0; j < intervals.length; j++) {
+      const iv = intervals[j];
+      const h = iv.cents * PX_PER_CENT;
+      const rectY = y - h;
+
+      ctx.fillStyle = iv.color;
+      ctx.fillRect(baseX, rectY, RECT_WIDTH, h);
+      ctx.strokeStyle = "#000000";
+      ctx.lineWidth = BORDER_WIDTH;
+      ctx.strokeRect(baseX, rectY, RECT_WIDTH, h);
+
+      const textX = baseX + RECT_WIDTH + TEXT_MARGIN;
+
+      ctx.fillStyle = "#000";
+      ctx.textBaseline = "middle";
+
+      if (iv.label || iv.displayInterval) {
+        const midY = rectY + h / 2;
+        const centerX = baseX + RECT_WIDTH / 2;
+        ctx.textAlign = "center";
+        const labelText = iv.label || "";
+        const ratioText = iv.displayInterval || "";
+        if (labelText && ratioText) {
+          ctx.font = font;
+          ctx.fillText(labelText, centerX, midY - 12);
+          ctx.font = monoFont;
+          ctx.fillStyle = "#666";
+          ctx.fillText(ratioText, centerX, midY + 12);
+          ctx.fillStyle = "#000";
+        } else if (labelText) {
+          ctx.font = font;
+          ctx.fillText(labelText, centerX, midY);
+        } else {
+          ctx.font = monoFont;
+          ctx.fillStyle = "#666";
+          ctx.fillText(ratioText, centerX, midY);
+          ctx.fillStyle = "#000";
+        }
+        ctx.textAlign = "left";
+      }
+
+      if (j === 0 && iv.noteBelow) {
+        ctx.font = font;
+        ctx.textBaseline = "middle";
+        ctx.fillText(iv.noteBelow, textX, y);
+      }
+
+      if (iv.noteAbove) {
+        ctx.font = font;
+        ctx.textBaseline = "middle";
+        ctx.fillText(iv.noteAbove, textX, rectY);
+      }
+
+      y = rectY;
+    }
   }
 }
 
@@ -597,6 +668,7 @@ removeBtn.addEventListener("click", removeLastNote);
 saveBtn.addEventListener("click", savePNG);
 zoomSlider.addEventListener("input", updateZoom);
 intervalTypeSelect.addEventListener("change", onIntervalTypeChange);
+orientationSelect.addEventListener("change", render);
 edoDivisionsInput.addEventListener("input", onEdoDivisionsChange);
 
 updateRemoveBtn();

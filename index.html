@@ -71,10 +71,21 @@
     <div class="panel chart-panel">
       <h2>Chart</h2>
       <div class="chart-toolbar">
-        <label for="zoom">Zoom</label>
-        <input type="range" id="zoom" min="10" max="100" value="100" step="5">
-        <span id="zoom-value">100%</span>
-        <button id="save-png">Save as PNG</button>
+        <div class="chart-toolbar-row">
+          <button id="save-png">Save as PNG</button>
+        </div>
+        <div class="chart-toolbar-row">
+          <label for="orientation">Orientation</label>
+          <select id="orientation">
+            <option value="vertical">Vertical</option>
+            <option value="horizontal">Horizontal</option>
+          </select>
+        </div>
+        <div class="chart-toolbar-row">
+          <label for="zoom">Zoom</label>
+          <input type="range" id="zoom" min="10" max="100" value="100" step="5">
+          <span id="zoom-value">100%</span>
+        </div>
       </div>
       <canvas id="chart"></canvas>
     </div>
