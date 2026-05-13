@@ -25,6 +25,11 @@ const edoSettingsRow = document.getElementById("edo-settings");
 const edoDivisionsInput = document.getElementById("edo-divisions");
 const edoCentsLabel = document.getElementById("edo-cents-label");
 const orientationSelect = document.getElementById("orientation");
+const styleSelect = document.getElementById("chart-style");
+
+const LINE_AXIS_WIDTH = 14;
+const TICK_LENGTH = 28;
+const TICK_WIDTH = 2;
 
 let displayZoom = 1;
 let audioCtx = null;
@@ -249,6 +254,161 @@ function intervalToDisplayString(str) {
   return trimmed + "￠";
 }
 
+function drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextBlockH, font, monoFont) {
+  const halfNote = maxNoteWidth / 2;
+  const axisHalfW = LINE_AXIS_WIDTH / 2;
+  const axisCenterY = CANVAS_PADDING + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH / 2;
+  const axisTop = axisCenterY - axisHalfW;
+  const axisBottom = axisCenterY + axisHalfW;
+  const tickTop = axisCenterY - TICK_LENGTH / 2;
+  const tickBottom = axisCenterY + TICK_LENGTH / 2;
+  const startX = CANVAS_PADDING + halfNote;
+  const noteTextY = tickBottom + TEXT_MARGIN;
+  const intervalTextCenterY = CANVAS_PADDING + intervalTextBlockH / 2;
+
+  let x = startX;
+  for (const iv of intervals) {
+    const w = iv.cents * PX_PER_CENT;
+    ctx.fillStyle = iv.color;
+    ctx.fillRect(x, axisTop, w, LINE_AXIS_WIDTH);
+    x += w;
+  }
+
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = TICK_WIDTH;
+  ctx.beginPath();
+  ctx.moveTo(startX, axisTop);
+  ctx.lineTo(startX + stackLength, axisTop);
+  ctx.moveTo(startX, axisBottom);
+  ctx.lineTo(startX + stackLength, axisBottom);
+  ctx.stroke();
+
+  let tx = startX;
+  for (let j = 0; j <= intervals.length; j++) {
+    ctx.beginPath();
+    ctx.moveTo(tx, tickTop);
+    ctx.lineTo(tx, tickBottom);
+    ctx.stroke();
+    if (j < intervals.length) tx += intervals[j].cents * PX_PER_CENT;
+  }
+
+  let lx = startX;
+  for (let j = 0; j < intervals.length; j++) {
+    const iv = intervals[j];
+    const w = iv.cents * PX_PER_CENT;
+    const cx = lx + w / 2;
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    if (iv.label && iv.displayInterval) {
+      ctx.font = font;
+      ctx.fillStyle = "#000";
+      ctx.fillText(iv.label, cx, intervalTextCenterY - 14);
+      ctx.font = monoFont;
+      ctx.fillStyle = "#666";
+      ctx.fillText(iv.displayInterval, cx, intervalTextCenterY + 14);
+    } else if (iv.label) {
+      ctx.font = font;
+      ctx.fillStyle = "#000";
+      ctx.fillText(iv.label, cx, intervalTextCenterY);
+    } else if (iv.displayInterval) {
+      ctx.font = monoFont;
+      ctx.fillStyle = "#666";
+      ctx.fillText(iv.displayInterval, cx, intervalTextCenterY);
+    }
+
+    ctx.font = font;
+    ctx.fillStyle = "#000";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+    if (j === 0 && iv.noteBelow) {
+      ctx.fillText(iv.noteBelow, lx, noteTextY);
+    }
+    if (iv.noteAbove) {
+      ctx.fillText(iv.noteAbove, lx + w, noteTextY);
+    }
+    lx += w;
+  }
+}
+
+function drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont) {
+  const axisHalfW = LINE_AXIS_WIDTH / 2;
+  const axisCenterX = CANVAS_PADDING + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH / 2;
+  const axisLeft = axisCenterX - axisHalfW;
+  const axisRight = axisCenterX + axisHalfW;
+  const tickLeft = axisCenterX - TICK_LENGTH / 2;
+  const tickRight = axisCenterX + TICK_LENGTH / 2;
+  const noteTextX = tickRight + TEXT_MARGIN;
+  const intervalTextRightX = tickLeft - TEXT_MARGIN;
+  const baseY = CANVAS_PADDING + stackLength;
+
+  let y = baseY;
+  for (const iv of intervals) {
+    const h = iv.cents * PX_PER_CENT;
+    const segTopY = y - h;
+    ctx.fillStyle = iv.color;
+    ctx.fillRect(axisLeft, segTopY, LINE_AXIS_WIDTH, h);
+    y = segTopY;
+  }
+
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = TICK_WIDTH;
+  ctx.beginPath();
+  ctx.moveTo(axisLeft, CANVAS_PADDING);
+  ctx.lineTo(axisLeft, baseY);
+  ctx.moveTo(axisRight, CANVAS_PADDING);
+  ctx.lineTo(axisRight, baseY);
+  ctx.stroke();
+
+  let ty = baseY;
+  for (let j = 0; j <= intervals.length; j++) {
+    ctx.beginPath();
+    ctx.moveTo(tickLeft, ty);
+    ctx.lineTo(tickRight, ty);
+    ctx.stroke();
+    if (j < intervals.length) ty -= intervals[j].cents * PX_PER_CENT;
+  }
+
+  let ly = baseY;
+  for (let j = 0; j < intervals.length; j++) {
+    const iv = intervals[j];
+    const h = iv.cents * PX_PER_CENT;
+    const segTopY = ly - h;
+    const midY = segTopY + h / 2;
+
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "right";
+    if (iv.label && iv.displayInterval) {
+      ctx.font = font;
+      ctx.fillStyle = "#000";
+      ctx.fillText(iv.label, intervalTextRightX, midY - 14);
+      ctx.font = monoFont;
+      ctx.fillStyle = "#666";
+      ctx.fillText(iv.displayInterval, intervalTextRightX, midY + 14);
+    } else if (iv.label) {
+      ctx.font = font;
+      ctx.fillStyle = "#000";
+      ctx.fillText(iv.label, intervalTextRightX, midY);
+    } else if (iv.displayInterval) {
+      ctx.font = monoFont;
+      ctx.fillStyle = "#666";
+      ctx.fillText(iv.displayInterval, intervalTextRightX, midY);
+    }
+
+    ctx.font = font;
+    ctx.fillStyle = "#000";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    if (j === 0 && iv.noteBelow) {
+      ctx.fillText(iv.noteBelow, noteTextX, ly);
+    }
+    if (iv.noteAbove) {
+      ctx.fillText(iv.noteAbove, noteTextX, segTopY);
+    }
+    ly = segTopY;
+  }
+}
+
 function render() {
   const data = readScaleData();
 
@@ -298,24 +458,50 @@ function render() {
   const monoFont = '21px "SF Mono", "Fira Code", Consolas, monospace';
 
   ctx.font = font;
-  let maxTextWidth = 0;
+  let maxNoteWidth = 0;
+  let maxLabelWidth = 0;
   for (const iv of intervals) {
-    const parts = [];
-    if (iv.noteBelow) parts.push(iv.noteBelow);
-    if (iv.noteAbove) parts.push(iv.noteAbove);
-    if (iv.label) parts.push(iv.label);
-    if (iv.displayInterval) parts.push(iv.displayInterval);
-    for (const t of parts) {
-      const w = ctx.measureText(t).width;
-      if (w > maxTextWidth) maxTextWidth = w;
+    if (iv.noteBelow) {
+      const w = ctx.measureText(iv.noteBelow).width;
+      if (w > maxNoteWidth) maxNoteWidth = w;
+    }
+    if (iv.noteAbove) {
+      const w = ctx.measureText(iv.noteAbove).width;
+      if (w > maxNoteWidth) maxNoteWidth = w;
+    }
+    if (iv.label) {
+      const w = ctx.measureText(iv.label).width;
+      if (w > maxLabelWidth) maxLabelWidth = w;
     }
   }
+  ctx.font = monoFont;
+  let maxRatioWidth = 0;
+  for (const iv of intervals) {
+    if (iv.displayInterval) {
+      const w = ctx.measureText(iv.displayInterval).width;
+      if (w > maxRatioWidth) maxRatioWidth = w;
+    }
+  }
+  const maxIntervalTextWidth = Math.max(maxLabelWidth, maxRatioWidth);
+  const maxTextWidth = Math.max(maxNoteWidth, maxIntervalTextWidth);
 
   const orientation = orientationSelect.value;
   const isHorizontal = orientation === "horizontal";
+  const chartStyle = styleSelect.value;
+  const isLines = chartStyle === "lines";
+
+  const hasBothIntervalLines = maxLabelWidth > 0 && maxRatioWidth > 0;
+  const intervalTextBlockH = hasBothIntervalLines ? 56 : 28;
 
   let displayWidth, displayHeight;
-  if (isHorizontal) {
+  if (isLines && isHorizontal) {
+    const halfNote = maxNoteWidth / 2;
+    displayWidth = CANVAS_PADDING + halfNote + stackLength + halfNote + CANVAS_PADDING;
+    displayHeight = CANVAS_PADDING + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + 28 + CANVAS_PADDING;
+  } else if (isLines && !isHorizontal) {
+    displayWidth = CANVAS_PADDING + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + maxNoteWidth + CANVAS_PADDING;
+    displayHeight = CANVAS_PADDING * 2 + stackLength;
+  } else if (isHorizontal) {
     const textAreaHeight = 28 + TEXT_MARGIN * 2;
     displayWidth = CANVAS_PADDING * 2 + stackLength + maxTextWidth;
     displayHeight = CANVAS_PADDING + RECT_WIDTH + TEXT_MARGIN + textAreaHeight + CANVAS_PADDING;
@@ -333,7 +519,11 @@ function render() {
 
   ctx.clearRect(0, 0, displayWidth, displayHeight);
 
-  if (isHorizontal) {
+  if (isLines && isHorizontal) {
+    drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextBlockH, font, monoFont);
+  } else if (isLines && !isHorizontal) {
+    drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont);
+  } else if (isHorizontal) {
     const baseX = CANVAS_PADDING;
     const baseY = CANVAS_PADDING;
     const textY = baseY + RECT_WIDTH + TEXT_MARGIN;
@@ -669,6 +859,7 @@ saveBtn.addEventListener("click", savePNG);
 zoomSlider.addEventListener("input", updateZoom);
 intervalTypeSelect.addEventListener("change", onIntervalTypeChange);
 orientationSelect.addEventListener("change", render);
+styleSelect.addEventListener("change", render);
 edoDivisionsInput.addEventListener("input", onEdoDivisionsChange);
 
 updateRemoveBtn();
