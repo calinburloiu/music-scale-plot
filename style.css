@@ -101,14 +101,23 @@ body {
 }
 
 .interval-type-row { margin-top: 0.85rem; }
-.edo-settings-row  { margin-top: 0.65rem; }
+.edo-settings-row  { margin-top: 0.65rem; align-items: flex-start; }
+
+.edo-input-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 0;
+}
 
 .base-note-row label,
 .interval-type-row label,
 .edo-settings-row label {
   font-weight: 500;
   font-size: 0.72rem;
-  min-width: 9rem;
+  flex: 0 0 auto;
+  width: 10.5rem;
   color: var(--ink-soft);
   text-transform: uppercase;
   letter-spacing: 0.09em;
@@ -117,6 +126,8 @@ body {
 .base-note-row select,
 .interval-type-row select,
 .edo-settings-row input {
+  flex: 0 0 auto;
+  width: 17rem;
   padding: 0.45rem 0.7rem;
   border: 1px solid var(--rule);
   border-radius: 3px;
@@ -144,7 +155,6 @@ body {
 }
 
 .edo-settings-row input {
-  width: 78px;
   cursor: text;
 }
 
@@ -153,6 +163,7 @@ body {
   font-size: 0.76rem;
   color: var(--ink-soft);
   white-space: nowrap;
+  padding-top: 0.05rem;
 }
 
 /* === Editor Panel ============================================ */
@@ -196,7 +207,7 @@ body {
 
 .note-row {
   counter-increment: degree;
-  padding: 0.35rem 0.4rem 0.35rem 0;
+  padding: 0.35rem 0;
   border-radius: 3px;
   transition: background 0.18s ease;
 }
@@ -237,6 +248,7 @@ body {
 
 .note-row .note-name {
   width: 9rem;
+  margin-left: auto;
   font-family: 'DM Sans', sans-serif;
   font-size: 0.93rem;
   padding: 0.5rem 0.75rem;
@@ -262,17 +274,17 @@ body {
 }
 
 .note-row .cumulative-cents {
-  margin-left: auto;
   flex: 0 0 auto;
-  min-width: 78px;
+  width: 9rem;
+  padding-left: 0.7rem;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.74rem;
+  font-size: 0.78rem;
+  font-weight: 500;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
   white-space: nowrap;
-  text-align: right;
-  padding-right: 0.15rem;
+  text-align: left;
 }
 
 /* --- Play button --- */
@@ -322,9 +334,10 @@ body {
 
 .interval-row.dropdown-open { z-index: 100; }
 
-.interval-row .interval-ratio {
+.interval-row .interval {
   width: 9rem;
-  text-align: center;
+  flex: 0 0 auto;
+  text-align: left;
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.92rem;
   font-weight: 500;
@@ -337,12 +350,12 @@ body {
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
-.interval-row .interval-ratio:hover {
+.interval-row .interval:hover {
   border-color: var(--ink-soft);
   background: #fff;
 }
 
-.interval-row .interval-ratio:focus {
+.interval-row .interval:focus {
   outline: none;
   border-color: var(--ink);
   background: #fff;
@@ -360,8 +373,19 @@ body {
   white-space: nowrap;
 }
 
+/* Right cluster: interval-label + color-swatch, same total width as the note-name above */
+.interval-row .interval-label-cluster {
+  flex: 0 0 auto;
+  margin-left: auto;
+  width: 9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .interval-row .interval-label {
-  width: 7rem;
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 0.4rem 0.6rem;
   border: 1px solid var(--rule);
   border-radius: 3px;
@@ -420,8 +444,7 @@ body {
   display: none;
   position: absolute;
   top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 0;
   z-index: 10;
   background: var(--paper);
   border: 1px solid var(--rule);
@@ -556,13 +579,21 @@ body {
 .chart-toolbar label {
   font-weight: 500;
   font-size: 0.72rem;
-  min-width: 7rem;
+  flex: 0 0 auto;
+  width: 7rem;
   color: var(--ink-soft);
   text-transform: uppercase;
   letter-spacing: 0.09em;
 }
 
+/* Save button row has no label — indent so it lines up with the dropdowns below */
+.chart-toolbar #save-png {
+  margin-left: calc(7rem + 0.6rem);
+}
+
 .chart-toolbar select {
+  flex: 0 0 auto;
+  width: 10rem;
   padding: 0.42rem 0.65rem;
   border: 1px solid var(--rule);
   border-radius: 3px;
@@ -584,7 +615,8 @@ body {
 }
 
 .chart-toolbar #zoom {
-  width: 110px;
+  flex: 0 0 auto;
+  width: 10rem;
   cursor: pointer;
 }
 
@@ -597,6 +629,8 @@ body {
 }
 
 .chart-toolbar button {
+  flex: 0 0 auto;
+  width: 10rem;
   padding: 0.55rem 1.1rem;
   background: var(--ink);
   color: var(--paper);

@@ -33,8 +33,10 @@
       </div>
       <div class="edo-settings-row" id="edo-settings" style="display: none;">
         <label for="edo-divisions">Divisions per Octave</label>
-        <input type="number" id="edo-divisions" value="12" min="1">
-        <span id="edo-cents-label"></span>
+        <div class="edo-input-stack">
+          <input type="number" id="edo-divisions" value="12" min="1">
+          <span id="edo-cents-label"></span>
+        </div>
       </div>
     </div>
     <div class="panel editor-panel">
@@ -43,23 +45,25 @@
         <div class="row note-row" data-degree="1">
           <button class="play-note" title="Play note">&#9654;</button>
           <label>Note 1</label>
-          <input type="text" class="note-name" placeholder="name">
           <span class="cumulative-cents"></span>
+          <input type="text" class="note-name" placeholder="name">
         </div>
         <div class="row interval-row">
-          <input type="text" class="interval-ratio" placeholder="ratio" value="9/8">
+          <input type="text" class="interval" placeholder="ratio" value="9/8">
           <span class="cents-label"></span>
-          <div class="color-picker-wrapper">
-            <button type="button" class="color-swatch" data-color="#FFFFFF" style="background:#FFFFFF;"></button>
-            <div class="color-dropdown"></div>
+          <div class="interval-label-cluster">
+            <input type="text" class="interval-label" placeholder="label">
+            <div class="color-picker-wrapper">
+              <button type="button" class="color-swatch" data-color="#FFFFFF" style="background:#FFFFFF;"></button>
+              <div class="color-dropdown"></div>
+            </div>
           </div>
-          <input type="text" class="interval-label" placeholder="label">
         </div>
         <div class="row note-row" data-degree="2">
           <button class="play-note" title="Play note">&#9654;</button>
           <label>Note 2</label>
-          <input type="text" class="note-name" placeholder="name">
           <span class="cumulative-cents"></span>
+          <input type="text" class="note-name" placeholder="name">
         </div>
       </div>
       <div class="editor-controls">

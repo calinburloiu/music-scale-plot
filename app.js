@@ -53,7 +53,7 @@ function getFrequencyForDegree(degree) {
       notesSeen++;
       if (notesSeen === degree) return freq;
     } else if (row.classList.contains("interval-row")) {
-      const valStr = row.querySelector(".interval-ratio").value;
+      const valStr = row.querySelector(".interval").value;
       const ratio = intervalToRatio(valStr);
       if (!isNaN(ratio) && ratio > 0) freq *= ratio;
     }
@@ -120,14 +120,16 @@ function getIntervalPlaceholder() {
 }
 
 function makeIntervalRowHTML(value) {
-  return '<input type="text" class="interval-ratio" placeholder="' +
+  return '<input type="text" class="interval" placeholder="' +
     getIntervalPlaceholder() + '" value="' + value + '">' +
     '<span class="cents-label"></span>' +
-    '<div class="color-picker-wrapper">' +
-      '<button type="button" class="color-swatch" data-color="#FFFFFF" style="background:#FFFFFF;"></button>' +
-      '<div class="color-dropdown"></div>' +
-    '</div>' +
-    '<input type="text" class="interval-label" placeholder="label">';
+    '<div class="interval-label-cluster">' +
+      '<input type="text" class="interval-label" placeholder="label">' +
+      '<div class="color-picker-wrapper">' +
+        '<button type="button" class="color-swatch" data-color="#FFFFFF" style="background:#FFFFFF;"></button>' +
+        '<div class="color-dropdown"></div>' +
+      '</div>' +
+    '</div>';
 }
 
 function addNote() {
@@ -144,8 +146,8 @@ function addNote() {
   noteRow.innerHTML =
     '<button class="play-note" title="Play note">&#9654;</button>' +
     "<label>Note " + degree + "</label>" +
-    '<input type="text" class="note-name" placeholder="name">' +
-    '<span class="cumulative-cents"></span>';
+    '<span class="cumulative-cents"></span>' +
+    '<input type="text" class="note-name" placeholder="name">';
 
   editor.appendChild(intervalRow);
   editor.appendChild(noteRow);
@@ -186,7 +188,7 @@ function readScaleData() {
         name: row.querySelector(".note-name").value.trim(),
       });
     } else {
-      const ratioStr = row.querySelector(".interval-ratio").value.trim();
+      const ratioStr = row.querySelector(".interval").value.trim();
       const swatch = row.querySelector(".color-swatch");
       data.push({
         type: "interval",
@@ -653,7 +655,7 @@ function updateCumulativeCents() {
       const span = row.querySelector(".cumulative-cents");
       if (span) span.textContent = cumulative.toFixed(2) + "￠";
     } else if (row.classList.contains("interval-row")) {
-      const valStr = row.querySelector(".interval-ratio").value;
+      const valStr = row.querySelector(".interval").value;
       const cents = intervalToCents(valStr);
       if (!isNaN(cents)) cumulative += cents;
     }
@@ -663,7 +665,7 @@ function updateCumulativeCents() {
 function updateCentsLabels() {
   const rows = editor.querySelectorAll(".interval-row");
   for (const row of rows) {
-    const valStr = row.querySelector(".interval-ratio").value;
+    const valStr = row.querySelector(".interval").value;
     const span = row.querySelector(".cents-label");
     const cents = intervalToCents(valStr);
     if (isNaN(cents)) {
@@ -685,8 +687,8 @@ function resetScaleToDefault() {
   noteRow1.innerHTML =
     '<button class="play-note" title="Play note">&#9654;</button>' +
     "<label>Note 1</label>" +
-    '<input type="text" class="note-name" placeholder="name">' +
-    '<span class="cumulative-cents"></span>';
+    '<span class="cumulative-cents"></span>' +
+    '<input type="text" class="note-name" placeholder="name">';
 
   const intervalRow = document.createElement("div");
   intervalRow.className = "row interval-row";
@@ -698,8 +700,8 @@ function resetScaleToDefault() {
   noteRow2.innerHTML =
     '<button class="play-note" title="Play note">&#9654;</button>' +
     "<label>Note 2</label>" +
-    '<input type="text" class="note-name" placeholder="name">' +
-    '<span class="cumulative-cents"></span>';
+    '<span class="cumulative-cents"></span>' +
+    '<input type="text" class="note-name" placeholder="name">';
 
   editor.appendChild(noteRow1);
   editor.appendChild(intervalRow);
@@ -767,7 +769,7 @@ function findColorForValue(value, excludeRow) {
   const allRows = editor.querySelectorAll(".interval-row");
   for (const row of allRows) {
     if (row === excludeRow) continue;
-    if (row.querySelector(".interval-ratio").value.trim() === trimmed) {
+    if (row.querySelector(".interval").value.trim() === trimmed) {
       const sw = row.querySelector(".color-swatch");
       if (sw && sw.dataset.color && sw.dataset.color !== "#FFFFFF") return sw.dataset.color;
     }
@@ -776,14 +778,14 @@ function findColorForValue(value, excludeRow) {
 }
 
 function syncIntervalColors(sourceRow) {
-  const sourceValue = sourceRow.querySelector(".interval-ratio").value.trim();
+  const sourceValue = sourceRow.querySelector(".interval").value.trim();
   const sourceSwatch = sourceRow.querySelector(".color-swatch");
   if (!sourceSwatch || !sourceValue) return;
   const hex = sourceSwatch.dataset.color;
   const allRows = editor.querySelectorAll(".interval-row");
   for (const row of allRows) {
     if (row === sourceRow) continue;
-    if (row.querySelector(".interval-ratio").value.trim() === sourceValue) {
+    if (row.querySelector(".interval").value.trim() === sourceValue) {
       const sw = row.querySelector(".color-swatch");
       if (sw) setSwatchColor(sw, hex);
     }
@@ -826,7 +828,7 @@ document.addEventListener("click", function () {
 });
 
 editor.addEventListener("input", function (e) {
-  if (e.target.classList.contains("interval-ratio")) {
+  if (e.target.classList.contains("interval")) {
     const row = e.target.closest(".interval-row");
     if (row) {
       const existingColor = findColorForValue(e.target.value, row);
