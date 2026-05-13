@@ -26,6 +26,7 @@ const edoDivisionsInput = document.getElementById("edo-divisions");
 const edoCentsLabel = document.getElementById("edo-cents-label");
 const orientationSelect = document.getElementById("orientation");
 const styleSelect = document.getElementById("chart-style");
+const scaleModeSelect = document.getElementById("scale-mode");
 
 const LINE_AXIS_WIDTH = 14;
 const TICK_LENGTH = 28;
@@ -44,21 +45,23 @@ function getBaseFrequency() {
   return 220 * Math.pow(2, semitones / 12);
 }
 
+function getScaleMode() {
+  return scaleModeSelect.value;
+}
+
 function getFrequencyForDegree(degree) {
-  const rows = Array.from(editor.querySelectorAll(".row"));
-  let freq = getBaseFrequency();
+  const data = readScaleData();
+  let cents = 0;
   let notesSeen = 0;
-  for (const row of rows) {
-    if (row.classList.contains("note-row")) {
+  for (const item of data) {
+    if (item.type === "note") {
       notesSeen++;
-      if (notesSeen === degree) return freq;
-    } else if (row.classList.contains("interval-row")) {
-      const valStr = row.querySelector(".interval").value;
-      const ratio = intervalToRatio(valStr);
-      if (!isNaN(ratio) && ratio > 0) freq *= ratio;
+      if (notesSeen === degree) return getBaseFrequency() * Math.pow(2, cents / 1200);
+    } else if (item.type === "interval" && !isNaN(item.cents)) {
+      cents += item.cents;
     }
   }
-  return freq;
+  return getBaseFrequency();
 }
 
 let activeOsc = null;
@@ -119,10 +122,75 @@ function getIntervalPlaceholder() {
   return "cents";
 }
 
-function makeIntervalRowHTML(value) {
-  return '<input type="text" class="interval" placeholder="' +
-    getIntervalPlaceholder() + '" value="' + value + '">' +
-    '<span class="cents-label"></span>' +
+function getUnisonValue() {
+  return getIntervalType() === "ratio" ? "1/1" : "0";
+}
+
+function gcd(a, b) {
+  a = Math.abs(a); b = Math.abs(b);
+  while (b) { const t = b; b = a % b; a = t; }
+  return a || 1;
+}
+
+function parseRatioPair(str) {
+  const parts = str.split("/");
+  if (parts.length !== 2) return null;
+  const p = parseInt(parts[0], 10);
+  const q = parseInt(parts[1], 10);
+  if (!p || !q || isNaN(p) || isNaN(q)) return null;
+  return [p, q];
+}
+
+function simplifyRatio(p, q) {
+  const g = gcd(p, q);
+  return [p / g, q / g];
+}
+
+function multiplyRatios(r1, r2) {
+  return simplifyRatio(r1[0] * r2[0], r1[1] * r2[1]);
+}
+
+function divideRatios(r1, r2) {
+  return simplifyRatio(r1[0] * r2[1], r1[1] * r2[0]);
+}
+
+function computeRelativeDisplay(prevAbsStr, nextAbsStr) {
+  const type = getIntervalType();
+  if (type === "ratio") {
+    const a = parseRatioPair(prevAbsStr);
+    const b = parseRatioPair(nextAbsStr);
+    if (!a || !b) return "";
+    const r = divideRatios(b, a);
+    return r[0] + "/" + r[1];
+  } else if (type === "edo") {
+    const a = parseInt(prevAbsStr, 10);
+    const b = parseInt(nextAbsStr, 10);
+    if (isNaN(a) || isNaN(b)) return "";
+    return String(b - a) + " steps";
+  } else {
+    const a = parseFloat(prevAbsStr);
+    const b = parseFloat(nextAbsStr);
+    if (isNaN(a) || isNaN(b)) return "";
+    return (b - a).toFixed(2) + "￠";
+  }
+}
+
+function makeNoteRowHTML(degree, mode, absoluteValue) {
+  const playBtn = '<button class="play-note" title="Play note">&#9654;</button>';
+  const labelHtml = "<label>Note " + degree + "</label>";
+  const nameInput = '<input type="text" class="note-name" placeholder="name">';
+  if (mode === "absolute") {
+    const isFirst = degree === 1;
+    const val = isFirst ? getUnisonValue() : (absoluteValue !== undefined ? absoluteValue : "");
+    const absInput = '<input type="text" class="absolute-interval" placeholder="' +
+      getIntervalPlaceholder() + '" value="' + val + '"' + (isFirst ? " disabled" : "") + ">";
+    return playBtn + labelHtml + absInput + '<span class="abs-cents-label"></span>' + nameInput;
+  }
+  return playBtn + labelHtml + '<span class="cumulative-cents"></span>' + nameInput;
+}
+
+function makeIntervalRowHTML(value, mode) {
+  const labelCluster =
     '<div class="interval-label-cluster">' +
       '<input type="text" class="interval-label" placeholder="label">' +
       '<div class="color-picker-wrapper">' +
@@ -130,37 +198,61 @@ function makeIntervalRowHTML(value) {
         '<div class="color-dropdown"></div>' +
       '</div>' +
     '</div>';
+  if (mode === "absolute") {
+    return '<span class="relative-cents-display"></span>' + labelCluster;
+  }
+  return '<input type="text" class="interval" placeholder="' +
+    getIntervalPlaceholder() + '" value="' + value + '">' +
+    '<span class="cents-label"></span>' +
+    labelCluster;
+}
+
+function getDefaultAbsoluteForNewNote() {
+  const noteRows = editor.querySelectorAll(".note-row");
+  const type = getIntervalType();
+  const defaultRel = getDefaultIntervalValue();
+  if (noteRows.length === 0) return getUnisonValue();
+  const lastInp = noteRows[noteRows.length - 1].querySelector(".absolute-interval");
+  const lastVal = lastInp ? lastInp.value : getUnisonValue();
+  if (type === "ratio") {
+    const a = parseRatioPair(lastVal) || [1, 1];
+    const b = parseRatioPair(defaultRel) || [9, 8];
+    const r = multiplyRatios(a, b);
+    return r[0] + "/" + r[1];
+  } else if (type === "edo") {
+    return String((parseInt(lastVal, 10) || 0) + (parseInt(defaultRel, 10) || 0));
+  } else {
+    return ((parseFloat(lastVal) || 0) + (parseFloat(defaultRel) || 0)).toFixed(2);
+  }
 }
 
 function addNote() {
+  const mode = getScaleMode();
   const degree = getDegreeCount() + 1;
   const defaultVal = getDefaultIntervalValue();
 
   const intervalRow = document.createElement("div");
   intervalRow.className = "row interval-row";
-  intervalRow.innerHTML = makeIntervalRowHTML(defaultVal);
+  intervalRow.innerHTML = makeIntervalRowHTML(defaultVal, mode);
 
   const noteRow = document.createElement("div");
   noteRow.className = "row note-row";
   noteRow.dataset.degree = degree;
-  noteRow.innerHTML =
-    '<button class="play-note" title="Play note">&#9654;</button>' +
-    "<label>Note " + degree + "</label>" +
-    '<span class="cumulative-cents"></span>' +
-    '<input type="text" class="note-name" placeholder="name">';
+  const absVal = mode === "absolute" ? getDefaultAbsoluteForNewNote() : undefined;
+  noteRow.innerHTML = makeNoteRowHTML(degree, mode, absVal);
 
   editor.appendChild(intervalRow);
   editor.appendChild(noteRow);
 
-  const existingColor = findColorForValue(defaultVal, intervalRow);
+  const key = getIntervalRowKey(intervalRow);
+  const existingColor = findColorForKey(key, intervalRow);
   if (existingColor) {
     const sw = intervalRow.querySelector(".color-swatch");
     if (sw) setSwatchColor(sw, existingColor);
   }
 
   updateRemoveBtn();
-  updateCentsLabels();
-  updateCumulativeCents();
+  updateAllLabels();
   render();
 }
 
@@ -170,35 +262,76 @@ function removeLastNote() {
   editor.removeChild(rows[rows.length - 1]);
   editor.removeChild(rows[rows.length - 1]);
   updateRemoveBtn();
-  updateCentsLabels();
-  updateCumulativeCents();
+  updateAllLabels();
   render();
 }
 
 function readScaleData() {
   const rows = editor.querySelectorAll(".row");
-  const data = [];
+  const mode = getScaleMode();
+  const items = [];
+  const raw = [];
+
   let degree = 0;
   for (const row of rows) {
     if (row.classList.contains("note-row")) {
       degree++;
-      data.push({
+      const absInp = row.querySelector(".absolute-interval");
+      const nameEl = row.querySelector(".note-name");
+      raw.push({
+        type: "note",
+        absVal: absInp ? absInp.value.trim() : "",
+      });
+      items.push({
         type: "note",
         degree: degree,
-        name: row.querySelector(".note-name").value.trim(),
+        name: nameEl ? nameEl.value.trim() : "",
       });
     } else {
-      const ratioStr = row.querySelector(".interval").value.trim();
+      const intInp = row.querySelector(".interval");
       const swatch = row.querySelector(".color-swatch");
-      data.push({
+      const labelInp = row.querySelector(".interval-label");
+      const relVal = intInp ? intInp.value.trim() : "";
+      raw.push({ type: "interval", relVal: relVal });
+
+      let cents = NaN, displayInterval = "", rawValue = "";
+      if (mode === "relative") {
+        cents = intervalToCents(relVal);
+        if (!isNaN(cents)) {
+          displayInterval = intervalToDisplayString(relVal);
+          rawValue = relVal;
+        }
+      }
+      items.push({
         type: "interval",
-        ratio: ratioStr,
-        label: row.querySelector(".interval-label").value.trim(),
+        cents: cents,
+        displayInterval: displayInterval,
+        rawValue: rawValue,
+        label: labelInp ? labelInp.value.trim() : "",
         color: swatch ? swatch.dataset.color : "#FFFFFF",
       });
     }
   }
-  return data;
+
+  if (mode === "absolute") {
+    let lastNoteIdx = -1;
+    for (let i = 0; i < raw.length; i++) {
+      if (raw[i].type === "note") {
+        lastNoteIdx = i;
+      } else if (raw[i].type === "interval") {
+        const nextIdx = i + 1 < raw.length && raw[i + 1].type === "note" ? i + 1 : -1;
+        if (lastNoteIdx >= 0 && nextIdx >= 0) {
+          const prevC = intervalToCents(raw[lastNoteIdx].absVal);
+          const nextC = intervalToCents(raw[nextIdx].absVal);
+          const cents = (!isNaN(prevC) && !isNaN(nextC)) ? (nextC - prevC) : NaN;
+          items[i].cents = cents;
+          items[i].displayInterval = isNaN(cents) ? "" : computeRelativeDisplay(raw[lastNoteIdx].absVal, raw[nextIdx].absVal);
+          items[i].rawValue = isNaN(cents) ? "" : cents.toFixed(2);
+        }
+      }
+    }
+  }
+  return items;
 }
 
 function getIntervalType() {
@@ -214,15 +347,6 @@ function getCentsPerEdoDivision() {
   return 1200 / getEdoDivisions();
 }
 
-function parseRatio(str) {
-  const parts = str.split("/");
-  if (parts.length !== 2) return NaN;
-  const p = parseFloat(parts[0]);
-  const q = parseFloat(parts[1]);
-  if (!q || q === 0) return NaN;
-  return p / q;
-}
-
 function ratioToCents(r) {
   return 1200 * Math.log2(r);
 }
@@ -231,8 +355,10 @@ function intervalToCents(str) {
   const type = getIntervalType();
   const trimmed = str.trim();
   if (type === "ratio") {
-    const r = parseRatio(trimmed);
-    return (isNaN(r) || r <= 0) ? NaN : ratioToCents(r);
+    const r = parseRatioPair(trimmed);
+    if (!r) return NaN;
+    const v = r[0] / r[1];
+    return (v <= 0) ? NaN : ratioToCents(v);
   } else if (type === "edo") {
     const steps = parseInt(trimmed, 10);
     return isNaN(steps) ? NaN : steps * getCentsPerEdoDivision();
@@ -240,12 +366,6 @@ function intervalToCents(str) {
     const c = parseFloat(trimmed);
     return isNaN(c) ? NaN : c;
   }
-}
-
-function intervalToRatio(str) {
-  const cents = intervalToCents(str);
-  if (isNaN(cents)) return NaN;
-  return Math.pow(2, cents / 1200);
 }
 
 function intervalToDisplayString(str) {
@@ -415,8 +535,6 @@ function render() {
   const data = readScaleData();
 
   const intervals = [];
-  const notesBefore = [];
-  const notesAfter = [];
 
   let i = 0;
   while (i < data.length) {
@@ -425,7 +543,7 @@ function render() {
       const interval = data[i + 1];
       const nextNote = i + 2 < data.length && data[i + 2].type === "note" ? data[i + 2] : null;
 
-      const cents = intervalToCents(interval.ratio);
+      const cents = interval.cents;
       if (isNaN(cents) || cents <= 0) {
         i++;
         continue;
@@ -434,7 +552,7 @@ function render() {
       intervals.push({
         cents: cents,
         label: interval.label,
-        displayInterval: intervalToDisplayString(interval.ratio),
+        displayInterval: interval.displayInterval,
         noteBelow: note.name,
         noteAbove: nextNote ? nextNote.name : "",
         color: interval.color || "#FFFFFF",
@@ -647,6 +765,17 @@ function render() {
   }
 }
 
+function updateAllLabels() {
+  const mode = getScaleMode();
+  if (mode === "relative") {
+    updateCentsLabels();
+    updateCumulativeCents();
+  } else {
+    updateAbsCentsLabels();
+    updateRelativeCentsDisplays();
+  }
+}
+
 function updateCumulativeCents() {
   const rows = Array.from(editor.querySelectorAll(".row"));
   let cumulative = 0;
@@ -655,8 +784,9 @@ function updateCumulativeCents() {
       const span = row.querySelector(".cumulative-cents");
       if (span) span.textContent = cumulative.toFixed(2) + "￠";
     } else if (row.classList.contains("interval-row")) {
-      const valStr = row.querySelector(".interval").value;
-      const cents = intervalToCents(valStr);
+      const inp = row.querySelector(".interval");
+      if (!inp) continue;
+      const cents = intervalToCents(inp.value);
       if (!isNaN(cents)) cumulative += cents;
     }
   }
@@ -665,18 +795,45 @@ function updateCumulativeCents() {
 function updateCentsLabels() {
   const rows = editor.querySelectorAll(".interval-row");
   for (const row of rows) {
-    const valStr = row.querySelector(".interval").value;
+    const inp = row.querySelector(".interval");
     const span = row.querySelector(".cents-label");
-    const cents = intervalToCents(valStr);
-    if (isNaN(cents)) {
-      span.textContent = "";
-    } else {
-      span.textContent = cents.toFixed(2) + "￠";
-    }
+    if (!inp || !span) continue;
+    const cents = intervalToCents(inp.value);
+    span.textContent = isNaN(cents) ? "" : cents.toFixed(2) + "￠";
+  }
+}
+
+function updateAbsCentsLabels() {
+  const rows = editor.querySelectorAll(".note-row");
+  for (const row of rows) {
+    const inp = row.querySelector(".absolute-interval");
+    const span = row.querySelector(".abs-cents-label");
+    if (!inp || !span) continue;
+    const cents = intervalToCents(inp.value);
+    span.textContent = isNaN(cents) ? "" : cents.toFixed(2) + "￠";
+  }
+}
+
+function updateRelativeCentsDisplays() {
+  const intervalRows = editor.querySelectorAll(".interval-row");
+  for (const row of intervalRows) {
+    const span = row.querySelector(".relative-cents-display");
+    if (!span) continue;
+    const prev = row.previousElementSibling;
+    const next = row.nextElementSibling;
+    if (!prev || !next) { span.textContent = ""; continue; }
+    const prevInp = prev.querySelector(".absolute-interval");
+    const nextInp = next.querySelector(".absolute-interval");
+    if (!prevInp || !nextInp) { span.textContent = ""; continue; }
+    const prevC = intervalToCents(prevInp.value);
+    const nextC = intervalToCents(nextInp.value);
+    if (isNaN(prevC) || isNaN(nextC)) { span.textContent = ""; continue; }
+    span.textContent = (nextC - prevC).toFixed(2) + "￠";
   }
 }
 
 function resetScaleToDefault() {
+  const mode = getScaleMode();
   const defaultVal = getDefaultIntervalValue();
 
   editor.innerHTML = "";
@@ -684,32 +841,24 @@ function resetScaleToDefault() {
   const noteRow1 = document.createElement("div");
   noteRow1.className = "row note-row";
   noteRow1.dataset.degree = 1;
-  noteRow1.innerHTML =
-    '<button class="play-note" title="Play note">&#9654;</button>' +
-    "<label>Note 1</label>" +
-    '<span class="cumulative-cents"></span>' +
-    '<input type="text" class="note-name" placeholder="name">';
+  noteRow1.innerHTML = makeNoteRowHTML(1, mode);
 
   const intervalRow = document.createElement("div");
   intervalRow.className = "row interval-row";
-  intervalRow.innerHTML = makeIntervalRowHTML(defaultVal);
+  intervalRow.innerHTML = makeIntervalRowHTML(defaultVal, mode);
 
   const noteRow2 = document.createElement("div");
   noteRow2.className = "row note-row";
   noteRow2.dataset.degree = 2;
-  noteRow2.innerHTML =
-    '<button class="play-note" title="Play note">&#9654;</button>' +
-    "<label>Note 2</label>" +
-    '<span class="cumulative-cents"></span>' +
-    '<input type="text" class="note-name" placeholder="name">';
+  // In absolute mode, Note 2's absolute = the relative default (stacked on unison)
+  noteRow2.innerHTML = makeNoteRowHTML(2, mode, defaultVal);
 
   editor.appendChild(noteRow1);
   editor.appendChild(intervalRow);
   editor.appendChild(noteRow2);
 
   updateRemoveBtn();
-  updateCentsLabels();
-  updateCumulativeCents();
+  updateAllLabels();
   render();
 }
 
@@ -728,6 +877,126 @@ function onIntervalTypeChange() {
 function onEdoDivisionsChange() {
   updateEdoCentsLabel();
   resetScaleToDefault();
+}
+
+function relativeToAbsoluteStrings(relValues) {
+  // Returns absolute values for n+1 notes given n relative interval strings
+  const type = getIntervalType();
+  const out = [getUnisonValue()];
+  if (type === "ratio") {
+    let cur = [1, 1];
+    for (const v of relValues) {
+      const r = parseRatioPair(v) || [1, 1];
+      cur = multiplyRatios(cur, r);
+      out.push(cur[0] + "/" + cur[1]);
+    }
+  } else if (type === "edo") {
+    let s = 0;
+    for (const v of relValues) {
+      s += (parseInt(v, 10) || 0);
+      out.push(String(s));
+    }
+  } else {
+    let c = 0;
+    for (const v of relValues) {
+      c += (parseFloat(v) || 0);
+      out.push(c.toFixed(2));
+    }
+  }
+  return out;
+}
+
+function absoluteToRelativeStrings(absValues) {
+  const type = getIntervalType();
+  const out = [];
+  if (type === "ratio") {
+    for (let i = 1; i < absValues.length; i++) {
+      const a = parseRatioPair(absValues[i - 1]) || [1, 1];
+      const b = parseRatioPair(absValues[i]) || [1, 1];
+      const r = divideRatios(b, a);
+      out.push(r[0] + "/" + r[1]);
+    }
+  } else if (type === "edo") {
+    for (let i = 1; i < absValues.length; i++) {
+      const a = parseInt(absValues[i - 1], 10) || 0;
+      const b = parseInt(absValues[i], 10) || 0;
+      out.push(String(b - a));
+    }
+  } else {
+    for (let i = 1; i < absValues.length; i++) {
+      const a = parseFloat(absValues[i - 1]) || 0;
+      const b = parseFloat(absValues[i]) || 0;
+      out.push((b - a).toFixed(2));
+    }
+  }
+  return out;
+}
+
+function onScaleModeChange() {
+  const newMode = getScaleMode();
+
+  const rows = Array.from(editor.children);
+  const noteData = [];
+  const intervalData = [];
+  for (const row of rows) {
+    if (row.classList.contains("note-row")) {
+      const nameInp = row.querySelector(".note-name");
+      const absInp = row.querySelector(".absolute-interval");
+      noteData.push({
+        name: nameInp ? nameInp.value : "",
+        absolute: absInp ? absInp.value : "",
+      });
+    } else {
+      const intInp = row.querySelector(".interval");
+      const labelInp = row.querySelector(".interval-label");
+      const sw = row.querySelector(".color-swatch");
+      intervalData.push({
+        value: intInp ? intInp.value : "",
+        label: labelInp ? labelInp.value : "",
+        color: sw ? sw.dataset.color : "#FFFFFF",
+      });
+    }
+  }
+
+  let absoluteValues = null;
+  let relativeValues = null;
+  if (newMode === "absolute") {
+    relativeValues = intervalData.map(i => i.value);
+    absoluteValues = relativeToAbsoluteStrings(relativeValues);
+  } else {
+    const absolutes = noteData.map(n => n.absolute);
+    relativeValues = absoluteToRelativeStrings(absolutes);
+  }
+
+  editor.innerHTML = "";
+  for (let i = 0; i < noteData.length; i++) {
+    const noteRow = document.createElement("div");
+    noteRow.className = "row note-row";
+    noteRow.dataset.degree = i + 1;
+    const absVal = newMode === "absolute" ? absoluteValues[i] : undefined;
+    noteRow.innerHTML = makeNoteRowHTML(i + 1, newMode, absVal);
+    const nameInp = noteRow.querySelector(".note-name");
+    if (nameInp) nameInp.value = noteData[i].name;
+    editor.appendChild(noteRow);
+
+    if (i < intervalData.length) {
+      const ivRow = document.createElement("div");
+      ivRow.className = "row interval-row";
+      const relValStr = newMode === "relative"
+        ? (relativeValues[i] !== undefined ? relativeValues[i] : intervalData[i].value)
+        : intervalData[i].value;
+      ivRow.innerHTML = makeIntervalRowHTML(relValStr, newMode);
+      const labelInp = ivRow.querySelector(".interval-label");
+      if (labelInp) labelInp.value = intervalData[i].label;
+      const sw = ivRow.querySelector(".color-swatch");
+      if (sw) setSwatchColor(sw, intervalData[i].color);
+      editor.appendChild(ivRow);
+    }
+  }
+
+  updateRemoveBtn();
+  updateAllLabels();
+  render();
 }
 
 function savePNG() {
@@ -763,13 +1032,29 @@ function setSwatchColor(swatch, hex) {
   swatch.style.background = hex;
 }
 
-function findColorForValue(value, excludeRow) {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
+function getIntervalRowKey(row) {
+  if (getScaleMode() === "relative") {
+    const inp = row.querySelector(".interval");
+    return inp ? inp.value.trim() : "";
+  }
+  const prev = row.previousElementSibling;
+  const next = row.nextElementSibling;
+  if (!prev || !next) return "";
+  const prevInp = prev.querySelector(".absolute-interval");
+  const nextInp = next.querySelector(".absolute-interval");
+  if (!prevInp || !nextInp) return "";
+  const prevC = intervalToCents(prevInp.value);
+  const nextC = intervalToCents(nextInp.value);
+  if (isNaN(prevC) || isNaN(nextC)) return "";
+  return (nextC - prevC).toFixed(2);
+}
+
+function findColorForKey(key, excludeRow) {
+  if (!key) return null;
   const allRows = editor.querySelectorAll(".interval-row");
   for (const row of allRows) {
     if (row === excludeRow) continue;
-    if (row.querySelector(".interval").value.trim() === trimmed) {
+    if (getIntervalRowKey(row) === key) {
       const sw = row.querySelector(".color-swatch");
       if (sw && sw.dataset.color && sw.dataset.color !== "#FFFFFF") return sw.dataset.color;
     }
@@ -778,14 +1063,14 @@ function findColorForValue(value, excludeRow) {
 }
 
 function syncIntervalColors(sourceRow) {
-  const sourceValue = sourceRow.querySelector(".interval").value.trim();
+  const sourceKey = getIntervalRowKey(sourceRow);
   const sourceSwatch = sourceRow.querySelector(".color-swatch");
-  if (!sourceSwatch || !sourceValue) return;
+  if (!sourceSwatch || !sourceKey) return;
   const hex = sourceSwatch.dataset.color;
   const allRows = editor.querySelectorAll(".interval-row");
   for (const row of allRows) {
     if (row === sourceRow) continue;
-    if (row.querySelector(".interval").value.trim() === sourceValue) {
+    if (getIntervalRowKey(row) === sourceKey) {
       const sw = row.querySelector(".color-swatch");
       if (sw) setSwatchColor(sw, hex);
     }
@@ -831,17 +1116,35 @@ editor.addEventListener("input", function (e) {
   if (e.target.classList.contains("interval")) {
     const row = e.target.closest(".interval-row");
     if (row) {
-      const existingColor = findColorForValue(e.target.value, row);
+      const existingColor = findColorForKey(getIntervalRowKey(row), row);
       if (existingColor) {
         const sw = row.querySelector(".color-swatch");
         if (sw) setSwatchColor(sw, existingColor);
       }
     }
+  } else if (e.target.classList.contains("absolute-interval")) {
+    // Recompute labels first so keys reflect new value
+    updateAbsCentsLabels();
+    updateRelativeCentsDisplays();
+    const noteRow = e.target.closest(".note-row");
+    if (noteRow) {
+      const adjacent = [noteRow.previousElementSibling, noteRow.nextElementSibling];
+      for (const adj of adjacent) {
+        if (adj && adj.classList.contains("interval-row")) {
+          const key = getIntervalRowKey(adj);
+          const existingColor = findColorForKey(key, adj);
+          if (existingColor) {
+            const sw = adj.querySelector(".color-swatch");
+            if (sw) setSwatchColor(sw, existingColor);
+          }
+        }
+      }
+    }
   }
-  updateCentsLabels();
-  updateCumulativeCents();
+  updateAllLabels();
   render();
 });
+
 function handlePlayStart(e) {
   const btn = e.target.closest(".play-note");
   if (!btn) return;
@@ -851,6 +1154,7 @@ function handlePlayStart(e) {
   const degree = parseInt(noteRow.dataset.degree, 10);
   startTone(getFrequencyForDegree(degree));
 }
+
 editor.addEventListener("mousedown", handlePlayStart);
 editor.addEventListener("touchstart", handlePlayStart);
 document.addEventListener("mouseup", stopTone);
@@ -863,9 +1167,9 @@ intervalTypeSelect.addEventListener("change", onIntervalTypeChange);
 orientationSelect.addEventListener("change", render);
 styleSelect.addEventListener("change", render);
 edoDivisionsInput.addEventListener("input", onEdoDivisionsChange);
+scaleModeSelect.addEventListener("change", onScaleModeChange);
 
 updateRemoveBtn();
 updateZoom();
-updateCentsLabels();
-updateCumulativeCents();
+updateAllLabels();
 render();

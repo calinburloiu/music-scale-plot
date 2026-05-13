@@ -170,6 +170,107 @@ body {
 
 .editor-panel { position: relative; }
 
+.scale-mode-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1.1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.scale-mode-row label {
+  font-weight: 500;
+  font-size: 0.72rem;
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+.scale-mode-row select {
+  flex: 1 1 auto;
+  padding: 0.45rem 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  background: var(--paper-fade);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.scale-mode-row select:hover { border-color: var(--ink-soft); }
+
+.scale-mode-row select:focus {
+  outline: none;
+  border-color: var(--ink);
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+/* --- Absolute mode: absolute-interval input on note-row --- */
+
+.note-row .absolute-interval {
+  width: 9rem;
+  flex: 0 0 auto;
+  text-align: left;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.92rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 0.42rem 0.55rem;
+  border: 1px solid var(--rule);
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 3px;
+  color: var(--ink);
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.note-row .absolute-interval:disabled {
+  background: var(--paper-fade);
+  color: var(--ink-faint);
+  cursor: not-allowed;
+}
+
+.note-row .absolute-interval:hover:not(:disabled) {
+  border-color: var(--ink-soft);
+  background: #fff;
+}
+
+.note-row .absolute-interval:focus {
+  outline: none;
+  border-color: var(--ink);
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.note-row .abs-cents-label {
+  flex: 0 0 auto;
+  min-width: 70px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* --- Absolute mode: relative-cents display on interval-row --- */
+
+.interval-row .relative-cents-display {
+  flex: 0 0 auto;
+  width: calc(9rem + 0.55rem + 70px);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
 #editor {
   display: flex;
   flex-direction: column;
