@@ -250,6 +250,11 @@ function addNote() {
     const sw = intervalRow.querySelector(".color-swatch");
     if (sw) setSwatchColor(sw, existingColor);
   }
+  const existingLabel = findLabelForKey(key, intervalRow);
+  if (existingLabel !== null) {
+    const lab = intervalRow.querySelector(".interval-label");
+    if (lab) lab.value = existingLabel;
+  }
 
   updateRemoveBtn();
   updateAllLabels();
@@ -372,7 +377,7 @@ function intervalToDisplayString(str) {
   const type = getIntervalType();
   const trimmed = str.trim();
   if (type === "ratio") return trimmed;
-  if (type === "edo") return trimmed + " steps";
+  if (type === "edo") return trimmed;
   return trimmed + "￠";
 }
 
@@ -1062,6 +1067,34 @@ function findColorForKey(key, excludeRow) {
   return null;
 }
 
+function findLabelForKey(key, excludeRow) {
+  if (!key) return null;
+  const allRows = editor.querySelectorAll(".interval-row");
+  for (const row of allRows) {
+    if (row === excludeRow) continue;
+    if (getIntervalRowKey(row) === key) {
+      const lab = row.querySelector(".interval-label");
+      if (lab && lab.value.trim() !== "") return lab.value;
+    }
+  }
+  return null;
+}
+
+function syncIntervalLabels(sourceRow) {
+  const sourceKey = getIntervalRowKey(sourceRow);
+  const sourceLabel = sourceRow.querySelector(".interval-label");
+  if (!sourceLabel || !sourceKey) return;
+  const text = sourceLabel.value;
+  const allRows = editor.querySelectorAll(".interval-row");
+  for (const row of allRows) {
+    if (row === sourceRow) continue;
+    if (getIntervalRowKey(row) === sourceKey) {
+      const lab = row.querySelector(".interval-label");
+      if (lab) lab.value = text;
+    }
+  }
+}
+
 function syncIntervalColors(sourceRow) {
   const sourceKey = getIntervalRowKey(sourceRow);
   const sourceSwatch = sourceRow.querySelector(".color-swatch");
@@ -1116,10 +1149,16 @@ editor.addEventListener("input", function (e) {
   if (e.target.classList.contains("interval")) {
     const row = e.target.closest(".interval-row");
     if (row) {
-      const existingColor = findColorForKey(getIntervalRowKey(row), row);
+      const key = getIntervalRowKey(row);
+      const existingColor = findColorForKey(key, row);
       if (existingColor) {
         const sw = row.querySelector(".color-swatch");
         if (sw) setSwatchColor(sw, existingColor);
+      }
+      const existingLabel = findLabelForKey(key, row);
+      if (existingLabel !== null) {
+        const lab = row.querySelector(".interval-label");
+        if (lab) lab.value = existingLabel;
       }
     }
   } else if (e.target.classList.contains("absolute-interval")) {
@@ -1137,9 +1176,17 @@ editor.addEventListener("input", function (e) {
             const sw = adj.querySelector(".color-swatch");
             if (sw) setSwatchColor(sw, existingColor);
           }
+          const existingLabel = findLabelForKey(key, adj);
+          if (existingLabel !== null) {
+            const lab = adj.querySelector(".interval-label");
+            if (lab) lab.value = existingLabel;
+          }
         }
       }
     }
+  } else if (e.target.classList.contains("interval-label")) {
+    const row = e.target.closest(".interval-row");
+    if (row) syncIntervalLabels(row);
   }
   updateAllLabels();
   render();
