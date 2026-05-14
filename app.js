@@ -6,9 +6,9 @@ const CANVAS_PADDING = 20;
 const DPR = window.devicePixelRatio || 2;
 
 const PALETTE = [
-  "#FFFFFF", "#E8E8E8", "#D0D0D0", "#B8B8B8", "#A0A0A0", "#F0E0CC",
-  "#FFCCCC", "#FFE0C0", "#FFFFCC", "#E0FFCC", "#CCFFCC", "#CCFFE6",
-  "#CCFFFF", "#CCE5FF", "#CCCCFF", "#E5CCFF", "#FFCCFF", "#FFCCE5"
+  "#000000", "#333333", "#555555", "#777777", "#888888", "#8B5300",
+  "#CC0000", "#CC5500", "#AA8800", "#4A7700", "#006600", "#006644",
+  "#007799", "#0055AA", "#3300CC", "#7700AA", "#AA0099", "#CC0055"
 ];
 
 const editor = document.getElementById("editor");
@@ -28,7 +28,7 @@ const orientationSelect = document.getElementById("orientation");
 const styleSelect = document.getElementById("chart-style");
 const scaleModeSelect = document.getElementById("scale-mode");
 
-const LINE_AXIS_WIDTH = 14;
+const LINE_STYLE_WIDTH = 3;
 const TICK_LENGTH = 28;
 const TICK_WIDTH = 2;
 
@@ -383,10 +383,7 @@ function intervalToDisplayString(str) {
 
 function drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextBlockH, font, monoFont) {
   const halfNote = maxNoteWidth / 2;
-  const axisHalfW = LINE_AXIS_WIDTH / 2;
   const axisCenterY = CANVAS_PADDING + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH / 2;
-  const axisTop = axisCenterY - axisHalfW;
-  const axisBottom = axisCenterY + axisHalfW;
   const tickTop = axisCenterY - TICK_LENGTH / 2;
   const tickBottom = axisCenterY + TICK_LENGTH / 2;
   const startX = CANVAS_PADDING + halfNote;
@@ -396,20 +393,17 @@ function drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextB
   let x = startX;
   for (const iv of intervals) {
     const w = iv.cents * PX_PER_CENT;
-    ctx.fillStyle = iv.color;
-    ctx.fillRect(x, axisTop, w, LINE_AXIS_WIDTH);
+    ctx.strokeStyle = iv.color === "#FFFFFF" ? "#000000" : iv.color;
+    ctx.lineWidth = LINE_STYLE_WIDTH;
+    ctx.beginPath();
+    ctx.moveTo(x, axisCenterY);
+    ctx.lineTo(x + w, axisCenterY);
+    ctx.stroke();
     x += w;
   }
 
   ctx.strokeStyle = "#000";
   ctx.lineWidth = TICK_WIDTH;
-  ctx.beginPath();
-  ctx.moveTo(startX, axisTop);
-  ctx.lineTo(startX + stackLength, axisTop);
-  ctx.moveTo(startX, axisBottom);
-  ctx.lineTo(startX + stackLength, axisBottom);
-  ctx.stroke();
-
   let tx = startX;
   for (let j = 0; j <= intervals.length; j++) {
     ctx.beginPath();
@@ -459,10 +453,7 @@ function drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextB
 }
 
 function drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont) {
-  const axisHalfW = LINE_AXIS_WIDTH / 2;
   const axisCenterX = CANVAS_PADDING + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH / 2;
-  const axisLeft = axisCenterX - axisHalfW;
-  const axisRight = axisCenterX + axisHalfW;
   const tickLeft = axisCenterX - TICK_LENGTH / 2;
   const tickRight = axisCenterX + TICK_LENGTH / 2;
   const noteTextX = tickRight + TEXT_MARGIN;
@@ -473,20 +464,17 @@ function drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, m
   for (const iv of intervals) {
     const h = iv.cents * PX_PER_CENT;
     const segTopY = y - h;
-    ctx.fillStyle = iv.color;
-    ctx.fillRect(axisLeft, segTopY, LINE_AXIS_WIDTH, h);
+    ctx.strokeStyle = iv.color === "#FFFFFF" ? "#000000" : iv.color;
+    ctx.lineWidth = LINE_STYLE_WIDTH;
+    ctx.beginPath();
+    ctx.moveTo(axisCenterX, y);
+    ctx.lineTo(axisCenterX, segTopY);
+    ctx.stroke();
     y = segTopY;
   }
 
   ctx.strokeStyle = "#000";
   ctx.lineWidth = TICK_WIDTH;
-  ctx.beginPath();
-  ctx.moveTo(axisLeft, CANVAS_PADDING);
-  ctx.lineTo(axisLeft, baseY);
-  ctx.moveTo(axisRight, CANVAS_PADDING);
-  ctx.lineTo(axisRight, baseY);
-  ctx.stroke();
-
   let ty = baseY;
   for (let j = 0; j <= intervals.length; j++) {
     ctx.beginPath();
