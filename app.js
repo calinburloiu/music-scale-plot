@@ -5,7 +5,13 @@ const TEXT_MARGIN = 12;
 const CANVAS_PADDING = 20;
 const DPR = window.devicePixelRatio || 2;
 
-const PALETTE = [
+const PALETTE_LIGHT = [
+  "#FFFFFF", "#E8E8E8", "#D0D0D0", "#B8B8B8", "#A0A0A0", "#F0E0CC",
+  "#FFCCCC", "#FFE0C0", "#FFFFCC", "#E0FFCC", "#CCFFCC", "#CCFFE6",
+  "#CCFFFF", "#CCE5FF", "#CCCCFF", "#E5CCFF", "#FFCCFF", "#FFCCE5"
+];
+
+const PALETTE_DARK = [
   "#000000", "#333333", "#555555", "#777777", "#888888", "#8B5300",
   "#CC0000", "#CC5500", "#AA8800", "#4A7700", "#006600", "#006644",
   "#007799", "#0055AA", "#3300CC", "#7700AA", "#AA0099", "#CC0055"
@@ -190,11 +196,12 @@ function makeNoteRowHTML(degree, mode, absoluteValue) {
 }
 
 function makeIntervalRowHTML(value, mode) {
+  const defaultColor = getActivePalette()[0];
   const labelCluster =
     '<div class="interval-label-cluster">' +
       '<input type="text" class="interval-label" placeholder="label">' +
       '<div class="color-picker-wrapper">' +
-        '<button type="button" class="color-swatch" data-color="#FFFFFF" style="background:#FFFFFF;"></button>' +
+        '<button type="button" class="color-swatch" data-color="' + defaultColor + '" style="background:' + defaultColor + ';"></button>' +
         '<div class="color-dropdown"></div>' +
       '</div>' +
     '</div>';
@@ -393,7 +400,7 @@ function drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextB
   let x = startX;
   for (const iv of intervals) {
     const w = iv.cents * PX_PER_CENT;
-    ctx.strokeStyle = iv.color === "#FFFFFF" ? "#000000" : iv.color;
+    ctx.strokeStyle = iv.color;
     ctx.lineWidth = LINE_STYLE_WIDTH;
     ctx.beginPath();
     ctx.moveTo(x, axisCenterY);
@@ -464,7 +471,7 @@ function drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, m
   for (const iv of intervals) {
     const h = iv.cents * PX_PER_CENT;
     const segTopY = y - h;
-    ctx.strokeStyle = iv.color === "#FFFFFF" ? "#000000" : iv.color;
+    ctx.strokeStyle = iv.color;
     ctx.lineWidth = LINE_STYLE_WIDTH;
     ctx.beginPath();
     ctx.moveTo(axisCenterX, y);
@@ -999,9 +1006,13 @@ function savePNG() {
   link.click();
 }
 
+function getActivePalette() {
+  return styleSelect.value === "lines" ? PALETTE_DARK : PALETTE_LIGHT;
+}
+
 function populateDropdown(dropdown) {
-  if (dropdown.children.length > 0) return;
-  for (const hex of PALETTE) {
+  dropdown.innerHTML = "";
+  for (const hex of getActivePalette()) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "color-option";
@@ -1009,6 +1020,22 @@ function populateDropdown(dropdown) {
     btn.dataset.color = hex;
     dropdown.appendChild(btn);
   }
+}
+
+function remapSwatchColors(fromPalette, toPalette) {
+  const swatches = editor.querySelectorAll(".color-swatch");
+  for (const sw of swatches) {
+    const idx = fromPalette.indexOf(sw.dataset.color);
+    if (idx !== -1) setSwatchColor(sw, toPalette[idx]);
+  }
+}
+
+function onChartStyleChange() {
+  const newStyle = styleSelect.value;
+  const fromPalette = newStyle === "lines" ? PALETTE_LIGHT : PALETTE_DARK;
+  const toPalette = newStyle === "lines" ? PALETTE_DARK : PALETTE_LIGHT;
+  remapSwatchColors(fromPalette, toPalette);
+  render();
 }
 
 function closeAllDropdowns() {
@@ -1049,7 +1076,7 @@ function findColorForKey(key, excludeRow) {
     if (row === excludeRow) continue;
     if (getIntervalRowKey(row) === key) {
       const sw = row.querySelector(".color-swatch");
-      if (sw && sw.dataset.color && sw.dataset.color !== "#FFFFFF") return sw.dataset.color;
+      if (sw && sw.dataset.color && sw.dataset.color !== getActivePalette()[0]) return sw.dataset.color;
     }
   }
   return null;
@@ -1200,7 +1227,7 @@ saveBtn.addEventListener("click", savePNG);
 zoomSlider.addEventListener("input", updateZoom);
 intervalTypeSelect.addEventListener("change", onIntervalTypeChange);
 orientationSelect.addEventListener("change", render);
-styleSelect.addEventListener("change", render);
+styleSelect.addEventListener("change", onChartStyleChange);
 edoDivisionsInput.addEventListener("input", onEdoDivisionsChange);
 scaleModeSelect.addEventListener("change", onScaleModeChange);
 
