@@ -14,6 +14,7 @@ Client-side web app for plotting microtonal music scales (Byzantine/psaltic, Ott
 - `docs/PLAN-01.md` — architecture / design plan (source of truth for intended behavior).
 - `docs/TESTING.md` — testing guide and the mandatory TDD workflow (**read before changing any behavior**).
 - `test/` — Node test-runner suite (`test/unit`, `test/integration`, `test/helpers`).
+- `.claude/rules/testing.md` — path-scoped rule; loads automatically when a source or test file is read and requires `docs/TESTING.md` to be read before editing.
 
 ## Architecture
 
@@ -38,6 +39,7 @@ Key concepts:
 - Unit and integration tests only. No end-to-end/UI tests, no pixel or CSS assertions. Chart tests assert the *geometry* passed to the canvas context (sizes, coordinates, draw order), never the resulting image.
 - Driving the real page with Playwright to eyeball a change is encouraged, but it is manual verification — it does not replace a test and browser-driving scripts are not committed.
 - Keep testable logic in **named top-level functions** in `app.js`. The harness auto-exports every top-level `function`/`const` to tests; logic buried inside an event-listener callback is unreachable from them.
+- `docs/TESTING.md` is not loaded into context automatically. `.claude/rules/testing.md` is path-scoped to `app.js`, `index.html`, `style.css` and `test/**/*.js`, so reading any of them loads the rule telling you to go read the guide.
 
 ## Conventions
 

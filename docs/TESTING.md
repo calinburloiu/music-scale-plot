@@ -98,6 +98,26 @@ you to edit a test's expectations, it was not a refactor.
   fail before the fix and pass after it — that test is the proof the bug is
   gone and the guard against its return.
 
+### How this is enforced
+
+`docs/TESTING.md` is not loaded into a Claude Code session automatically —
+CLAUDE.md only points at it, and a pointer is only as good as the reader's
+willingness to follow it.
+
+`.claude/rules/testing.md` closes that gap. It is a
+[path-scoped rule](https://code.claude.com/docs/en/memory): its `paths:`
+frontmatter lists `app.js`, `index.html`, `style.css` and `test/**/*.js`, so the
+moment Claude reads any of them the rule loads into context and says to go read
+this guide before editing. Rules without `paths:` load every session; this one
+costs nothing until someone actually touches the code it guards.
+
+To widen the guard, add a glob to that `paths:` list. To require a different
+document, add it to the rule body. Verify a rule is loading with `/context`,
+which lists the memory files in the session.
+
+None of this is a hard gate — rules are context, not enforcement. The hard gate
+is CI: `npm test` runs on every PR.
+
 ### PR checklist
 
 - [ ] Every new behaviour has a test that failed before the implementation.
@@ -160,6 +180,10 @@ this repository.
 ## 4. Layout
 
 ```
+.claude/
+└── rules/
+    └── testing.md       path-scoped rule requiring this guide be read first
+
 test/
 ├── helpers/
 │   ├── harness.js       loads index.html + app.js into jsdom; interaction helpers
