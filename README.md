@@ -12,6 +12,20 @@ Open `index.html` in a browser. No build step or server required. The page loads
 2. The chart updates in real-time as you type.
 3. Click **Save as PNG** to export the chart.
 
+## Development
+
+The app itself has no dependencies and no build step. The test suite uses Node's
+built-in test runner with jsdom as its only dev dependency:
+
+```bash
+npm install
+npm test
+```
+
+**All development follows strict TDD (red/green/refactor)** — write the failing
+test first. See [docs/TESTING.md](docs/TESTING.md) for the workflow, what is and
+is not tested, and how the test harness loads `app.js`.
+
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).

@@ -21,6 +21,9 @@ music-scale-plot/
 - `style.css` — all visual styling.
 - `app.js` — all JavaScript: editor management, canvas rendering, and PNG export.
 
+Tests live under `test/` and are described in [TESTING.md](TESTING.md), which also
+defines the mandatory TDD workflow for changes to this design.
+
 ## HTML Layout
 
 The page is split into two side-by-side panels using CSS flexbox:
