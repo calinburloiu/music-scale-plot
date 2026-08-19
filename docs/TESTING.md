@@ -106,14 +106,20 @@ willingness to follow it.
 
 `.claude/rules/testing.md` closes that gap. It is a
 [path-scoped rule](https://code.claude.com/docs/en/memory): its `paths:`
-frontmatter lists `app.js`, `index.html`, `style.css` and `test/**/*.js`, so the
-moment Claude reads any of them the rule loads into context and says to go read
-this guide before editing. Rules without `paths:` load every session; this one
-costs nothing until someone actually touches the code it guards.
+frontmatter lists `app.js`, `index.html`, `style.css` and `test/**/*.js`, and it
+`@`-imports this guide. The moment Claude reads any guarded file, the rule loads
+and pulls this document into context with it — no separate step that could be
+skipped. Rules without `paths:` load every session; this one costs nothing until
+someone actually touches the code it guards.
 
-To widen the guard, add a glob to that `paths:` list. To require a different
-document, add it to the rule body. Verify a rule is loading with `/context`,
-which lists the memory files in the session.
+The import is written `@../../docs/TESTING.md`, not `@docs/TESTING.md`: relative
+imports resolve against the file that contains them, and the rule lives in
+`.claude/rules/`. A bad import path fails silently, which is why the rule also
+tells the reader to open the guide manually if it did not resolve.
+
+To widen the guard, add a glob to the `paths:` list. To require a different
+document, add another import. Verify a rule is loading with `/context`, which
+lists the memory files in the session.
 
 None of this is a hard gate — rules are context, not enforcement. The hard gate
 is CI: `npm test` runs on every PR.
@@ -182,7 +188,7 @@ this repository.
 ```
 .claude/
 └── rules/
-    └── testing.md       path-scoped rule requiring this guide be read first
+    └── testing.md       path-scoped rule; imports this guide when a guarded file is read
 
 test/
 ├── helpers/
