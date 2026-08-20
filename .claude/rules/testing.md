@@ -1,0 +1,21 @@
+---
+paths:
+  - "app.js"
+  - "index.html"
+  - "style.css"
+  - "test/**/*.js"
+---
+
+# Required reading
+
+You are working on a file whose behaviour is under test. The testing guide is
+imported below, so it is in context before you edit — follow it. This project is
+strict TDD: the failing test comes first, always.
+
+If the import below did not resolve, open `docs/TESTING.md` yourself with the
+Read tool before continuing.
+
+@../../docs/TESTING.md
+
+For a non-trivial change also read `docs/PLAN-01.md`, the source of truth for
+intended behaviour. It is not imported here because most changes do not need it.

@@ -1,0 +1,451 @@
+"use strict";
+
+const test = require("node:test");
+const assert = require("node:assert/strict");
+
+const {
+  loadApp,
+  selectOption,
+  typeInto,
+  buildRelativeScale,
+  intervalRows,
+  measureTextWidth,
+} = require("../helpers/harness.js");
+const { closeTo } = require("../helpers/assertions.js");
+
+// These tests assert the *geometry* render() computes — sizes, positions and
+// draw order — not the appearance of the result. See docs/TESTING.md.
+
+const TONE = 203.91000173077484; // 9/8
+const MINOR_TONE = 182.40371213406; // 10/9
+
+test("chart sizing", async (t) => {
+  await t.test("is tall enough for the whole stack plus padding", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+    const { CANVAS_PADDING, PX_PER_CENT } = h.app;
+
+    const expected = CANVAS_PADDING * 2 + (TONE + MINOR_TONE) * PX_PER_CENT;
+    closeTo(parseFloat(h.canvas().style.height), expected, 1e-6);
+  });
+
+  await t.test("is wide enough for the boxes and the widest note name", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"], { names: ["Pa", "Vou"] });
+    const { CANVAS_PADDING, RECT_WIDTH, TEXT_MARGIN } = h.app;
+
+    const widestText = measureTextWidth("Vou", "24px sans-serif");
+    const expected = CANVAS_PADDING + RECT_WIDTH + TEXT_MARGIN + (widestText + TEXT_MARGIN * 2) + CANVAS_PADDING;
+    closeTo(parseFloat(h.canvas().style.width), expected, 1e-6);
+  });
+
+  await t.test("grows when a longer note name is typed", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const before = parseFloat(h.canvas().style.width);
+
+    typeInto(h, h.el(".note-name"), "a very long note name");
+
+    assert.ok(parseFloat(h.canvas().style.width) > before);
+  });
+
+  await t.test("backs the display size with a device-pixel-ratio-scaled bitmap", () => {
+    for (const dpr of [1, 2, 3]) {
+      const h = loadApp({ devicePixelRatio: dpr });
+      const displayHeight = parseFloat(h.canvas().style.height);
+
+      assert.equal(h.canvas().height, Math.round(displayHeight * dpr), `dpr=${dpr}`);
+      assert.deepEqual(h.ctx.transform, [dpr, 0, 0, dpr, 0, 0], `dpr=${dpr} transform`);
+      h.close();
+    }
+  });
+
+  await t.test("clears the full drawing area before redrawing", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+    h.ctx.reset();
+    h.app.render();
+
+    const [clear] = h.ctx.callsOf("clearRect");
+    assert.deepEqual(clear.args.slice(0, 2), [0, 0]);
+    closeTo(clear.args[2], parseFloat(h.canvas().style.width), 1e-6);
+    closeTo(clear.args[3], parseFloat(h.canvas().style.height), 1e-6);
+  });
+});
+
+test("vertical boxes (the default chart)", async (t) => {
+  await t.test("draws one filled, outlined box per interval", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9", "16/15"]);
+    h.ctx.reset();
+    h.app.render();
+
+    assert.equal(h.ctx.callsOf("fillRect").length, 3);
+    assert.equal(h.ctx.callsOf("strokeRect").length, 3);
+    assert.deepEqual(
+      h.ctx.callsOf("strokeRect").map((c) => c.state.lineWidth),
+      [h.app.BORDER_WIDTH, h.app.BORDER_WIDTH, h.app.BORDER_WIDTH]
+    );
+  });
+
+  await t.test("gives each box a height proportional to its size in cents", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+    h.ctx.reset();
+    h.app.render();
+
+    const heights = h.ctx.callsOf("fillRect").map((c) => c.args[3]);
+    closeTo(heights[0], TONE * h.app.PX_PER_CENT, 1e-9, "first box drawn");
+    closeTo(heights[1], MINOR_TONE * h.app.PX_PER_CENT, 1e-9, "second box drawn");
+  });
+
+  await t.test("stacks the boxes upward from the bottom of the chart", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+    h.ctx.reset();
+    h.app.render();
+
+    const { CANVAS_PADDING } = h.app;
+    const rects = h.ctx.callsOf("fillRect").map((c) => c.args);
+    const bottomOfFirst = rects[0][1] + rects[0][3];
+    closeTo(bottomOfFirst, CANVAS_PADDING + TONE + MINOR_TONE, 1e-6, "the first interval sits on the base line");
+    closeTo(rects[1][1] + rects[1][3], rects[0][1], 1e-9, "the second box rests on top of the first");
+    closeTo(rects[1][1], CANVAS_PADDING, 1e-6, "the last box reaches the top padding");
+  });
+
+  await t.test("aligns every box on the same left edge and width", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+    h.ctx.reset();
+    h.app.render();
+
+    for (const call of h.ctx.callsOf("fillRect")) {
+      assert.equal(call.args[0], h.app.CANVAS_PADDING);
+      assert.equal(call.args[2], h.app.RECT_WIDTH);
+    }
+  });
+
+  await t.test("fills each box with its interval's colour", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"], { colors: ["#FFCCCC", "#CCE5FF"] });
+    h.ctx.reset();
+    h.app.render();
+
+    assert.deepEqual(
+      h.ctx.callsOf("fillRect").map((c) => c.state.fillStyle),
+      ["#FFCCCC", "#CCE5FF"]
+    );
+  });
+});
+
+test("horizontal boxes", async (t) => {
+  await t.test("lays the intervals out left to right", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+    selectOption(h, "orientation", "horizontal");
+    h.ctx.reset();
+    h.app.render();
+
+    const rects = h.ctx.callsOf("fillRect").map((c) => c.args);
+    closeTo(rects[0][0], h.app.CANVAS_PADDING, 1e-9);
+    closeTo(rects[0][2], TONE, 1e-9, "width tracks cents");
+    closeTo(rects[1][0], rects[0][0] + rects[0][2], 1e-9, "boxes abut");
+    closeTo(rects[1][2], MINOR_TONE, 1e-9);
+  });
+
+  await t.test("keeps a constant box thickness", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+    selectOption(h, "orientation", "horizontal");
+    h.ctx.reset();
+    h.app.render();
+
+    for (const call of h.ctx.callsOf("fillRect")) {
+      assert.equal(call.args[1], h.app.CANVAS_PADDING);
+      assert.equal(call.args[3], h.app.RECT_WIDTH);
+    }
+  });
+
+  await t.test("swaps which canvas dimension carries the stack", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+    selectOption(h, "orientation", "horizontal");
+
+    const shortWidth = parseFloat(h.canvas().style.width);
+    const shortHeight = parseFloat(h.canvas().style.height);
+
+    buildRelativeScale(h, ["9/8", "10/9", "16/15", "9/8"]);
+
+    assert.ok(
+      parseFloat(h.canvas().style.width) > shortWidth,
+      "a longer scale needs a wider canvas"
+    );
+    closeTo(
+      parseFloat(h.canvas().style.height),
+      shortHeight,
+      1e-6,
+      "the cross-axis stays a fixed band"
+    );
+  });
+});
+
+test("the line chart style", async (t) => {
+  function linesChart(t, orientation) {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+    selectOption(h, "chart-style", "lines");
+    if (orientation) selectOption(h, "orientation", orientation);
+    h.ctx.reset();
+    h.app.render();
+    return h;
+  }
+
+  await t.test("draws no boxes at all", () => {
+    const h = linesChart(t);
+    assert.equal(h.ctx.callsOf("fillRect").length, 0);
+    assert.equal(h.ctx.callsOf("strokeRect").length, 0);
+  });
+
+  await t.test("draws one coloured segment per interval plus a tick per note", () => {
+    const h = linesChart(t);
+    const segments = h.ctx.callsOf("stroke").filter((c) => c.state.lineWidth === h.app.LINE_STYLE_WIDTH);
+    const ticks = h.ctx.callsOf("stroke").filter((c) => c.state.lineWidth === h.app.TICK_WIDTH);
+
+    assert.equal(segments.length, 2, "two intervals");
+    assert.equal(ticks.length, 3, "three notes bound two intervals");
+  });
+
+  await t.test("gives each vertical segment a length proportional to its cents", () => {
+    const h = linesChart(t, "vertical");
+    const points = h.ctx.calls.filter((c) => ["moveTo", "lineTo"].includes(c.method));
+    const [from1, to1, from2, to2] = points.slice(0, 4).map((c) => c.args[1]);
+
+    closeTo(from1 - to1, TONE * h.app.PX_PER_CENT, 1e-9);
+    closeTo(from2 - to2, MINOR_TONE * h.app.PX_PER_CENT, 1e-9);
+    closeTo(to1, from2, 1e-9, "the second segment continues where the first ended");
+  });
+
+  await t.test("gives each horizontal segment a length proportional to its cents", () => {
+    const h = linesChart(t, "horizontal");
+    const points = h.ctx.calls.filter((c) => ["moveTo", "lineTo"].includes(c.method));
+    const [from1, to1, from2, to2] = points.slice(0, 4).map((c) => c.args[0]);
+
+    closeTo(to1 - from1, TONE * h.app.PX_PER_CENT, 1e-9);
+    closeTo(to2 - from2, MINOR_TONE * h.app.PX_PER_CENT, 1e-9);
+    closeTo(to1, from2, 1e-9);
+  });
+
+  await t.test("keeps the ticks a fixed length, centred on the axis", () => {
+    const h = linesChart(t, "vertical");
+    const tickPoints = h.ctx.calls.filter(
+      (c) => ["moveTo", "lineTo"].includes(c.method) && c.state.lineWidth === h.app.TICK_WIDTH
+    );
+    assert.equal(tickPoints.length, 6, "three ticks, two points each");
+    for (let i = 0; i < tickPoints.length; i += 2) {
+      closeTo(tickPoints[i + 1].args[0] - tickPoints[i].args[0], h.app.TICK_LENGTH, 1e-9);
+      closeTo(tickPoints[i].args[1], tickPoints[i + 1].args[1], 1e-9, "ticks are perpendicular");
+    }
+  });
+
+  await t.test("strokes each segment in its interval's colour", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+    selectOption(h, "chart-style", "lines");
+    // The palette swapped to dark, so pick from the dark palette now.
+    const red = h.app.PALETTE_DARK[6];
+    const swatch = intervalRows(h)[0].querySelector(".color-swatch");
+    swatch.dispatchEvent(new h.window.MouseEvent("click", { bubbles: true }));
+    intervalRows(h)[0]
+      .querySelector(`.color-option[data-color="${red}"]`)
+      .dispatchEvent(new h.window.MouseEvent("click", { bubbles: true }));
+
+    h.ctx.reset();
+    h.app.render();
+    const segmentColors = h.ctx
+      .callsOf("stroke")
+      .filter((c) => c.state.lineWidth === h.app.LINE_STYLE_WIDTH)
+      .map((c) => c.state.strokeStyle);
+    assert.equal(segmentColors[0], red);
+  });
+});
+
+test("intervals that cannot be plotted", async (t) => {
+  await t.test("skips an unparseable interval and the note pair around it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "oops", "10/9"]);
+    h.ctx.reset();
+    h.app.render();
+
+    assert.equal(h.ctx.callsOf("fillRect").length, 2, "only the two valid intervals are drawn");
+  });
+
+  await t.test("skips a zero-width interval", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "1/1"]);
+    h.ctx.reset();
+    h.app.render();
+
+    assert.equal(h.ctx.callsOf("fillRect").length, 1);
+  });
+
+  await t.test("skips a descending interval, which has no height to draw", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "8/9"]);
+    h.ctx.reset();
+    h.app.render();
+
+    assert.equal(h.ctx.callsOf("fillRect").length, 1);
+  });
+
+  await t.test("collapses the canvas when nothing can be plotted", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    typeInto(h, h.el(".interval"), "oops");
+
+    assert.equal(h.canvas().width, 0);
+    assert.equal(h.canvas().height, 0);
+    assert.equal(parseFloat(h.canvas().style.width) || 0, 0);
+    assert.equal(parseFloat(h.canvas().style.height) || 0, 0);
+  });
+
+  await t.test("comes back once the interval is valid again", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    typeInto(h, h.el(".interval"), "oops");
+    typeInto(h, h.el(".interval"), "3/2");
+
+    assert.ok(h.canvas().height > 0);
+    assert.equal(h.ctx.callsOf("fillRect").at(-1).args[3], h.app.intervalToCents("3/2"));
+  });
+});
+
+test("chart text", async (t) => {
+  await t.test("draws the label above the interval's value when both are set", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"], { labels: ["major tone"] });
+    h.ctx.reset();
+    h.app.render();
+
+    assert.deepEqual(h.ctx.drawnText(), ["major tone", "9/8"]);
+    const [label, value] = h.ctx.callsOf("fillText");
+    assert.ok(label.args[2] < value.args[2], "the label sits above the value");
+  });
+
+  await t.test("draws only the interval's value when there is no label", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    h.ctx.reset();
+    h.app.render();
+
+    assert.deepEqual(h.ctx.drawnText(), ["9/8"]);
+  });
+
+  await t.test("shows the interval derived in absolute mode", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    selectOption(h, "scale-mode", "absolute");
+    typeInto(h, h.el(".interval-label"), "some step");
+    h.ctx.reset();
+    h.app.render();
+
+    assert.deepEqual(h.ctx.drawnText(), ["some step", "9/8"]);
+  });
+
+  await t.test("draws each note name once, at the boundary between intervals", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"], { names: ["Pa", "Vou", "Ga"] });
+    h.ctx.reset();
+    h.app.render();
+
+    const text = h.ctx.drawnText();
+    for (const name of ["Pa", "Vou", "Ga"]) {
+      assert.equal(text.filter((s) => s === name).length, 1, `${name} drawn once`);
+    }
+  });
+
+  await t.test("uses the monospace font for interval values and the UI font for names", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"], { names: ["Pa", "Vou"] });
+    h.ctx.reset();
+    h.app.render();
+
+    const byText = Object.fromEntries(h.ctx.callsOf("fillText").map((c) => [c.args[0], c.state.font]));
+    assert.match(byText["9/8"], /monospace$/);
+    assert.doesNotMatch(byText["Pa"], /monospace$/);
+  });
+});
+
+test("line chart text", async (t) => {
+  function linesChart(t, orientation) {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"], {
+      names: ["Pa", "Vou", "Ga"],
+      labels: ["major tone", "minor tone"],
+    });
+    selectOption(h, "chart-style", "lines");
+    selectOption(h, "orientation", orientation);
+    h.ctx.reset();
+    h.app.render();
+    return h;
+  }
+
+  for (const orientation of ["vertical", "horizontal"]) {
+    await t.test(`${orientation}: draws every label, value and note name once`, () => {
+      const h = linesChart(t, orientation);
+      const text = h.ctx.drawnText();
+
+      for (const expected of ["major tone", "9/8", "minor tone", "10/9", "Pa", "Vou", "Ga"]) {
+        assert.equal(text.filter((s) => s === expected).length, 1, `${expected} drawn once`);
+      }
+    });
+
+    await t.test(`${orientation}: separates the label from the interval value`, () => {
+      const h = linesChart(t, orientation);
+      const byText = Object.fromEntries(
+        h.ctx.callsOf("fillText").map((c) => [c.args[0], { x: c.args[1], y: c.args[2] }])
+      );
+
+      assert.notDeepEqual(byText["major tone"], byText["9/8"], "they must not overlap");
+      // In both orientations the label is stacked above the interval value.
+      assert.ok(
+        byText["major tone"].y < byText["9/8"].y,
+        "the label sits above the value"
+      );
+    });
+
+    await t.test(`${orientation}: puts the note names at the interval boundaries`, () => {
+      const h = linesChart(t, orientation);
+      const byText = Object.fromEntries(
+        h.ctx.callsOf("fillText").map((c) => [c.args[0], { x: c.args[1], y: c.args[2] }])
+      );
+      const axis = orientation === "vertical" ? "y" : "x";
+      const step = orientation === "vertical" ? -1 : 1;
+
+      const positions = ["Pa", "Vou", "Ga"].map((n) => byText[n][axis] * step);
+      assert.ok(
+        positions[0] < positions[1] && positions[1] < positions[2],
+        `note names run in scale order, got ${positions}`
+      );
+    });
+  }
+});
