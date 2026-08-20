@@ -46,3 +46,6 @@ Key concepts:
 - No external libs **in the app**. `index.html` still loads nothing but `style.css` and `app.js`, with no build step. `jsdom` is a dev-only dependency of the test suite; don't add more, and don't add anything to the app itself.
 - Keep HTML/CSS/JS in the three root files; don't split into modules.
 - `docs/PLAN-01.md` describes the intended design — consult it before non-trivial changes.
+- **Commit messages**: always prefix with the GitHub issue number in brackets to annotate which
+  issue the work belongs to, e.g. `[#2] Add Byzantine font research`. Use this prefix for every
+  commit that relates to an issue.
