@@ -117,6 +117,148 @@ GPOS features = `mark`, `mkmk`.
 
 ---
 
+## SBMuFL codepoints — martyries, fthores, accidentals
+
+Everything above names SBMuFL glyphs but never gives their codepoints; this section does. The
+source of truth is [`metadata/glyphnames.json`](https://github.com/neanes/sbmufl/blob/master/metadata/glyphnames.json)
+in `neanes/sbmufl`. **The spec now holds 387 glyphs, not the 352 quoted earlier in this document**
+— that figure is from an older snapshot. Re-verified against the pinned OTFs: **Almouzios 387/387,
+Neanes 387/387**, so the "drop-in interchangeable" conclusion stands.
+
+Codepoints are the same in every SBMuFL face — only the outlines and metrics differ.
+
+### Martyria — note letters (base glyph, normal advance)
+
+| Degree | Low octave | Middle | High |
+|---|---|---|---|
+| Ζω (Zo) | `U+E130` `martyriaNoteZoLow` | `U+E137` `martyriaNoteZo` | `U+E13E` `martyriaNoteZoHigh` |
+| Νη (Ni) | `U+E131` `martyriaNoteNiLow` | `U+E138` `martyriaNoteNi` | `U+E13F` `martyriaNoteNiHigh` |
+| Πα (Pa) | `U+E132` `martyriaNotePaLow` | `U+E139` `martyriaNotePa` | `U+E140` `martyriaNotePaHigh` |
+| Βου (Vou) | `U+E133` `martyriaNoteVouLow` | `U+E13A` `martyriaNoteVou` | `U+E141` `martyriaNoteVouHigh` |
+| Γα (Ga) | `U+E134` `martyriaNoteGaLow` | `U+E13B` `martyriaNoteGa` | `U+E142` `martyriaNoteGaHigh` |
+| Δι (Di) | `U+E135` `martyriaNoteDiLow` | `U+E13C` `martyriaNoteDi` | `U+E143` `martyriaNoteDiHigh` |
+| Κε (Ke) | `U+E136` `martyriaNoteKeLow` | `U+E13D` `martyriaNoteKe` | `U+E144` `martyriaNoteKeHigh` |
+
+Plus `U+E145` `martyriaTick` (the vertical tick placed before a martyria; zero advance).
+
+### Martyria — genus / ichos signs (zero advance, GPOS-stacked)
+
+The `…Below` block is `U+E150–U+E15B`, the `…Above` block `U+E170–U+E17B`; same order in both, so
+`above = below + 0x20`.
+
+| Sign | Below | Above |
+|---|---|---|
+| Zo (diatonic Zo) | `U+E150` `martyriaZoBelow` | `U+E170` `martyriaZoAbove` |
+| Δ (delta — tetartos) | `U+E151` `martyriaDeltaBelow` | `U+E171` `martyriaDeltaAbove` |
+| Α (alpha — protos) | `U+E152` `martyriaAlphaBelow` | `U+E172` `martyriaAlphaAbove` |
+| Legetos | `U+E153` `martyriaLegetosBelow` | `U+E173` `martyriaLegetosAbove` |
+| Nana (tritos/enharmonic) | `U+E154` `martyriaNanaBelow` | `U+E174` `martyriaNanaAbove` |
+| Δ dotted | `U+E155` `martyriaDeltaDottedBelow` | `U+E175` `martyriaDeltaDottedAbove` |
+| Α dotted | `U+E156` `martyriaAlphaDottedBelow` | `U+E176` `martyriaAlphaDottedAbove` |
+| Hard chromatic Πα | `U+E157` `martyriaHardChromaticPaBelow` | `U+E177` `martyriaHardChromaticPaAbove` |
+| Hard chromatic Δι | `U+E158` `martyriaHardChromaticDiBelow` | `U+E178` `martyriaHardChromaticDiAbove` |
+| Soft chromatic Δι | `U+E159` `martyriaSoftChromaticDiBelow` | `U+E179` `martyriaSoftChromaticDiAbove` |
+| Soft chromatic Κε | `U+E15A` `martyriaSoftChromaticKeBelow` | `U+E17A` `martyriaSoftChromaticKeAbove` |
+| Zygos | `U+E15B` `martyriaZygosBelow` | `U+E17B` `martyriaZygosAbove` |
+
+**Composing one** is string concatenation — the mark's zero advance plus `mark`/`mkmk` GPOS does
+the stacking and centring, in `<canvas>` as in HTML:
+
+```js
+const martyriaDiWithAlphaAbove = "\uE13C\uE172";  // Δι + α above
+const martyriaPaHardChromatic  = "\uE139\uE157";  // Πα + hard-chromatic Πα below
+ctx.fillText(martyriaDiWithAlphaAbove, x, y);      // one call, stacked automatically
+```
+
+### Fthores
+
+Five parallel blocks, same 13 symbols in the same order in each — `standalone = Above + 0x40`:
+
+| Block | Range | Use |
+|---|---|---|
+| `…Above` | `U+E190–U+E19F` | zero advance; attaches above a neume |
+| `…Secondary` | `U+E1A0–U+E1AF` | zero advance; second fthora on one neume |
+| `…Tertiary` | `U+E1B0–U+E1BF` | zero advance; third |
+| `…Below` | `U+E1C0–U+E1CF` | zero advance; attaches below a neume |
+| **plain (standalone)** | **`U+E1D0–U+E1DF`** | **normal advance — this is the one the chart wants** |
+
+| Fthora | Standalone | Above | Below |
+|---|---|---|---|
+| Diatonic Νη low | `U+E1D0` `fthoraDiatonicNiLow` | `U+E190` | `U+E1C0` |
+| Diatonic Πα | `U+E1D1` `fthoraDiatonicPa` | `U+E191` | `U+E1C1` |
+| Diatonic Βου | `U+E1D2` `fthoraDiatonicVou` | `U+E192` | `U+E1C2` |
+| Diatonic Γα | `U+E1D3` `fthoraDiatonicGa` | `U+E193` | `U+E1C3` |
+| Diatonic Δι | `U+E1D4` `fthoraDiatonicDi` | `U+E194` | `U+E1C4` |
+| Diatonic Κε | `U+E1D5` `fthoraDiatonicKe` | `U+E195` | `U+E1C5` |
+| Diatonic Ζω | `U+E1D6` `fthoraDiatonicZo` | `U+E196` | `U+E1C6` |
+| Diatonic Νη high | `U+E1D7` `fthoraDiatonicNiHigh` | `U+E197` | `U+E1C7` |
+| Hard chromatic Πα | `U+E1D8` `fthoraHardChromaticPa` | `U+E198` | `U+E1C8` |
+| Hard chromatic Δι | `U+E1D9` `fthoraHardChromaticDi` | `U+E199` | `U+E1C9` |
+| Soft chromatic Δι | `U+E1DA` `fthoraSoftChromaticDi` | `U+E19A` | `U+E1CA` |
+| Soft chromatic Κε | `U+E1DB` `fthoraSoftChromaticKe` | `U+E19B` | `U+E1CB` |
+| Enharmonic | `U+E1DC` `fthoraEnharmonic` | `U+E19C` | `U+E1CC` |
+
+The three **chroes** share the blocks, occupying the last three slots of each:
+
+| Chroa | Standalone | Above | Below |
+|---|---|---|---|
+| Zygos | `U+E1DD` `chroaZygos` | `U+E19D` | `U+E1CD` |
+| Kliton | `U+E1DE` `chroaKliton` | `U+E19E` | `U+E1CE` |
+| Spathi | `U+E1DF` `chroaSpathi` | `U+E19F` | `U+E1CF` |
+
+### Microtonal accidentals (diesis / yfesis)
+
+All zero advance — designed to attach to a neume. `2/4/6/8` are twelfths of a tone (the
+`…DODEKATA` family in Unicode), which lines up with the app's 72-EDO arithmetic.
+
+| Amount | Diesis (raise) | Yfesis (lower) |
+|---|---|---|
+| 2/12 tone | `U+E1F0` `diesis2` (alt `U+1D0D0`) | `U+E200` `yfesis2` (alt `U+1D0D4`) |
+| 4/12 tone | `U+E1F1` `diesis4` (alt `U+1D0D1`) | `U+E201` `yfesis4` (alt `U+1D0D5`) |
+| 6/12 tone | `U+E1F2` `diesis6` (alt `U+1D0D2`) | `U+E202` `yfesis6` (alt `U+1D0D6`) |
+| 8/12 tone | `U+E1F3` `diesis8` (alt `U+1D0D3`) | `U+E203` `yfesis8` (alt `U+1D0D7`) |
+| generic, above | `U+E1F4` `diesisGenikiAbove` | `U+E204` `yfesisGenikiAbove` |
+| generic, below | `U+E1F5` `diesisGenikiBelow` | `U+E205` `yfesisGenikiBelow` |
+
+`…Secondary` (`U+E1F6–U+E1F9`, `U+E206–U+E209`) and `…Tertiary` (`U+E1FA–U+E1FD`,
+`U+E20A–U+E20D`) exist for stacking a second/third accidental on one neume; the chart needs
+neither. Generic secondary/tertiary are `U+E1FE/U+E1FF` and `U+E20E/U+E20F`.
+
+`glyphnames.json`'s `alternateCodepoint` field is the Unicode equivalent where one exists — it is
+exactly the data to build `UNICODE_MAP` from, and it is **absent for every martyria and fthora
+glyph**, confirming that only SBMuFL can express them.
+
+### Metrics: measure, never hard-code
+
+Measured on the two pinned OTFs (upem 1000 in both). The zero-advance marks behave identically,
+but **the standalone glyphs do not share metrics between faces** — the earlier claim that the
+faces are "identical where it matters" holds for codepoints and GPOS, not for advances or vertical
+placement:
+
+| Glyph | Almouzios adv / bbox y | Neanes adv / bbox y |
+|---|---|---|
+| `martyriaNotePa` `U+E139` | 1000 / **−339 … −91** (below baseline) | 737 / **68 … 370** (above baseline) |
+| `fthoraDiatonicPa` `U+E1D1` | 900 / 643 … 1047 | 364 / 653 … 1040 |
+| `fthoraSoftChromaticDi` `U+E1DA` | 900 / 840 … 1065 | 960 / 800 … 1104 |
+| `diesis2` `U+E1F0` | 0 / −230 … 6 | 0 / 290 … 609 |
+| `martyriaAlphaAbove` `U+E172` | 0 / −96 … 509 | 0 / −186 … 320 |
+
+Two consequences for the design:
+
+1. **Standalone fthores sit high above the baseline** (y ≈ 0.65–1.1 em) because the font expects
+   them over a neume. Drawn on their own with `textBaseline: "alphabetic"` they land far above
+   the intended spot.
+2. **A martyria's note letter is below the baseline in Almouzios and above it in Neanes.** Any
+   hard-coded `y` offset would break on a font swap.
+
+So place every symbol from its measured box rather than from a constant: use
+`ctx.measureText(s)` and centre on `actualBoundingBoxLeft/Right` and
+`actualBoundingBoxAscent/Descent`. That keeps the font picker a genuine one-line `font-family`
+change. (Test-side note: the harness's `measureText` model returns width only, so geometry tests
+must assert on the placement helper's inputs, not on real ink boxes.)
+
+---
+
 ## Option A — Almouzios ⭐
 
 - <https://github.com/ilizol/Almouzios> — "A SBMuFL-compliant OpenType byzantine music font."
@@ -374,6 +516,7 @@ benefit is wanted.
 - [Byzantine Musical Symbols Unicode block](https://en.wikipedia.org/wiki/Byzantine_Musical_Symbols) ·
   [Codepoints listing](https://codepoints.net/byzantine_musical_symbols)
 - [SBMuFL standard](https://github.com/neanes/sbmufl) ·
+  [`metadata/glyphnames.json`](https://github.com/neanes/sbmufl/blob/master/metadata/glyphnames.json) (387 glyphs, name → codepoint) ·
   [SBMuFL fonts + OFL licence](https://github.com/neanes/sbmufl/tree/master/fonts)
 - [Almouzios](https://github.com/ilizol/Almouzios) · [Neume Sans (WIP)](https://github.com/ilizol/Neume-Sans)
 - [Neanes scorewriter](https://github.com/neanes/neanes) ·
