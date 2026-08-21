@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/modernist-c979428e-2ed3-4d7c-9de0-307ebfd98231/styles.css">
+<script src="_ds/modernist-c979428e-2ed3-4d7c-9de0-307ebfd98231/_ds_bundle.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=Noto+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+@font-face{font-family:"Neanes";src:url("https://cdn.jsdelivr.net/gh/neanes/sbmufl@9519b83e43ddf1dc655c9a1f3be88ec01017baf5/fonts/Neanes.otf") format("opentype");font-display:block}
+@font-face{font-family:"Almouzios";src:url("https://cdn.jsdelivr.net/gh/ilizol/Almouzios@b9703ba74b18721bdacbf1421d2fa2c6009a906f/Almouzios.otf") format("opentype");font-display:block}
+body{margin:0;background:#f3f2f2;font-family:"Archivo",system-ui,sans-serif;color:#201e1d}
+a{color:#ae1800}a:hover{color:#dd2b0f}
+.dv-turn{padding:44px 48px 36px;border-bottom:2px solid rgba(32,30,29,.4);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:12px;margin:0 0 8px}
+.dv-tid{font:700 10px/1 ui-monospace,Menlo,monospace;padding:4px 7px;background:#201e1d;color:#f3f2f2;text-decoration:none;letter-spacing:.08em}
+.dv-tname{font:700 13px/1.2 "Archivo",sans-serif;letter-spacing:.14em;text-transform:uppercase}
+.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px}
+.dv-oid{font:700 10.5px/1 ui-monospace,Menlo,monospace;padding:4px 7px;background:rgba(32,30,29,.1);color:#201e1d;text-decoration:none;letter-spacing:.06em}
+.dv-olabel{display:block;font:500 12px/1.5 "Archivo",sans-serif;color:rgba(32,30,29,.62);max-width:640px}
+.dv-olabel .dv-oid{display:inline-block;margin-right:9px;vertical-align:1px}
+.dv-card{max-width:100%;background:#f8f4f4;border:2px solid #201e1d;overflow:hidden}
+.dv-opt:target .dv-oid{background:#ec3013;color:#fff}
+.dv-next{margin:26px 0 0;font:500 12px/1.6 "Archivo",sans-serif;color:rgba(32,30,29,.55)}
+.dv-opt:focus-visible,button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #ec3013;outline-offset:2px}
+</style>
+</helmet>
+
+<template id="__bundler_thumbnail">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#ec3013"></rect><g fill="none" stroke="#fff" stroke-width="6"><rect x="150" y="90" width="60" height="50"></rect><rect x="150" y="150" width="60" height="70"></rect><path d="M120 90h90M120 140h90M120 220h90"></path></g><g fill="#fff"><circle cx="250" cy="112" r="7"></circle><path d="M243 150h22v6h-22zM246 162h16v6h-16z"></path><circle cx="250" cy="200" r="7"></circle></g></svg>
+</template>
+
+<section class="dv-turn" id="t3">
+<div class="dv-thd"><a class="dv-tid" href="#t3">3</a><span class="dv-tname">Byzantine symbols in the scale chart &middot; issue #2</span></div>
+
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,340px));border:2px solid #201e1d;background:#f8f4f4;margin:14px 0 30px;max-width:1060px">
+<div style="padding:18px 20px;border-right:2px solid #201e1d">
+<div style="font:700 10px/1 'Archivo';letter-spacing:.14em;text-transform:uppercase;color:#ec3013;margin-bottom:10px">What this is</div>
+<p style="margin:0;font:400 13px/1.55 'Archivo';text-wrap:pretty">A Byzantine notation mode for Music Scale Plot. Cumulative cents on every note row and every separator; no free-text note name at all in Byzantine mode — the martyria <em>is</em> the name. Wells mirror the chart geometry, both 34&times;34 so the row reads evenly. Empty wells carry a mark that says which sign they insert. Every control from the shipped app is back: Base Note, Interval Type, Divisions, Mode, the interval row with its cents readout, label and colour swatch, and the Style / Orientation / Zoom toolbar.</p>
+</div>
+<div style="padding:18px 20px;border-right:2px solid #201e1d">
+<div style="font:700 10px/1 'Archivo';letter-spacing:.14em;text-transform:uppercase;color:#ec3013;margin-bottom:10px">Pickers, as specified</div>
+<p style="margin:0;font:400 13px/1.55 'Archivo';text-wrap:pretty">Fthora opens <strong>one flat set</strong> — 13 standalone fthores plus 3 chroes, <code>E1D0–E1DF</code>. Martyria opens <strong>two sets side by side</strong> — Genus (<code>E170–E17B</code>) and Echos note letter (<code>E130–E144</code>) — plus an octave switch and a live composed preview. Every row carries its codepoint.</p>
+</div>
+<div style="padding:18px 20px">
+<div style="font:700 10px/1 'Archivo';letter-spacing:.14em;text-transform:uppercase;color:#ec3013;margin-bottom:10px">Real glyphs, real codepoints</div>
+<p style="margin:0;font:400 13px/1.55 'Archivo';text-wrap:pretty">Both faces load from the SHA-pinned jsDelivr URLs in FONTS.md, and every symbol is its actual SBMuFL codepoint. <strong>One correction to the doc:</strong> the <code>mark</code>/<code>mkmk</code> anchors do <em>not</em> fire in the browser for PUA codepoints &mdash; measured, the zero-advance mark lands at the pen after the letter, not over it. So the martyria is composed on FONTS.md's fallback path instead: both ink boxes measured, mark centred on the letter and lifted clear of its top. Worth re-verifying in canvas before the doc's one-<code>fillText</code> claim is built on.</p>
+</div>
+</div>
+
+<div class="dv-opts">
+
+<div class="dv-opt" id="3a">
+<div class="dv-olabel"><a class="dv-oid" href="#3a">3a</a><strong>The app, Byzantine mode, wells live.</strong> Note&nbsp;1's martyria picker is shown open where it really appears &mdash; anchored under its own well, over the rows beneath. Click any other well to move it; on the lower rows it flips upward so it always stays inside the panel. The chart updates as you pick. Full picker contents are in <a href="#3d">3d</a>. Scale plotted: <em>Scara cromatic&#259; Eh. II</em> from the plate &mdash; hard-chromatic double tetrachord on Pa, 1&nbsp;3&nbsp;1 &middot; 2 &middot; 1&nbsp;3&nbsp;1.</div>
+<div class="dv-card" style="width:1180px;overflow:visible">
+<div style="display:flex;align-items:baseline;justify-content:space-between;padding:12px 20px;border-bottom:2px solid #201e1d">
+<span style="font:800 15px/1 'Archivo';letter-spacing:-.01em">Music Scale Plot</span>
+<span style="font:500 10px/1 ui-monospace,monospace;color:#7d7979;letter-spacing:.06em">Scara cromatic&#259; Eh. II</span>
+</div>
+<div style="display:grid;grid-template-columns:452px 1fr">
+
+<div style="border-right:2px solid #201e1d">
+<div style="padding:14px 18px;border-bottom:2px solid #201e1d;font:700 11px/1 'Archivo';letter-spacing:.16em;text-transform:uppercase">Settings</div>
+<div style="padding:16px 18px;border-bottom:2px solid #201e1d;display:grid;gap:14px">
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+<span style="font:700 10px/1.3 'Archivo';letter-spacing:.12em;text-transform:uppercase;color:#ec3013">Notation</span>
+<div style="width:224px">
+<div style="display:flex;border:2px solid #201e1d">
+<button type="button" onClick="{{ set3G }}" style="{{ tab3G }}">Generic</button>
+<button type="button" onClick="{{ set3B }}" style="{{ tab3B }}">Byzantine</button>
+<button type="button" onClick="{{ set3M }}" style="{{ tab3M }}">Maqam</button>
+</div>
+<p style="margin:7px 0 0;font:400 10.5px/1.45 'Archivo';color:#7d7979">{{ modeNote3 }}</p>
+</div>
+</div>
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+<span style="font:600 10px/1.3 'Archivo';letter-spacing:.12em;text-transform:uppercase;color:#605d5d">Psaltic font</span>
+<div style="width:224px">
+{{ fontSelect3 }}
+<p style="margin:7px 0 0;font:400 10.5px/1.45 'Archivo';color:#7d7979">Both are SBMuFL, so one codepoint map serves both. Byzantine mode only.</p>
+</div>
+</div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:12px;border-top:2px solid rgba(32,30,29,.4)"><span style="font:600 10px/1 'Archivo';letter-spacing:.12em;text-transform:uppercase;color:#605d5d">Base note</span><select class="input" style="width:224px;padding:5px 7px;font-size:12px"><option>A</option><option>B</option><option>C</option><option selected="selected">D</option><option>E</option><option>F</option><option>G</option></select></div>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px"><span style="font:600 10px/1 'Archivo';letter-spacing:.12em;text-transform:uppercase;color:#605d5d">Interval type</span><select class="input" style="width:224px;padding:5px 7px;font-size:12px"><option>Ratios</option><option selected="selected">Equal Division of the Octave (EDO)</option><option>Cents</option></select></div>
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px"><span style="font:600 10px/1.3 'Archivo';letter-spacing:.12em;text-transform:uppercase;color:#605d5d">Divisions per octave</span><div style="width:224px;display:flex;align-items:center;gap:9px"><input class="input" type="number" value="12" min="1" style="width:74px;padding:5px 7px;font-size:12px"><span style="font:400 10px/1 ui-monospace,Menlo,monospace;color:#7d7979">100.00 &cent; each</span></div></div>
+</div>
+
+<div style="padding:14px 18px;border-bottom:2px solid #201e1d;display:flex;align-items:baseline;justify-content:space-between"><span style="font:700 11px/1 'Archivo';letter-spacing:.16em;text-transform:uppercase">Scale editor</span><span style="font:500 10px/1 'Archivo';color:#7d7979">First 5 notes shown</span></div>
+<div style="padding:16px 18px 18px">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:14px;margin-bottom:14px;border-bottom:2px solid rgba(32,30,29,.4)"><span style="font:600 10px/1 'Archivo';letter-spacing:.12em;text-transform:uppercase;color:#605d5d">Mode</span><select class="input" style="width:224px;padding:5px 7px;font-size:12px"><option selected="selected">Relative Intervals</option><option>Absolute Intervals</option></select></div>
+
+<div style="display:grid;grid-template-columns:22px 48px 56px 40px 1fr;gap:9px;align-items:end;font:600 9px/1.2 'Archivo';letter-spacing:.1em;text-transform:uppercase;color:#9b9797;margin-bottom:10px;padding-bottom:7px;border-bottom:1px solid #d7d3d3">
+<span></span><span></span><span>Cum. cents</span><span>{{ leftHead3 }}</span><span>{{ rightHead3 }}</span>
+</div>
+
+<sc-for list="{{ rows3 }}" as="row" hint-placeholder-count="5">
+<div style="display:grid;grid-template-columns:22px 48px 56px 40px 1fr;gap:9px;align-items:center">
+<button type="button" title="Play note" style="width:22px;height:22px;border:2px solid #201e1d;background:#f8f4f4;font:400 9px/1 'Archivo';cursor:pointer">&#9654;</button>
+<span style="font:600 10.5px/1 'Archivo'">{{ row.label }}</span>
+<span style="font:400 11px/1 ui-monospace,Menlo,monospace;color:#605d5d">{{ row.cum }}</span>
+<div style="display:flex;justify-content:flex-start">{{ row.left }}</div>
+<div style="display:flex;align-items:center;padding-left:9px;border-left:2px solid #201e1d">{{ row.right }}</div>
+</div>
+<sc-if value="{{ row.showInterval }}" hint-placeholder-val="{{ true }}">
+<div style="display:grid;grid-template-columns:22px 48px 1fr;gap:9px;align-items:center;padding:8px 0;margin:6px 0;border-top:1px dashed #d7d3d3;border-bottom:1px dashed #d7d3d3">
+<span></span>
+<span style="font:400 9px/1.2 'Archivo';letter-spacing:.08em;text-transform:uppercase;color:#9b9797">Interval</span>
+<div style="display:flex;align-items:center;gap:8px">
+<input class="input" type="text" value="{{ row.units }}" placeholder="edo steps" style="width:52px;padding:4px 7px;font-size:12px">
+<span style="font:400 10px/1 ui-monospace,Menlo,monospace;color:#7d7979;width:64px">{{ row.intervalCents }}</span>
+<input class="input" type="text" value="{{ row.ilabel }}" placeholder="label" style="width:62px;padding:4px 7px;font-size:12px">
+<button type="button" title="Box colour" style="width:22px;height:22px;border:2px solid #201e1d;background:#fff;cursor:pointer"></button>
+</div>
+</div>
+</sc-if>
+</sc-for>
+
+<div style="display:flex;gap:8px;margin-top:14px;padding-top:12px;border-top:2px solid rgba(32,30,29,.4)">
+<button type="button" class="btn btn-primary" style="font-size:11px;padding:7px 12px">Add note</button>
+<button type="button" class="btn btn-secondary" style="font-size:11px;padding:7px 12px">Remove last note</button>
+</div>
+</div>
+</div>
+
+<div>
+<div style="padding:14px 20px;border-bottom:2px solid #201e1d;font:700 11px/1 'Archivo';letter-spacing:.16em;text-transform:uppercase">Chart</div>
+<div style="padding:12px 20px;border-bottom:2px solid #201e1d;display:flex;flex-wrap:wrap;align-items:center;gap:18px">
+<button type="button" class="btn btn-primary" style="font-size:11px;padding:7px 12px">Save as PNG</button>
+<div style="display:flex;align-items:center;gap:8px"><span style="font:600 10px/1 'Archivo';letter-spacing:.1em;text-transform:uppercase;color:#605d5d">Style</span><select class="input" style="width:96px;padding:5px 7px;font-size:12px"><option selected="selected">Boxes</option><option>Line</option></select></div>
+<div style="display:flex;align-items:center;gap:8px"><span style="font:600 10px/1 'Archivo';letter-spacing:.1em;text-transform:uppercase;color:#605d5d">Orientation</span><select class="input" style="width:112px;padding:5px 7px;font-size:12px"><option selected="selected">Vertical</option><option>Horizontal</option></select></div>
+<div style="display:flex;align-items:center;gap:8px"><span style="font:600 10px/1 'Archivo';letter-spacing:.1em;text-transform:uppercase;color:#605d5d">Zoom</span><input type="range" min="10" max="100" step="5" value="100" style="width:104px;accent-color:#ec3013"><span style="font:400 10px/1 ui-monospace,Menlo,monospace;color:#7d7979">100%</span></div>
+</div>
+<div style="padding:34px 30px 30px">{{ chart3 }}</div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="3b">
+<div class="dv-olabel"><a class="dv-oid" href="#3b">3b</a><strong>The empty-slot vocabulary.</strong> Same 34&times;34 footprint for both; only the mark differs &mdash; a slashed stroke for fthora, two stacked bars for the two-tier martyria. Filled wells drop the dashed border.</div>
+<div class="dv-card" style="width:520px;padding:26px 28px">
+<div style="margin-bottom:22px">{{ wellDemo }}</div>
+<p style="margin:0;font:400 12px/1.6 'Archivo';color:#605d5d;text-wrap:pretty">Both marks are drawn from the well's own geometry rather than borrowed iconography, so they stay legible at 34&nbsp;px and read correctly before any font is installed. Currently rendering in <strong>{{ fontName3 }}</strong>.</p>
+</div>
+</div>
+
+<div class="dv-opt" id="3d">
+<div class="dv-olabel"><a class="dv-oid" href="#3d">3d</a><strong>Both pickers, open and complete.</strong> The full contents, no clicking required &mdash; and they are live: pick anything here and Note&nbsp;1's fthora or Note&nbsp;5's martyria changes in <a href="#3a">3a</a>, chart included.</div>
+<div style="display:flex;gap:30px;align-items:flex-start">
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font:700 10px/1 'Archivo';letter-spacing:.12em;text-transform:uppercase;color:#ec3013">Fthora &mdash; one set</div>
+{{ fthoraPanel3 }}
+<p style="margin:0;max-width:244px;font:400 11px/1.5 'Archivo';color:#605d5d;text-wrap:pretty">Standalone block, normal advance &mdash; the variant a chart wants, not the zero-advance ones meant to ride a neume. Picking writes straight into the slot; there is no second step.</p>
+</div>
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="font:700 10px/1 'Archivo';letter-spacing:.12em;text-transform:uppercase;color:#ec3013">Martyria &mdash; two sets, composed</div>
+{{ martyriaPanel3 }}
+<p style="margin:0;max-width:430px;font:400 11px/1.5 'Archivo';color:#605d5d;text-wrap:pretty">Genus on the left, echos note letter on the right, octave underneath, and the composed result with its two codepoints along the bottom. Each genus row previews itself on the note letter you have chosen, so you are reading the actual cluster rather than a floating mark.</p>
+</div>
+</div>
+</div>
+
+<div class="dv-opt" id="3c">
+<div class="dv-olabel"><a class="dv-oid" href="#3c">3c</a><strong>Specimen &mdash; the two faces, same symbols.</strong> Identical codepoints, identical composition maths, so this is purely a typographic choice. Almouzios is the heavier, calligraphic one and closer to the scanned plate; Neanes is the crisper engraving. Put this in front of the client.</div>
+<div class="dv-card" style="width:560px">{{ specimenTable3 }}</div>
+</div>
+
+</div>
+<p class="dv-next">Remaining decision is <a href="#3c">3c</a>: which face ships. Everything else in turn 3 is specification-complete and drawn from the real fonts.</p>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{}">
+const SERIF = "'Noto Serif',Georgia,serif";
+
+const SCALE = [
+  { name: "Ni",  base: "\u039D", echos: "\u0304\u03B1", fthora: null,       divisions: 4, cents: 218, intervalLabel: "T" },
+  { name: "Pa",  base: "\u03A0", echos: "\u0304\u03B1", fthora: null,       divisions: 3, cents: 164, intervalLabel: "tm" },
+  { name: "Vou", base: "\u0392", echos: "\u0304\u03B2", fthora: null,       divisions: 2, cents: 109, intervalLabel: "tmm" },
+  { name: "Ga",  base: "\u0393", echos: "\u0304\u03B3", fthora: null,       divisions: 4, cents: 218, intervalLabel: "T" },
+  { name: "Di",  base: "\u0394", echos: "\u0304\u03B1", fthora: "\u03B4",   divisions: 4, cents: 218, intervalLabel: "T" },
+  { name: "Ke",  base: "\u039A", echos: "\u0304\u03B5", fthora: null,       divisions: 3, cents: 164, intervalLabel: "tm" },
+  { name: "Zo",  base: "\u0396", echos: "\u0304\u03B6", fthora: null,       divisions: 2, cents: 109, intervalLabel: "tmm" },
+  { name: "Ni'", base: "\u039D", echos: "\u0304\u03B1", fthora: "\u03B4",   divisions: 0, cents: 0,   intervalLabel: "" }
+];
+
+const h = React.createElement;
+
+/* Turn 2 — one dataset per notation mode. Divisions differ because the EDO differs:
+   22-EDO for the psaltic diatonic scale, 53 commas for maqam Rast. */
+const MODE_DATA = {
+  generic: { edo: "22", each: "54.5", scaleName: "Diatonic · relative intervals", unit: 20,
+    notes: [
+      { name: "Ni",  left: "",  divisions: 4, label: "T" },
+      { name: "Pa",  left: "",  divisions: 3, label: "tm" },
+      { name: "Vou", left: "",  divisions: 2, label: "tmm" },
+      { name: "Ga",  left: "",  divisions: 4, label: "T" },
+      { name: "Di",  left: "b", divisions: 4, label: "T" },
+      { name: "Ke",  left: "",  divisions: 3, label: "tm" },
+      { name: "Zo",  left: "",  divisions: 2, label: "tmm" },
+      { name: "Ni'", left: "",  divisions: 0, label: "" }
+    ] },
+  byzantine: { edo: "22", each: "54.5", scaleName: "Scara diatonică · Echos I", unit: 20,
+    notes: [
+      { name: "Ni",  left: "",          echos: "\u0304\u03B1", base: "\u039D\u2032", divisions: 4, label: "T" },
+      { name: "Pa",  left: "",          echos: "\u0304\u03B1", base: "\u03A0\u2032", divisions: 3, label: "tm" },
+      { name: "Vou", left: "",          echos: "\u0304\u03B2", base: "\u0392\u2032", divisions: 2, label: "tmm" },
+      { name: "Ga",  left: "",          echos: "\u0304\u03B3", base: "\u0393\u2032", divisions: 4, label: "T" },
+      { name: "Di",  left: "\u03B4",    echos: "\u0304\u03B1", base: "\u0394\u2032", divisions: 4, label: "T" },
+      { name: "Ke",  left: "",          echos: "\u0304\u03B5", base: "\u039A\u2032", divisions: 3, label: "tm" },
+      { name: "Zo",  left: "\u03BD",    echos: "\u0304\u03B6", base: "\u0396\u2032", divisions: 2, label: "tmm" },
+      { name: "Ni'", left: "",          echos: "\u0304\u03B1", base: "\u039D\u2032", divisions: 0, label: "" }
+    ] },
+  maqam: { edo: "53", each: "22.6", scaleName: "Makam Rast · commas", unit: 9,
+    notes: [
+      { name: "Rast",      left: "",              divisions: 9, label: "T" },
+      { name: "Dügâh",     left: "",              divisions: 8, label: "BM" },
+      { name: "Segâh",     left: "\u266D\u00B9",  divisions: 5, label: "B" },
+      { name: "Çargâh",    left: "",              divisions: 9, label: "T" },
+      { name: "Nevâ",      left: "",              divisions: 9, label: "T" },
+      { name: "Hüseynî",   left: "",              divisions: 8, label: "BM" },
+      { name: "Evc",       left: "\u266D\u00B9",  divisions: 5, label: "B" },
+      { name: "Gerdâniye", left: "",              divisions: 0, label: "" }
+    ] }
+};
+
+/* ---- turn 3 data ------------------------------------------------------ */
+/* Scara cromatică Eh. II from the plate. Units as printed (1 unit = 100 ¢ here),
+   hard-chromatic double tetrachord on Pa: 1 3 1 · 2 · 1 3 1 = octave. */
+const SCALE3 = [
+  { name: "Pa",   up: 1, cum: 0,    genus: "hchromPa", deg: "Pa",  oct: "mid",  fthora: "hchromPa" },
+  { name: "Vou",  up: 3, cum: 100,  genus: "hchromPa", deg: "Vou", oct: "mid",  fthora: null },
+  { name: "Ga",   up: 1, cum: 400,  genus: "hchromPa", deg: "Ga",  oct: "mid",  fthora: null },
+  { name: "Di",   up: 2, cum: 500,  genus: "delta",    deg: "Di",  oct: "mid",  fthora: null },
+  { name: "Ke",   up: 1, cum: 700,  genus: "hchromPa", deg: "Ke",  oct: "mid",  fthora: "hchromPa" },
+  { name: "Zo",   up: 3, cum: 800,  genus: "hchromPa", deg: "Zo",  oct: "mid",  fthora: null },
+  { name: "Ni\u2032", up: 1, cum: 1100, genus: "hchromPa", deg: "Ni", oct: "high", fthora: null },
+  { name: "Pa\u2032", up: 0, cum: 1200, genus: "delta", deg: "Pa", oct: "high", fthora: null }
+];
+
+/* SBMuFL codepoints, from FONTS.md (source of truth: neanes/sbmufl metadata/glyphnames.json).
+   Identical in every SBMuFL face — only outlines and metrics differ. */
+
+/* Genus / ichos marks, zero advance, GPOS-stacked. Above block E170-E17B. */
+const GENUS = [
+  { k: "zo",        cp: "\uE170", label: "Zo (diatonic)" },
+  { k: "delta",     cp: "\uE171", label: "\u0394 tetartos" },
+  { k: "alpha",     cp: "\uE172", label: "\u0391 protos" },
+  { k: "legetos",   cp: "\uE173", label: "Legetos" },
+  { k: "nana",      cp: "\uE174", label: "Nana (tritos)" },
+  { k: "deltaDot",  cp: "\uE175", label: "\u0394 dotted" },
+  { k: "alphaDot",  cp: "\uE176", label: "\u0391 dotted" },
+  { k: "hchromPa",  cp: "\uE177", label: "Hard chromatic \u03A0\u03B1" },
+  { k: "hchromDi",  cp: "\uE178", label: "Hard chromatic \u0394\u03B9" },
+  { k: "schromDi",  cp: "\uE179", label: "Soft chromatic \u0394\u03B9" },
+  { k: "schromKe",  cp: "\uE17A", label: "Soft chromatic \u039A\u03B5" },
+  { k: "zygos",     cp: "\uE17B", label: "Zygos" }
+];
+
+/* Note letters. Low E130-E136, middle E137-E13D, high E13E-E144; order Zo Ni Pa Vou Ga Di Ke. */
+const DEGREES = ["Zo", "Ni", "Pa", "Vou", "Ga", "Di", "Ke"];
+const DEGREE_GR = { Zo: "\u0396\u03C9", Ni: "\u039D\u03B7", Pa: "\u03A0\u03B1",
+  Vou: "\u0392\u03BF\u03C5", Ga: "\u0393\u03B1", Di: "\u0394\u03B9", Ke: "\u039A\u03B5" };
+const OCTAVES = [{ k: "low", label: "Low" }, { k: "mid", label: "Middle" }, { k: "high", label: "High" }];
+function noteCp(deg, oct) {
+  const o = oct === "low" ? 0 : oct === "high" ? 2 : 1;
+  return String.fromCharCode(0xE130 + o * 7 + DEGREES.indexOf(deg));
+}
+
+/* Fthores — standalone block E1D0-E1DF (normal advance: the one a chart wants). */
+const FTHORES = [
+  { k: "diatNiLow",  cp: "\uE1D0", label: "Diatonic \u039D\u03B7 low" },
+  { k: "diatPa",     cp: "\uE1D1", label: "Diatonic \u03A0\u03B1" },
+  { k: "diatVou",    cp: "\uE1D2", label: "Diatonic \u0392\u03BF\u03C5" },
+  { k: "diatGa",     cp: "\uE1D3", label: "Diatonic \u0393\u03B1" },
+  { k: "diatDi",     cp: "\uE1D4", label: "Diatonic \u0394\u03B9" },
+  { k: "diatKe",     cp: "\uE1D5", label: "Diatonic \u039A\u03B5" },
+  { k: "diatZo",     cp: "\uE1D6", label: "Diatonic \u0396\u03C9" },
+  { k: "diatNiHigh", cp: "\uE1D7", label: "Diatonic \u039D\u03B7 high" },
+  { k: "hchromPa",   cp: "\uE1D8", label: "Hard chromatic \u03A0\u03B1" },
+  { k: "hchromDi",   cp: "\uE1D9", label: "Hard chromatic \u0394\u03B9" },
+  { k: "schromDi",   cp: "\uE1DA", label: "Soft chromatic \u0394\u03B9" },
+  { k: "schromKe",   cp: "\uE1DB", label: "Soft chromatic \u039A\u03B5" },
+  { k: "enh",        cp: "\uE1DC", label: "Enharmonic" },
+  { k: "zygos",      cp: "\uE1DD", label: "Chroa zygos" },
+  { k: "kliton",     cp: "\uE1DE", label: "Chroa kliton" },
+  { k: "spathi",     cp: "\uE1DF", label: "Chroa spathi" }
+];
+
+const FONTS3 = {
+  neanes:    { stack: '"Neanes","Almouzios",' + SERIF, label: "Neanes" },
+  almouzios: { stack: '"Almouzios","Neanes",' + SERIF, label: "Almouzios" }
+};
+
+const byKey = function (list, k) {
+  for (let i = 0; i < list.length; i++) if (list[i].k === k) return list[i];
+  return null;
+};
+
+class Component extends DCLogic {
+  state = {
+    mode: "byzantine",
+    mode2: "byzantine",
+    mode3: "byzantine",
+    font3: "neanes",
+    open3: "martyria0",
+    flip3: false,
+    fontsReady: false,
+    slots3: SCALE3.map(function (n) { return { fthora: n.fthora, genus: n.genus, deg: n.deg, oct: n.oct }; })
+  };
+
+  componentDidMount() {
+    const self = this;
+    if (!document.fonts) return;
+    Promise.all([
+      document.fonts.load('40px "Neanes"'),
+      document.fonts.load('40px "Almouzios"')
+    ]).then(function () { return document.fonts.ready; })
+      .then(function () {
+        /* Every ink box measured before the webfonts resolved came from the serif fallback.
+           Throw the whole cache away, or the first paint's wrong metrics outlive the load. */
+        self._m = null;
+        self.setState({ fontsReady: true });
+      })
+      .catch(function () { self._m = null; self.setState({ fontsReady: true }); });
+  }
+
+  /* ---- turn 3 ---------------------------------------------------------- */
+
+  /* Ink box of one glyph string at UPEM_PX, in font units of 1/100 em.
+     FONTS.md: measure, never hard-code — a martyria letter sits below the baseline in
+     Almouzios and above it in Neanes, and the mark blocks differ again. */
+  metrics(fam, str) {
+    /* Cache generation is tied to fontsReady, so a pre-webfont measurement can never survive
+       into a post-load render even if a stray call repopulates the map mid-flight. */
+    const gen = this.state.fontsReady ? "1" : "0";
+    const key = gen + "|" + fam + "|" + str;
+    if (!this._m) this._m = {};
+    if (this._m[key]) return this._m[key];
+    let r = { adv: 100, L: 0, R: 100, T: -70, B: 0 };
+    try {
+      if (!this._ctx) this._ctx = document.createElement("canvas").getContext("2d");
+      this._ctx.font = '100px "' + fam + '"';
+      const m = this._ctx.measureText(str);
+      if (m.actualBoundingBoxAscent != null) {
+        r = { adv: m.width, L: -m.actualBoundingBoxLeft, R: m.actualBoundingBoxRight,
+              T: -m.actualBoundingBoxAscent, B: m.actualBoundingBoxDescent };
+      }
+    } catch (e) {}
+    this._m[key] = r;
+    return r;
+  }
+
+  /* SBMuFL's mark/mkmk anchors do NOT fire for PUA codepoints in the browser — measured:
+     the zero-advance mark lands at the pen after the base, ink centred on its own origin,
+     never over the letter. So compose it ourselves from both ink boxes, which is FONTS.md's
+     explicit fallback path: centre the mark on the base's ink and lift it clear of its top. */
+  compose(fam, base, mark) {
+    const b = this.metrics(fam, base);
+    if (!mark) return { dx: 0, dy: 0, adv: b.adv, cx: (b.L + b.R) / 2, cy: (b.T + b.B) / 2 };
+    const k = this.metrics(fam, mark);
+    const GAP = 3;
+    const dx = (b.L + b.R) / 2 - (k.L + k.R) / 2;
+    const dy = (b.T - GAP) - k.B;
+    const L = Math.min(b.L, k.L + dx), R = Math.max(b.R, k.R + dx);
+    const T = Math.min(b.T, k.T + dy), B = Math.max(b.B, k.B + dy);
+    return { dx: dx, dy: dy, adv: b.adv, cx: (L + R) / 2, cy: (T + B) / 2 };
+  }
+
+  /* One symbol, ink-centred on both axes inside a box. mark = null for a plain glyph. */
+  sym(base, mark, size, box, fam) {
+    const family = fam || FONTS3[this.state.font3].label;
+    const p = this.compose(family, base, mark);
+    const em = function (v) { return (v / 100).toFixed(4) + "em"; };
+    const kids = [base];
+    if (mark) {
+      kids.push(h("span", { key: "mk", style: { display: "inline-block", width: 0,
+        verticalAlign: "baseline",
+        transform: "translate(" + em(p.dx - p.adv) + "," + em(p.dy) + ")" } }, mark));
+    }
+    return h("div", { style: { width: box, height: box, flex: "none", display: "flex",
+      alignItems: "center", justifyContent: "center", overflow: "hidden" } },
+      h("span", { style: { fontFamily: '"' + family + '",' + SERIF, fontSize: size,
+        lineHeight: 0, whiteSpace: "nowrap",
+        /* The flex centring already centres the ADVANCE box, so the pen sits at
+           boxCentre − adv/2; correcting to the INK centre is therefore adv/2 − cx,
+           not −cx, or the two corrections stack and everything drifts left. */
+        transform: "translate(" + em(p.adv / 2 - p.cx) + "," + em(-p.cy) + ")" } }, kids));
+  }
+
+  specimen3() {
+    const self = this;
+    const rows = [
+      ["\uE139", "martyria \u03A0\u03B1 + hard chromatic \u03A0\u03B1", "\uE177"],
+      ["\uE13C", "martyria \u0394\u03B9 + \u0394 tetartos", "\uE171"],
+      ["\uE13D", "martyria \u039A\u03B5 + \u0391 protos", "\uE172"],
+      ["\uE1D8", "fthora hard chromatic \u03A0\u03B1", null],
+      ["\uE1D4", "fthora diatonic \u0394\u03B9", null],
+      ["\uE1DC", "fthora enharmonic", null],
+      ["\uE1F0", "diesis 2/12", null],
+      ["\uE200", "yfesis 2/12", null]
+    ];
+    const head = function (t) {
+      return h("div", { style: { padding: "8px 12px", borderBottom: "2px solid #201e1d",
+        font: "700 10px/1 'Archivo'", letterSpacing: ".12em", textTransform: "uppercase" } }, t);
+    };
+    return h("div", { style: { display: "grid", gridTemplateColumns: "1fr 116px 116px" } }, [
+      h("div", { key: "l", style: { borderRight: "2px solid rgba(32,30,29,.4)" } },
+        [head("Symbol")].concat(rows.map(function (r, i) {
+          return h("div", { key: i, style: { height: 52, display: "flex", alignItems: "center",
+            padding: "0 12px", font: "400 11.5px/1.3 'Archivo'",
+            borderTop: i ? "1px solid #e2dede" : 0 } }, r[1]);
+        }))),
+      h("div", { key: "n", style: { borderRight: "2px solid rgba(32,30,29,.4)" } },
+        [head("Neanes")].concat(rows.map(function (r, i) {
+          return h("div", { key: i, style: { height: 52, display: "flex", alignItems: "center",
+            justifyContent: "center", borderTop: i ? "1px solid #e2dede" : 0 } },
+            self.sym(r[0], r[2], 26, 50, "Neanes"));
+        }))),
+      h("div", { key: "a" },
+        [head("Almouzios")].concat(rows.map(function (r, i) {
+          return h("div", { key: i, style: { height: 52, display: "flex", alignItems: "center",
+            justifyContent: "center", borderTop: i ? "1px solid #e2dede" : 0 } },
+            self.sym(r[0], r[2], 26, 50, "Almouzios"));
+        })))
+    ]);
+  }
+
+  emptyIcon(kind) {
+    /* Two distinct marks so the well says what it inserts before anything is in it. */
+    if (kind === "fthora") {
+      return h("span", { key: "i", style: { position: "relative", display: "block", width: 15, height: 15 } }, [
+        h("span", { key: "a", style: { position: "absolute", left: 0, top: 7, width: 15, height: 0,
+          borderTop: "2px solid #9b9797", transform: "rotate(-38deg)" } }),
+        h("span", { key: "b", style: { position: "absolute", left: 5, top: 1, width: 0, height: 13,
+          borderLeft: "2px solid #9b9797" } })
+      ]);
+    }
+    /* Two tiers, deliberately unequal so it cannot read as an "=" — a small mark riding a
+       wider base, which is the shape of the cluster it inserts. */
+    return h("span", { key: "i", style: { display: "flex", flexDirection: "column",
+      alignItems: "center", gap: 5, width: 16 } }, [
+      h("span", { key: "a", style: { height: 0, borderTop: "2px solid #9b9797", width: 7,
+        borderRadius: 0 } }),
+      h("span", { key: "b", style: { width: 16, height: 7, border: "2px solid #9b9797",
+        borderTop: 0 } })
+    ]);
+  }
+
+  pickerRow(glyphStr, label, on, onPick, code, markStr) {
+    return h("button", { type: "button", onClick: onPick, style: { display: "flex", alignItems: "center", gap: 8,
+      width: "100%", textAlign: "left", padding: "3px 8px", border: 0, cursor: "pointer",
+      background: on ? "#ffe0d9" : "transparent", font: (on ? "600" : "400") + " 11px/1.2 'Archivo'" } }, [
+      glyphStr ? this.sym(glyphStr, markStr, 19, 26)
+               : h("div", { key: "g", style: { width: 26, textAlign: "center", color: "#9b9797" } }, "\u2014"),
+      h("span", { key: "l", style: { flex: 1 } }, label),
+      code ? h("span", { key: "c", style: { font: "400 8.5px/1 ui-monospace,Menlo,monospace",
+        color: "#a8a4a4" } }, code) : null
+    ]);
+  }
+
+  cpLabel(str) {
+    return "E" + str.charCodeAt(str.length - 1).toString(16).toUpperCase().slice(1);
+  }
+
+  panelStyle(stat, w) {
+    if (stat) return { position: "relative", width: w, border: "2px solid #201e1d", background: "#fff" };
+    const s = { position: "absolute", left: 0, width: w, zIndex: 20,
+      border: "2px solid #201e1d", background: "#fff", boxShadow: "0 12px 32px rgba(45,43,43,.22)" };
+    /* Flip upward when the panel would not clear the bottom of the app card — the card is
+       overflow:visible so an un-flipped panel on a low row spills onto the next option. */
+    if (this.state.flip3) s.bottom = 42; else s.top = 42;
+    return s;
+  }
+
+  fthoraPicker(i, stat) {
+    const self = this;
+    const cur = this.state.slots3[i].fthora;
+    return h("div", { style: this.panelStyle(stat, 244) }, [
+      h("div", { key: "h", style: { padding: "6px 9px", borderBottom: "2px solid #201e1d",
+        font: "700 9px/1 'Archivo'", letterSpacing: ".12em", textTransform: "uppercase" } },
+        "Fthora \u00b7 one set \u00b7 E1D0\u2013E1DF"),
+      h("div", { key: "b", style: stat ? null : { maxHeight: 300, overflowY: "auto" } }, [
+        this.pickerRow(null, "none", !cur, function () { self.setSlot(i, "fthora", null); })
+      ].concat(FTHORES.map(function (f) {
+        return self.pickerRow(f.cp, f.label, cur === f.k,
+          function () { self.setSlot(i, "fthora", f.k); }, self.cpLabel(f.cp));
+      })))
+    ]);
+  }
+
+  martyriaPicker(i, stat) {
+    const self = this;
+    const s = this.state.slots3[i];
+    const col = function (title, sub, last, body) {
+      return h("div", { style: { borderRight: last ? 0 : "2px solid rgba(32,30,29,.4)", minWidth: 0 } }, [
+        h("div", { key: "h", style: { padding: "6px 9px", borderBottom: "2px solid #201e1d",
+          font: "700 9px/1.3 'Archivo'", letterSpacing: ".12em", textTransform: "uppercase" } }, [
+          title, h("span", { key: "s", style: { fontWeight: 500, letterSpacing: 0, textTransform: "none",
+            color: "#7d7979" } }, " \u00b7 " + sub) ]),
+        h("div", { key: "b", style: stat ? null : { maxHeight: 292, overflowY: "auto" } }, body)
+      ]);
+    };
+    return h("div", { style: this.panelStyle(stat, 430) }, [
+      h("div", { key: "t", style: { display: "grid", gridTemplateColumns: "1fr 1fr" } }, [
+        col("Genus", "mark above, E17x", false, GENUS.map(function (g) {
+          return self.pickerRow(noteCp(s.deg, s.oct), g.label, s.genus === g.k,
+            function () { self.setSlot(i, "genus", g.k); }, self.cpLabel(g.cp), g.cp);
+        })),
+        col("Echos", "note letter, E13x", true, DEGREES.map(function (d) {
+          return self.pickerRow(noteCp(d, s.oct), DEGREE_GR[d] + " " + d, s.deg === d,
+            function () { self.setSlot(i, "deg", d); }, self.cpLabel(noteCp(d, s.oct)));
+        }))
+      ]),
+      h("div", { key: "o", style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 10px",
+        borderTop: "2px solid rgba(32,30,29,.4)" } }, [
+        h("span", { key: "l", style: { font: "600 9px/1 'Archivo'", letterSpacing: ".1em",
+          textTransform: "uppercase", color: "#605d5d" } }, "Octave"),
+        h("div", { key: "s", style: { display: "flex", border: "2px solid #201e1d" } },
+          OCTAVES.map(function (o, j) {
+            const on = s.oct === o.k;
+            return h("button", { key: o.k, type: "button",
+              onClick: function () { self.setSlot(i, "oct", o.k); },
+              style: { padding: "4px 10px", border: 0, borderLeft: j ? "2px solid #201e1d" : 0,
+                cursor: "pointer", background: on ? "#201e1d" : "#f8f4f4",
+                color: on ? "#f3f2f2" : "#201e1d", font: "600 10px/1 'Archivo'" } }, o.label);
+          }))
+      ]),
+      h("div", { key: "f", style: { display: "flex", alignItems: "center", justifyContent: "space-between",
+        gap: 10, padding: "7px 10px", borderTop: "2px solid #201e1d", background: "#f8f4f4" } }, [
+        h("div", { key: "p", style: { display: "flex", alignItems: "center", gap: 9 } }, [
+          h("span", { key: "l", style: { font: "600 9px/1 'Archivo'", letterSpacing: ".1em",
+            textTransform: "uppercase", color: "#605d5d" } }, "Composed"),
+          this.sym(noteCp(s.deg, s.oct), byKey(GENUS, s.genus).cp, 22, 36),
+          h("span", { key: "c", style: { font: "400 9px/1 ui-monospace,Menlo,monospace", color: "#a8a4a4" } },
+            "\\u" + this.cpLabel(noteCp(s.deg, s.oct)) + "\\u" + this.cpLabel(byKey(GENUS, s.genus).cp))
+        ]),
+        stat ? null : h("button", { key: "c", type: "button", className: "btn btn-secondary",
+          onClick: function () { self.setState({ open3: null }); },
+          style: { fontSize: 11, padding: "5px 11px" } }, "Done")
+      ])
+    ]);
+  }
+
+  martyriaGlyph(i, size) {
+    const s = this.state.slots3[i];
+    return this.sym(noteCp(s.deg, s.oct), byKey(GENUS, s.genus).cp, size, Math.round(size * 1.9));
+  }
+
+  setSlot(i, key, val) {
+    const next = this.state.slots3.map(function (s, j) {
+      if (j !== i) return s;
+      const c = { fthora: s.fthora, genus: s.genus, deg: s.deg, oct: s.oct };
+      c[key] = val;
+      return c;
+    });
+    this.setState({ slots3: next, open3: key === "fthora" ? null : this.state.open3 });
+  }
+
+  well(kind, i) {
+    const self = this;
+    const s = this.state.slots3[i];
+    const openKey = kind + i;
+    const isOpen = this.state.open3 === openKey;
+    const filled = kind === "fthora" ? !!s.fthora : true;
+    const body = filled
+      ? (kind === "fthora"
+          ? this.sym(byKey(FTHORES, s.fthora).cp, null, 19, 30)
+          : this.sym(noteCp(s.deg, s.oct), byKey(GENUS, s.genus).cp, 17, 30))
+      : this.emptyIcon(kind);
+    return h("div", { style: { position: "relative" } }, [
+      h("button", { key: "w", type: "button",
+        title: kind === "fthora" ? "Insert a fthora" : "Insert a martyria (genus + echos)",
+        onClick: function (e) {
+          if (isOpen) { self.setState({ open3: null }); return; }
+          let flip = false;
+          try {
+            const btn = e.currentTarget.getBoundingClientRect();
+            let card = e.currentTarget.closest(".dv-card");
+            const need = kind === "fthora" ? 350 : 420;
+            if (card) {
+              const c = card.getBoundingClientRect();
+              flip = (c.bottom - btn.bottom) < need && (btn.top - c.top) > need;
+            }
+          } catch (err) {}
+          self.setState({ open3: openKey, flip3: flip });
+        },
+        style: { width: 34, height: 34, cursor: "pointer", padding: 0,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: filled ? "#fff" : "#f8f4f4",
+          border: isOpen ? "2px solid #ec3013" : (filled ? "2px solid #201e1d" : "1px dashed #bab6b6") } }, body),
+      isOpen ? (kind === "fthora" ? this.fthoraPicker(i) : this.martyriaPicker(i)) : null
+    ]);
+  }
+
+  vals3() {
+    const self = this;
+    const m = this.state.mode3;
+    const byz = m === "byzantine";
+    const tab = function (on, first) {
+      return { flex: 1, padding: "8px 4px", border: 0, borderLeft: first ? 0 : "2px solid #201e1d",
+        cursor: "pointer", background: on ? "#ec3013" : "#f8f4f4", color: on ? "#fff" : "#201e1d",
+        font: (on ? "700" : "600") + " 10.5px/1 'Archivo'", letterSpacing: ".06em" };
+    };
+    const fbtn = function (on) {
+      return { flex: 1, padding: "6px 4px", border: 0, borderLeft: on === "l" ? 0 : "2px solid #201e1d",
+        cursor: "pointer", background: "transparent", font: "600 10.5px/1 'Archivo'" };
+    };
+
+    const ILAB = { 1: "tmm", 2: "T", 3: "TT" };
+    const rows3 = SCALE3.slice(0, 5).map(function (n, i) {
+      return {
+        label: "Note " + (i + 1),
+        cum: n.cum + " \u00a2",
+        showInterval: i < 4,
+        units: String(n.up),
+        intervalCents: (n.up * 100).toFixed(2) + " \u00a2",
+        ilabel: ILAB[n.up] || "",
+        left: byz ? self.well("fthora", i)
+                  : h("input", { className: "input", type: "text", placeholder: "b / #",
+                      style: { width: 34, padding: "4px 5px", fontSize: 12 } }),
+        right: byz ? self.well("martyria", i)
+                   : h("input", { className: "input", type: "text", defaultValue: n.name,
+                       style: { width: 104, padding: "4px 7px", fontSize: 12 } })
+      };
+    });
+
+    return {
+      rows3: rows3,
+      isByz3: byz,
+      tab3G: tab(m === "generic", true),
+      tab3B: tab(m === "byzantine"),
+      tab3M: tab(m === "maqam"),
+      set3G: function () { self.setState({ mode3: "generic", open3: null }); },
+      set3B: function () { self.setState({ mode3: "byzantine", open3: null }); },
+      set3M: function () { self.setState({ mode3: "maqam", open3: null }); },
+      fontName3: FONTS3[this.state.font3].label,
+      fontSelect3: h("select", { className: "input", value: this.state.font3, disabled: !byz,
+        onChange: function (e) { self.setState({ font3: e.target.value }); },
+        style: { width: "100%", padding: "5px 7px", fontSize: 12, opacity: byz ? 1 : .45 } }, [
+        h("option", { key: "n", value: "neanes" }, "Neanes (recommended)"),
+        h("option", { key: "a", value: "almouzios" }, "Almouzios")
+      ]),
+      rightHead3: byz ? "Martyria" : "Note name",
+      leftHead3: byz ? "Fthora" : "Accidental",
+      modeNote3: byz
+        ? "No note-name field: in Byzantine mode the martyria is the name. Slots are empty until used, and each empty slot's mark says which sign it inserts."
+        : m === "maqam"
+          ? "Maqam keeps the free-text name and swaps the left slot for Ottoman accidentals."
+          : "Generic is today's app \u2014 free-text name, free-text accidental.",
+      chart3: this.chart3(byz),
+      specimenTable3: this.specimen3(),
+      fthoraPanel3: this.fthoraPicker(0, true),
+      martyriaPanel3: this.martyriaPicker(4, true),
+
+      wellDemo: h("div", { style: { display: "flex", alignItems: "flex-end", gap: 26 } }, [
+        h("div", { key: "a", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 7 } }, [
+          h("div", { key: "w", style: { width: 34, height: 34, border: "1px dashed #bab6b6", background: "#f8f4f4",
+            display: "flex", alignItems: "center", justifyContent: "center" } }, this.emptyIcon("fthora")),
+          h("span", { key: "l", style: { font: "500 10px/1.3 'Archivo'", color: "#605d5d" } }, "adds fthora")
+        ]),
+        h("div", { key: "b", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 7 } }, [
+          h("div", { key: "w", style: { width: 34, height: 34, border: "1px dashed #bab6b6", background: "#f8f4f4",
+            display: "flex", alignItems: "center", justifyContent: "center" } }, this.emptyIcon("martyria")),
+          h("span", { key: "l", style: { font: "500 10px/1.3 'Archivo'", color: "#605d5d" } }, "adds martyria")
+        ]),
+        h("div", { key: "c", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 7 } }, [
+          h("div", { key: "w", style: { width: 34, height: 34, border: "2px solid #201e1d", background: "#fff",
+            display: "flex", alignItems: "center", justifyContent: "center" } },
+            this.sym("\uE1D8", null, 19, 30)),
+          h("span", { key: "l", style: { font: "500 10px/1.3 'Archivo'", color: "#605d5d" } }, "filled")
+        ]),
+        h("div", { key: "d", style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 7 } }, [
+          h("div", { key: "w", style: { width: 34, height: 34, border: "2px solid #201e1d", background: "#fff",
+            display: "flex", alignItems: "center", justifyContent: "center" } },
+            this.sym("\uE139", "\uE177", 17, 30)),
+          h("span", { key: "l", style: { font: "500 10px/1.3 'Archivo'", color: "#605d5d" } }, "composed")
+        ])
+      ])
+    };
+  }
+
+  chart3(byz) {
+    const self = this;
+    const cols = "56px 70px 132px 1fr";
+    const UNIT = 34;
+    const out = [];
+    for (let i = SCALE3.length - 1; i >= 0; i--) {
+      const n = SCALE3[i];
+      const s = this.state.slots3[i];
+      out.push(h("div", { key: "sep" + i, style: { display: "grid", gridTemplateColumns: cols, alignItems: "center" } }, [
+        h("div", { key: "c", style: { textAlign: "right", paddingRight: 12,
+          font: "400 10.5px/1 ui-monospace,Menlo,monospace", color: "#7d7979" } }, n.cum + "\u00a2"),
+        h("div", { key: "l", style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 } },
+          byz && s.fthora ? [
+            self.sym(byKey(FTHORES, s.fthora).cp, null, 24, 36),
+            h("span", { key: "d", style: { width: 12, height: 0, borderTop: "1.5px solid #201e1d" } })
+          ] : null),
+        h("div", { key: "m", style: { height: 0, borderTop: "2px solid #201e1d" } }),
+        h("div", { key: "r", style: { display: "flex", alignItems: "center", gap: 10, paddingLeft: 11 } },
+          byz ? self.martyriaGlyph(i, 24)
+              : h("span", { style: { font: "500 13px/1 'Archivo'" } }, n.name))
+      ]));
+      if (i > 0) {
+        const p = SCALE3[i - 1];
+        out.push(h("div", { key: "box" + i, style: { display: "grid", gridTemplateColumns: cols } }, [
+          h("span", { key: "a" }),
+          h("div", { key: "b", style: { height: p.up * UNIT, borderLeft: "2px solid #201e1d",
+            borderRight: "2px solid #201e1d", background: "#fff", display: "flex", alignItems: "center",
+            justifyContent: "center", font: "500 13px/1 'Archivo'", gridColumn: 3 } }, p.up),
+          h("span", { key: "c" })
+        ]));
+      }
+    }
+    return h("div", { key: this.state.mode3 + this.state.font3 }, out);
+  }
+
+  /* ---- turn 2 ---------------------------------------------------------- */
+
+  sel(width, items, opts) {
+    const o = opts || {};
+    return h("select", { className: "input", defaultValue: o.value,
+      style: { width: width, padding: "4px 5px", fontSize: o.glyph ? 14 : 12,
+        fontFamily: o.glyph ? SERIF : "inherit",
+        borderColor: o.filled ? "#201e1d" : "#bab6b6" } },
+      items.map((t, i) => h("option", { key: i }, t)));
+  }
+
+  bookChart(mode) {
+    const d = MODE_DATA[mode];
+    const byz = mode === "byzantine";
+    const cols = "78px 152px 1fr";
+    const out = [];
+    for (let i = d.notes.length - 1; i >= 0; i--) {
+      const n = d.notes[i];
+      out.push(h("div", { key: "sep" + i, style: { display: "grid", gridTemplateColumns: cols, alignItems: "center" } }, [
+        h("div", { key: "l", style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 5 } },
+          n.left ? [
+            h("span", { key: "g", style: { fontFamily: SERIF, fontSize: byz ? 19 : 15, lineHeight: 1 } }, n.left),
+            h("span", { key: "d", style: { width: 12, height: 0, borderTop: "1.5px solid #201e1d" } })
+          ] : null),
+        h("div", { key: "m", style: { height: 0, borderTop: "2px solid #201e1d" } }),
+        h("div", { key: "r", style: { display: "flex", alignItems: "center", gap: 10, paddingLeft: 11 } }, [
+          byz ? h("div", { key: "g", style: { display: "flex", flexDirection: "column", alignItems: "center",
+            lineHeight: .82, fontFamily: SERIF, padding: "1px 3px", background: "#fdf6e3" } },
+            [h("span", { key: "t", style: { fontSize: 11 } }, n.echos), h("span", { key: "b", style: { fontSize: 19 } }, n.base)]) : null,
+          h("span", { key: "n", style: { font: "500 13px/1 'Archivo'", whiteSpace: "nowrap" } }, n.name)
+        ])
+      ]));
+      if (i > 0) {
+        const p = d.notes[i - 1];
+        out.push(h("div", { key: "box" + i, style: { display: "grid", gridTemplateColumns: cols } }, [
+          h("span", { key: "a" }),
+          h("div", { key: "b", style: { height: p.divisions * d.unit, borderLeft: "2px solid #201e1d",
+            borderRight: "2px solid #201e1d", background: "#fff", display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center", gap: 1 } }, [
+            h("span", { key: "l", style: { font: "500 13px/1.1 'Archivo'" } }, p.label),
+            h("span", { key: "d", style: { font: "400 12px/1.1 'Archivo'", color: "#7d7979" } }, p.divisions)
+          ]),
+          h("span", { key: "c" })
+        ]));
+      }
+    }
+    return h("div", { key: mode }, out);
+  }
+
+  editorRows2(mode) {
+    const d = MODE_DATA[mode];
+    return d.notes.slice(0, 4).map((n, i) => {
+      let left, right;
+      if (mode === "byzantine") {
+        left = this.sel(84, ["—", "\u03B4 diatonic", "\u03BD nenano", "\u03B7 hard chrom.", "\u03B6 soft chrom."], { glyph: true, filled: !!n.left, value: n.left ? "\u03B4 diatonic" : "—" });
+        right = h("div", { style: { display: "flex", gap: 4 } }, [
+          this.sel(58, ["\u0304\u03B1", "\u0304\u03B2", "\u0304\u03B3", "\u0304\u03B4", "\u0304\u03B5", "\u0304\u03B6", "\u0304\u03B7"], { key: "e", glyph: true, filled: true, value: n.echos }),
+          this.sel(58, ["\u039D\u2032", "\u03A0\u2032", "\u0392\u2032", "\u0393\u2032", "\u0394\u2032", "\u039A\u2032", "\u0396\u2032"], { key: "b", glyph: true, filled: true, value: n.base })
+        ]);
+      } else if (mode === "maqam") {
+        left = this.sel(84, ["—", "\u266D\u00B9 koma", "\u266D\u2074 bakiye", "\u266F\u00B9 koma", "\u266F\u2074 bakiye"], { glyph: true, filled: !!n.left, value: n.left ? "\u266D\u00B9 koma" : "—" });
+        right = h("span", { style: { font: "400 11px/1 'Archivo'", color: "#9b9797" } }, "—");
+      } else {
+        left = h("input", { className: "input", type: "text", defaultValue: n.left, placeholder: "b / #",
+          style: { width: 84, padding: "4px 6px", fontSize: 12 } });
+        right = h("span", { style: { font: "400 11px/1 'Archivo'", color: "#9b9797" } }, "—");
+      }
+      return {
+        label: "Note " + (i + 1),
+        name: n.name,
+        divisions: n.divisions ? String(n.divisions) : "",
+        intervalLabel: n.label,
+        left: left,
+        right: right
+      };
+    });
+  }
+
+  glyphWell(chars, opts) {
+    const o = opts || {};
+    if (!chars) {
+      return h("div", { style: { width: 30, height: o.tall ? 36 : 30, border: "1px dashed #bab6b6", background: "#fff",
+        display: "flex", alignItems: "center", justifyContent: "center", font: "400 11px/1 'Archivo'", color: "#bab6b6" } }, "+");
+    }
+    return h("div", { style: { width: 30, height: o.tall ? 36 : 30, border: "2px solid #201e1d", background: "#fff",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: .85, fontFamily: SERIF } },
+      o.tall ? [h("span", { key: "t", style: { fontSize: 9 } }, chars[0]), h("span", { key: "b", style: { fontSize: 16 } }, chars[1])]
+             : h("span", { style: { fontSize: 16 } }, chars));
+  }
+
+  textWell(value) {
+    return h("input", { className: "input", type: "text", defaultValue: value, placeholder: "label",
+      style: { width: 70, padding: "4px 7px", fontSize: 12 } });
+  }
+
+  renderVals() {
+    const byz = this.state.mode === "byzantine";
+    const btn = (on) => ({ flex: 1, padding: "7px 4px", border: 0, borderLeft: "2px solid #201e1d", cursor: "pointer",
+      background: on ? "#ec3013" : "#f8f4f4", color: on ? "#fff" : "#201e1d", font: (on ? "700" : "600") + " 10px/1 'Archivo'" });
+    const g = btn(!byz); g.borderLeft = 0;
+
+    const slotRowStyle = { display: "grid", gridTemplateColumns: "58px 1fr", alignItems: "center", gap: 11,
+      borderBottom: "2px solid #201e1d", paddingBottom: 5 };
+
+    const rows = SCALE.slice(0, 5).map((n, i) => ({
+      label: "Note " + (i + 1),
+      name: n.name,
+      divisions: n.divisions ? String(n.divisions) : "",
+      cents: n.cents ? String(n.cents) : "",
+      intervalLabel: n.intervalLabel,
+      slotRowStyle: slotRowStyle,
+      leftSlot: byz ? this.glyphWell(n.fthora) : this.textWell(n.fthora ? "b" : ""),
+      rightSlot: byz ? this.glyphWell([n.echos, n.base], { tall: true }) : this.textWell("")
+    }));
+
+    return {
+      rows: rows.slice(0, 4),
+      setGeneric: () => this.setState({ mode: "generic" }),
+      setByz: () => this.setState({ mode: "byzantine" }),
+      genericBtnStyle: g,
+      byzBtnStyle: btn(byz),
+      headerRowStyle: { display: "grid", gridTemplateColumns: "58px 1fr", gap: 11 },
+      leftColLabel: byz ? "Fthora" : "Accidental (text)",
+      rightColLabel: byz ? "Martyria · name" : "Note name",
+      chart: this.chart(byz),
+      ...this.vals2(),
+      ...this.vals3()
+    };
+  }
+
+  vals2() {
+    const m = this.state.mode2;
+    const d = MODE_DATA[m];
+    const tab = (on, first) => ({ flex: 1, padding: "8px 4px", border: 0,
+      borderLeft: first ? 0 : "2px solid #201e1d", cursor: "pointer",
+      background: on ? "#ec3013" : "#f8f4f4", color: on ? "#fff" : "#201e1d",
+      font: (on ? "700" : "600") + " 10.5px/1 'Archivo'", letterSpacing: ".06em" });
+    return {
+      mode2: m,
+      isByz2: m === "byzantine",
+      tabG: tab(m === "generic", true),
+      tabB: tab(m === "byzantine"),
+      tabM: tab(m === "maqam"),
+      setG2: () => this.setState({ mode2: "generic" }),
+      setB2: () => this.setState({ mode2: "byzantine" }),
+      setM2: () => this.setState({ mode2: "maqam" }),
+      edo2: d.edo,
+      each2: d.each,
+      scaleName2: d.scaleName,
+      leftLabel2: m === "byzantine" ? "Fthora" : m === "maqam" ? "Accidental" : "Accidental (text)",
+      rightLabel2: m === "byzantine" ? "Martyria — echos + note" : "Martyria",
+      modeNote2: m === "byzantine"
+        ? "Both right-hand dropdowns compose one martyria: the echos mark sits above the note letter, exactly as it prints."
+        : m === "maqam"
+          ? "Maqam reuses the same two slots: Ottoman accidentals at the left, perde names typed at the right. No martyria column."
+          : "Generic is today's app: one free-text field per note, plus a free-text accidental at the left slot.",
+      rows2: this.editorRows2(m),
+      chart2: this.bookChart(m),
+      chartToday: this.bookChart("generic"),
+      chartTarget: this.bookChart("byzantine")
+    };
+  }
+
+  chart(byz) {
+    const COL = "116px";
+    const grid = (children) => h("div", { style: { display: "grid", gridTemplateColumns: "64px " + COL + " 1fr", alignItems: "center" } }, children);
+    const out = [];
+    for (let i = SCALE.length - 1; i >= 0; i--) {
+      const n = SCALE[i];
+      out.push(grid([
+        h("span", { key: "l", style: { fontFamily: SERIF, fontSize: 20, textAlign: "right", paddingRight: 12 } }, byz ? (n.fthora || "") : ""),
+        h("div", { key: "m", style: { height: 0, borderTop: "2px solid #201e1d" } }),
+        h("div", { key: "r", style: { display: "flex", alignItems: "center", gap: 11, paddingLeft: 12 } }, [
+          byz ? h("div", { key: "g", style: { display: "flex", flexDirection: "column", alignItems: "center", lineHeight: .85, fontFamily: SERIF } },
+            [h("span", { key: "t", style: { fontSize: 11 } }, n.echos), h("span", { key: "b", style: { fontSize: 20 } }, n.base)]) : null,
+          h("span", { key: "n", style: { font: "500 13px/1 'Archivo'" } }, n.name)
+        ])
+      ]));
+      if (i > 0) {
+        const p = SCALE[i - 1];
+        out.push(h("div", { key: "box" + i, style: { display: "grid", gridTemplateColumns: "64px " + COL + " 1fr" } }, [
+          h("span", { key: "a" }),
+          h("div", { key: "b", style: { height: p.divisions * 17, borderLeft: "2px solid #201e1d", borderRight: "2px solid #201e1d",
+            background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 } }, [
+            h("span", { key: "d", style: { font: "600 13px/1 'Archivo'" } }, p.divisions),
+            h("span", { key: "l", style: { font: "400 12px/1 'Archivo'", color: "#605d5d" } }, p.intervalLabel)
+          ]),
+          h("span", { key: "c" })
+        ]));
+      }
+    }
+    return h("div", { key: this.state.mode }, out);
+  }
+}
+
+</script>
+</body>
+</html>
