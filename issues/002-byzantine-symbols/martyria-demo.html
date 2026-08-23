@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SBMuFL martyria composition — demo (issue #2)</title>
+
+<style>
+/* ---------------------------------------------------------------------------
+   Byzantine music fonts, fetched from the Internet (jsDelivr, commit-pinned).
+   See FONTS.md → "Public hosting (verified)". Pinning the SHA is what makes
+   these URLs immutable and long-cached; @latest would silently follow master.
+   --------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Neanes";
+  src: url("https://cdn.jsdelivr.net/gh/neanes/sbmufl@9519b83e43ddf1dc655c9a1f3be88ec01017baf5/fonts/Neanes.otf") format("opentype");
+  font-display: block;
+}
+@font-face {
+  font-family: "NeanesEngraving";
+  src: url("https://cdn.jsdelivr.net/gh/neanes/sbmufl@9519b83e43ddf1dc655c9a1f3be88ec01017baf5/fonts/NeanesEngraving.otf") format("opentype");
+  font-display: block;
+}
+@font-face {
+  font-family: "NeanesStathisSeries";
+  src: url("https://cdn.jsdelivr.net/gh/neanes/sbmufl@9519b83e43ddf1dc655c9a1f3be88ec01017baf5/fonts/NeanesStathisSeries.otf") format("opentype");
+  font-display: block;
+}
+@font-face {
+  font-family: "Almouzios";
+  src: url("https://cdn.jsdelivr.net/gh/ilizol/Almouzios@b9703ba74b18721bdacbf1421d2fa2c6009a906f/Almouzios.otf") format("opentype");
+  font-display: block;
+}
+
+:root {
+  --bg: #fbfaf7;
+  --panel: #ffffff;
+  --ink: #1d1b16;
+  --muted: #6b6559;
+  --line: #ddd8cc;
+  --accent: #7a3b12;
+  --accent-soft: #f3e7dc;
+  --warn-bg: #fdf6e3;
+  --warn-line: #e0cf9a;
+  --glyph: 56px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 2.5rem 1.5rem 6rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+main { max-width: 1180px; margin: 0 auto; }
+
+h1 { font-size: 1.9rem; margin: 0 0 .3rem; letter-spacing: -.01em; }
+h2 {
+  font-size: 1.25rem;
+  margin: 3rem 0 .4rem;
+  padding-bottom: .4rem;
+  border-bottom: 2px solid var(--line);
+}
+h3 { font-size: 1rem; margin: 1.8rem 0 .6rem; color: var(--accent); }
+p  { max-width: 72ch; }
+.lede { color: var(--muted); max-width: 78ch; }
+code {
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: var(--accent-soft);
+  padding: .1em .35em;
+  border-radius: 3px;
+}
+
+.note {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  border-left: 4px solid #c9a227;
+  border-radius: 4px;
+  padding: .8rem 1rem;
+  margin: 1rem 0;
+  max-width: 78ch;
+  font-size: .92rem;
+}
+
+/* ---- controls ---------------------------------------------------------- */
+.controls {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem 1.8rem;
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: .9rem 1.1rem;
+  margin: 1.5rem 0 2rem;
+  box-shadow: 0 2px 14px rgba(0,0,0,.06);
+}
+.controls label { font-size: .85rem; color: var(--muted); display: flex; gap: .5rem; align-items: center; }
+.controls select, .controls input[type="range"] { font: inherit; font-size: .85rem; }
+#font-status { font-size: .8rem; color: var(--muted); margin-left: auto; }
+
+/* ---- glyph rendering --------------------------------------------------- */
+.byz {
+  font-family: var(--face, "Neanes");
+  font-size: var(--glyph);
+  line-height: 1.9;
+  /* The glyphs sit well above/below the baseline; give them room. */
+  display: inline-block;
+}
+
+.cell {
+  border: 1px solid var(--line);
+  background: var(--panel);
+  border-radius: 5px;
+  padding: .35rem .2rem .3rem;
+  text-align: center;
+  min-width: 0;
+}
+.cell .byz { display: block; }
+.cell .cap {
+  font: 10px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+  white-space: pre-line;
+  word-break: break-word;
+}
+.cell.unattached { background: #fff5f5; border-color: #e8c4c4; }
+
+.hide-captions .cap { display: none; }
+
+/* ---- grids ------------------------------------------------------------- */
+.strip { display: flex; flex-wrap: wrap; gap: .5rem; margin: .6rem 0 1.4rem; }
+.strip .cell { width: 8.5rem; }
+
+table.matrix { border-collapse: separate; border-spacing: 4px; margin-top: .6rem; }
+table.matrix th {
+  font: 11px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+  font-weight: 600;
+  vertical-align: bottom;
+  padding: 0 .2rem .3rem;
+}
+table.matrix th.rowhead { text-align: right; white-space: nowrap; padding-right: .5rem; vertical-align: middle; }
+table.matrix th.colhead { writing-mode: vertical-rl; transform: rotate(180deg); height: 9rem; text-align: left; }
+table.matrix td { padding: 0; }
+/* Matrix cells are narrow: show only the codepoints, full names live in the
+   tooltip and in the wide strips of section 1. */
+table.matrix .cell { width: 5.4rem; }
+table.matrix .cap { font-size: 9px; }
+table#orientation .cell { width: 10rem; }
+.scroller { overflow-x: auto; padding-bottom: .5rem; }
+
+.legend { display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: .82rem; color: var(--muted); margin: .5rem 0 0; }
+.swatch { display: inline-block; width: .8rem; height: .8rem; border-radius: 3px; vertical-align: -1px; margin-right: .35rem; border: 1px solid var(--line); }
+.swatch.ok { background: var(--panel); }
+.swatch.bad { background: #fff5f5; border-color: #e8c4c4; }
+
+footer { margin-top: 4rem; padding-top: 1rem; border-top: 1px solid var(--line); font-size: .85rem; color: var(--muted); }
+a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Martyria composition with the Neanes SBMuFL font</h1>
+<p class="lede">
+  Research demo for <strong>issue #2</strong>. Every martyria here is a
+  <em>two-character string</em> — a note letter plus a genus (ichos) sign — rendered in a single
+  run. The font stacks and centres the two through OpenType
+  <strong>mark-to-base positioning</strong>; nothing is positioned by this page.
+  See <code>MARTYRIA-COMPOSITION.md</code> next to this file for how that works.
+</p>
+
+<div class="controls">
+  <label>Font face
+    <select id="face">
+      <option value="Neanes">Neanes</option>
+      <option value="NeanesEngraving">NeanesEngraving</option>
+      <option value="NeanesStathisSeries">NeanesStathisSeries</option>
+      <option value="Almouzios">Almouzios</option>
+    </select>
+  </label>
+  <label>Size
+    <input id="size" type="range" min="24" max="110" value="56">
+    <span id="size-out" style="min-width:3.2em">56px</span>
+  </label>
+  <label><input id="tick" type="checkbox"> Prepend <code>martyriaTick</code></label>
+  <label><input id="caps" type="checkbox" checked> Show glyph names</label>
+  <span id="font-status">loading font…</span>
+</div>
+
+<!-- ==================================================================== -->
+<h2>1. The two halves</h2>
+<p>
+  <strong>Note letters</strong> (base glyphs, normal advance) — <code>U+E130–U+E144</code>, seven
+  degrees in three octave registers. <strong>Genus signs</strong> (marks, zero advance) —
+  <code>U+E150–U+E15B</code> for the <code>…Below</code> set and <code>U+E170–U+E17B</code> for the
+  <code>…Above</code> set. On their own the marks have no advance width, so they are shown here
+  after a space; that is also why they look off-centre.
+</p>
+
+<h3>Note letters — low octave (<code>U+E130</code>)</h3>
+<div class="strip" id="letters-low"></div>
+<h3>Note letters — middle octave (<code>U+E137</code>)</h3>
+<div class="strip" id="letters-mid"></div>
+<h3>Note letters — high octave (<code>U+E13E</code>)</h3>
+<div class="strip" id="letters-high"></div>
+
+<h3>Genus signs, <code>…Above</code> set (<code>U+E170</code>)</h3>
+<div class="strip" id="signs-above"></div>
+<h3>Genus signs, <code>…Below</code> set (<code>U+E150</code>)</h3>
+<div class="strip" id="signs-below"></div>
+
+<!-- ==================================================================== -->
+<h2>2. Which side the letter goes on</h2>
+<p>
+  The issue notes that “the note letter may appear on either the top or the bottom of the
+  martyrium”. In SBMuFL that is not a free choice per martyria — it is decided by the
+  <em>octave register of the note letter</em>, because each base glyph carries only one attachment
+  anchor:
+</p>
+<ul>
+  <li><strong>Low-octave letters</strong> (<code>…Low</code>) carry a <code>martyriaTop</code>
+      anchor, so they take the <code>…Above</code> marks: <strong>sign on top, letter underneath</strong>.</li>
+  <li><strong>Middle- and high-octave letters</strong> carry a <code>martyriaBottom</code> anchor,
+      so they take the <code>…Below</code> marks: <strong>letter on top, sign underneath</strong>.</li>
+</ul>
+<p>
+  Pair a letter with the mark from the wrong set and there is no matching anchor, so the shaper
+  leaves the mark unattached at the origin — it collides with the letter. The grid below shows both
+  pairings for every letter so you can see the rule hold; the pink cells are the mismatches.
+</p>
+<div class="legend">
+  <span><span class="swatch ok"></span>anchor matches — GPOS stacks it</span>
+  <span><span class="swatch bad"></span>no matching anchor — mark falls at the origin</span>
+</div>
+<div class="scroller"><table class="matrix" id="orientation"></table></div>
+
+<!-- ==================================================================== -->
+<h2>3. The martyries of the Romanian textbook</h2>
+<p>
+  From <em>Cursuri de Teoria Muzicii Psaltice</em>, pp. 80 and 83. The book defines a martyria as
+  two superposed signs — “one above, the initial of a note on the scale; the other below, placing
+  that note in one of the nodes of a genus (diatonic, chromatic or enharmonic)”. The Greek initials
+  it lists are Ν (Νη/Ni), Π (Πα/Pa), δ (Βου/Vu), Γ (Γα/Ga), Δ (Δι/Di), Κ (Κε/Ke), Ζ (Ζω/Zo), Ν′ (Ni′).
+</p>
+<p>
+  The book’s Zo and Ni rows carry the “<em>de jos</em>” / “<em>de sus</em>” (lower / upper) pair,
+  which is exactly SBMuFL’s low-register vs. high-register letter — and note that the “de jos” forms
+  are the ones drawn with the letter <em>underneath</em>. Use the selector to change the genus sign
+  applied across the scale.
+</p>
+
+<h3>a) Mărturii diatonice — each degree with its own diatonic sign</h3>
+<div class="strip" id="book-diatonic"></div>
+
+<h3>b) &amp; c) One genus sign across the whole scale</h3>
+<p style="margin-bottom:.4rem">
+  <label style="font-size:.85rem;color:var(--muted)">Genus sign
+    <select id="book-sign"></select>
+  </label>
+</p>
+<div class="strip" id="book-genus"></div>
+
+<div class="note">
+  <strong>Caveat on the scan.</strong> Page 80’s diatonic list (per-degree signs) is unambiguous and
+  is reproduced exactly. The chromatic and enharmonic lists on p. 80, and the makam columns of the
+  p. 83 table (“Muștar”, scara “Agem”, “Nisabur”, “Hisar”), are not legible enough in the scan to
+  assign a sign per degree with confidence, so this section leaves that choice to the selector
+  rather than asserting one. Section 4 below contains every possible pairing anyway.
+</div>
+
+<!-- ==================================================================== -->
+<h2>4. Every combination — 21 note letters × 12 genus signs</h2>
+<p>
+  The complete cross-product, each cell using the anchor-correct mark for that letter’s register
+  (<code>…Above</code> for the low octave, <code>…Below</code> for middle and high). 252 martyries.
+</p>
+<div class="scroller"><table class="matrix" id="full"></table></div>
+
+<footer>
+  Fonts fetched from jsDelivr at pinned commits:
+  <a href="https://github.com/neanes/sbmufl">neanes/sbmufl</a> (Neanes family) and
+  <a href="https://github.com/ilizol/Almouzios">ilizol/Almouzios</a>, both SIL OFL 1.1.
+  Glyph names and codepoints from
+  <a href="https://neanes.github.io/sbmufl/">the SBMuFL specification</a>.
+</footer>
+
+</main>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ data */
+
+const DEGREES = ["Zo", "Ni", "Pa", "Vou", "Ga", "Di", "Ke"];
+
+// The three octave blocks are contiguous and in the same degree order, so a
+// codepoint is just block base + degree index.
+const OCTAVES = [
+  { key: "Low",  base: 0xE130, label: "low",    anchor: "martyriaTop",    markSet: "Above" },
+  { key: "",     base: 0xE137, label: "middle", anchor: "martyriaBottom", markSet: "Below" },
+  { key: "High", base: 0xE13E, label: "high",   anchor: "martyriaBottom", markSet: "Below" },
+];
+
+// …Below block starts at U+E150, …Above at U+E170 — same order, so above = below + 0x20.
+const SIGNS = [
+  { key: "Zo",              label: "Zo",                genus: "diatonic"       },
+  { key: "Delta",           label: "Δ delta",           genus: "diatonic"       },
+  { key: "Alpha",           label: "Α alpha",           genus: "diatonic"       },
+  { key: "Legetos",         label: "legetos",           genus: "diatonic"       },
+  { key: "Nana",            label: "nana",              genus: "diatonic/enh."  },
+  { key: "DeltaDotted",     label: "Δ dotted",          genus: "diatonic"       },
+  { key: "AlphaDotted",     label: "Α dotted",          genus: "diatonic"       },
+  { key: "HardChromaticPa", label: "hard chrom. Πα",    genus: "hard chromatic" },
+  { key: "HardChromaticDi", label: "hard chrom. Δι",    genus: "hard chromatic" },
+  { key: "SoftChromaticDi", label: "soft chrom. Δι",    genus: "soft chromatic" },
+  { key: "SoftChromaticKe", label: "soft chrom. Κε",    genus: "soft chromatic" },
+  { key: "Zygos",           label: "zygos",             genus: "chroa"          },
+];
+
+const SIGN_BELOW_BASE = 0xE150;
+const SIGN_ABOVE_BASE = 0xE170;
+const MARTYRIA_TICK   = 0xE145;
+
+// The standard diatonic sign for each degree: the first seven marks are listed
+// in the same order as the seven degrees, which is why this is an identity map.
+const DIATONIC_SIGN_FOR_DEGREE = {
+  Zo: "Zo", Ni: "Delta", Pa: "Alpha", Vou: "Legetos",
+  Ga: "Nana", Di: "DeltaDotted", Ke: "AlphaDotted",
+};
+
+// The scale of the textbook's page-80 lists: Νη … Νη′, i.e. the middle-octave
+// letters from Ni up to Ke, then Zo and Ni in the high register.
+const BOOK_SCALE = [
+  { degree: "Ni",  octave: "",     text: "Νη"  },
+  { degree: "Pa",  octave: "",     text: "Πα"  },
+  { degree: "Vou", octave: "",     text: "Βου" },
+  { degree: "Ga",  octave: "",     text: "Γα"  },
+  { degree: "Di",  octave: "",     text: "Δι"  },
+  { degree: "Ke",  octave: "",     text: "Κε"  },
+  { degree: "Zo",  octave: "High", text: "Ζω′"  },
+  { degree: "Ni",  octave: "High", text: "Νη′"  },
+];
+
+/* ------------------------------------------------------------- glyph names */
+
+function noteName(degree, octaveKey) {
+  return "martyriaNote" + degree + octaveKey;
+}
+
+function noteCodepoint(degree, octaveKey) {
+  const oct = OCTAVES.find((o) => o.key === octaveKey);
+  return oct.base + DEGREES.indexOf(degree);
+}
+
+function signName(signKey, side) {
+  return "martyria" + signKey + side;
+}
+
+function signCodepoint(signKey, side) {
+  const base = side === "Above" ? SIGN_ABOVE_BASE : SIGN_BELOW_BASE;
+  return base + SIGNS.findIndex((s) => s.key === signKey);
+}
+
+// The mark set a given register can actually attach to.
+function markSetFor(octaveKey) {
+  return OCTAVES.find((o) => o.key === octaveKey).markSet;
+}
+
+function hex(cp) {
+  return "U+" + cp.toString(16).toUpperCase().padStart(4, "0");
+}
+
+/* --------------------------------------------------------------- rendering */
+
+let prependTick = false;
+
+function glyphString(codepoints) {
+  const cps = prependTick ? [MARTYRIA_TICK, ...codepoints] : codepoints;
+  return cps.map((cp) => String.fromCodePoint(cp)).join("");
+}
+
+function cell(codepoints, caption, { unattached = false, shortCaption = null } = {}) {
+  const el = document.createElement("div");
+  el.className = "cell" + (unattached ? " unattached" : "");
+  el.title = caption;
+
+  const g = document.createElement("span");
+  g.className = "byz";
+  g.textContent = glyphString(codepoints);
+  el.append(g);
+
+  const cap = document.createElement("span");
+  cap.className = "cap";
+  cap.textContent = shortCaption === null ? caption : shortCaption;
+  el.append(cap);
+
+  return el;
+}
+
+/**
+ * One martyria: note letter + genus sign. `side` overrides the natural mark set
+ * (used by the orientation study to show the mismatched pairing on purpose).
+ */
+function martyriaCell(degree, octaveKey, signKey, side, { compact = false } = {}) {
+  const actualSide = side || markSetFor(octaveKey);
+  const noteCp = noteCodepoint(degree, octaveKey);
+  const signCp = signCodepoint(signKey, actualSide);
+  const unattached = actualSide !== markSetFor(octaveKey);
+  const caption =
+    noteName(degree, octaveKey) + " + " + signName(signKey, actualSide) +
+    "\n" + hex(noteCp) + " " + hex(signCp);
+  return cell([noteCp, signCp], caption, {
+    unattached,
+    shortCaption: compact ? hex(noteCp) + "\n" + hex(signCp) : null,
+  });
+}
+
+/* ------------------------------------------------------------- section 1 */
+
+function renderLetters(containerId, octaveKey) {
+  const box = document.getElementById(containerId);
+  box.replaceChildren(
+    ...DEGREES.map((d) =>
+      cell([noteCodepoint(d, octaveKey)],
+           noteName(d, octaveKey) + "\n" + hex(noteCodepoint(d, octaveKey))))
+  );
+}
+
+function renderSigns(containerId, side) {
+  const box = document.getElementById(containerId);
+  box.replaceChildren(
+    ...SIGNS.map((s) => {
+      // Marks have zero advance; a leading space keeps them from piling on the
+      // left edge of the cell.
+      const cp = signCodepoint(s.key, side);
+      const el = cell([0x0020, cp], signName(s.key, side) + "\n" + hex(cp));
+      return el;
+    })
+  );
+}
+
+/* ------------------------------------------------------------- section 2 */
+
+function renderOrientation() {
+  const table = document.getElementById("orientation");
+  const sample = "Alpha"; // any sign shows the rule; alpha is the clearest
+
+  const head = document.createElement("tr");
+  head.append(document.createElement("th"));
+  for (const side of ["Above", "Below"]) {
+    const th = document.createElement("th");
+    th.textContent = "…" + side + " mark";
+    head.append(th);
+  }
+  table.append(head);
+
+  for (const oct of OCTAVES) {
+    for (const degree of DEGREES) {
+      const tr = document.createElement("tr");
+      const rh = document.createElement("th");
+      rh.className = "rowhead";
+      rh.textContent = noteName(degree, oct.key);
+      tr.append(rh);
+      for (const side of ["Above", "Below"]) {
+        const td = document.createElement("td");
+        td.append(martyriaCell(degree, oct.key, sample, side, { compact: true }));
+        tr.append(td);
+      }
+      table.append(tr);
+    }
+  }
+}
+
+/* ------------------------------------------------------------- section 3 */
+
+function renderBookDiatonic() {
+  const box = document.getElementById("book-diatonic");
+  box.replaceChildren(
+    ...BOOK_SCALE.map((n) => {
+      const el = martyriaCell(n.degree, n.octave, DIATONIC_SIGN_FOR_DEGREE[n.degree]);
+      el.title = n.text + " — " + el.title;
+      return el;
+    })
+  );
+}
+
+function renderBookGenus() {
+  const signKey = document.getElementById("book-sign").value;
+  const box = document.getElementById("book-genus");
+  box.replaceChildren(
+    ...BOOK_SCALE.map((n) => martyriaCell(n.degree, n.octave, signKey))
+  );
+}
+
+/* ------------------------------------------------------------- section 4 */
+
+function renderFullMatrix() {
+  const table = document.getElementById("full");
+
+  const head = document.createElement("tr");
+  head.append(document.createElement("th"));
+  for (const s of SIGNS) {
+    const th = document.createElement("th");
+    th.className = "colhead";
+    th.textContent = s.key + " · " + s.genus;
+    head.append(th);
+  }
+  table.append(head);
+
+  for (const oct of OCTAVES) {
+    for (const degree of DEGREES) {
+      const tr = document.createElement("tr");
+      const rh = document.createElement("th");
+      rh.className = "rowhead";
+      rh.textContent = degree + (oct.key ? " " + oct.label : " middle");
+      tr.append(rh);
+      for (const s of SIGNS) {
+        const td = document.createElement("td");
+        td.append(martyriaCell(degree, oct.key, s.key, null, { compact: true }));
+        tr.append(td);
+      }
+      table.append(tr);
+    }
+  }
+}
+
+/* ----------------------------------------------------------------- wiring */
+
+function renderAll() {
+  renderLetters("letters-low", "Low");
+  renderLetters("letters-mid", "");
+  renderLetters("letters-high", "High");
+  renderSigns("signs-above", "Above");
+  renderSigns("signs-below", "Below");
+  renderBookDiatonic();
+  renderBookGenus();
+  document.getElementById("orientation").replaceChildren();
+  renderOrientation();
+  document.getElementById("full").replaceChildren();
+  renderFullMatrix();
+}
+
+const signSelect = document.getElementById("book-sign");
+signSelect.append(
+  ...SIGNS.map((s) => new Option(s.label + " (" + s.genus + ")", s.key))
+);
+signSelect.value = "SoftChromaticDi";
+signSelect.addEventListener("change", renderBookGenus);
+
+document.getElementById("face").addEventListener("change", (e) => {
+  document.body.style.setProperty("--face", '"' + e.target.value + '"');
+  loadFace(e.target.value);
+});
+
+document.getElementById("size").addEventListener("input", (e) => {
+  document.body.style.setProperty("--glyph", e.target.value + "px");
+  document.getElementById("size-out").textContent = e.target.value + "px";
+});
+
+document.getElementById("tick").addEventListener("change", (e) => {
+  prependTick = e.target.checked;
+  renderAll();
+});
+
+document.getElementById("caps").addEventListener("change", (e) => {
+  document.body.classList.toggle("hide-captions", !e.target.checked);
+});
+
+// A webfont that has not arrived yet renders as tofu, and the PUA codepoints
+// have no fallback at all — so say so rather than showing empty boxes.
+function loadFace(family) {
+  const status = document.getElementById("font-status");
+  if (!document.fonts) { status.textContent = "font loading API unavailable"; return; }
+  status.textContent = "loading " + family + "…";
+  document.fonts.load('40px "' + family + '"', "")
+    .then((faces) => {
+      status.textContent = faces.length
+        ? family + " loaded ✓"
+        : family + " failed to load — check the network";
+    })
+    .catch(() => { status.textContent = family + " failed to load"; });
+}
+
+document.body.style.setProperty("--face", '"Neanes"');
+renderAll();
+loadFace("Neanes");
+</script>
+</body>
+</html>
