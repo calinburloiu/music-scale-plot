@@ -96,7 +96,13 @@ thead th.genus-diatonic   { background: var(--diatonic); }
 thead th.genus-chromatic  { background: var(--chromatic); }
 thead th.genus-enharmonic { background: var(--enharmonic); }
 
-th.mode-num { font-size: 1.05rem; font-weight: 700; color: var(--accent); }
+th.col-title { font-size: 1.05rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+th.col-title.book-scale { font-size: .95rem; font-style: italic; }
+
+/* The book's makam scales are a separate kind of column: scales, not modes,
+   and transcribed rather than generated. */
+th.book-first, td.book-first { border-left: 2px solid var(--rule); }
+td.not-in-book { color: var(--muted); opacity: .55; }
 
 /* The note column, sticky on horizontal scroll. */
 th.note-name {
@@ -175,7 +181,8 @@ a { color: var(--accent); }
   <h1>Martyries of the eight modes</h1>
   <p class="lede">
     All twenty-one degrees of the three octaves &times; all eight modes (<i>ehuri</i> /
-    <i>glasuri</i>), every cell filled with an explicit martyria. Research page for
+    <i>glasuri</i>), every cell filled with an explicit martyria, plus the book's three makam
+    scales as it prints them. Research page for
     <a href="https://github.com/calinburloiu/music-scale-plot/issues/2">issue&nbsp;#2</a>.
   </p>
 
@@ -186,6 +193,16 @@ a { color: var(--accent); }
     <i>ca &icirc;n diatonic</i>; here <strong>every mode gets its own column</strong> and
     <strong>every cell carries its own martyria</strong>, even where that makes four columns
     identical. And where the book shows one octave, P&#259;&hellip;P&#259;, this shows all three.
+  </p>
+
+  <p>
+    Three columns are different in kind and are ruled off at the right: <i>Mu&#537;tar</i>,
+    <i>Ni&#537;abur</i> and <i>Hisar</i> are makam scales, not modes, and no reference
+    implementation carries them &mdash; they are transcribed cell by cell from the book, with each
+    <i>idem</i> and <i>ca &icirc;n diatonic</i> resolved to the sign it stands for. The book gives
+    them for P&#259;&hellip;P&#259; only, so the rest of their column is left empty rather than
+    guessed; see <a href="#caveats">Caveats</a>. The book's fourth scale, <i>Agem</i>, is the
+    enharmonic scale of modes&nbsp;III and&nbsp;VII, so it is already among the mode columns.
   </p>
 
   <div class="note" id="font-warning" hidden>
@@ -248,7 +265,7 @@ a { color: var(--accent); }
     anchors, so the other pairing simply does not stack.
   </p>
 
-  <h2>Caveats</h2>
+  <h2 id="caveats">Caveats</h2>
   <ul>
     <li>The genus assignment follows the Romanian tradition the book documents &mdash; ehurile
       1,&nbsp;4,&nbsp;5,&nbsp;8 diatonic, 2 and 6 chromatic, 3 and 7 enharmonic. Greek practice
@@ -259,14 +276,19 @@ a { color: var(--accent); }
       &Beta;&omicron;&upsilon; (legetos), mode&nbsp;6 <i>heirmologic</i> soft chromatic,
       mode&nbsp;1 <i>tetraphonic</i> from &Kappa;&epsilon; &mdash; which would each need a column
       of their own.</li>
-    <li>The book's fourth enharmonic column, the <i>Agem</i> scale, is not missing: it is what
-      modes&nbsp;III and&nbsp;VII are built from, so it is the enharmonic column here. Its three
-      neighbours &mdash; <i>Mu&#537;tar</i> among the chromatic scales, <i>Ni&#537;abur</i> and
-      <i>Hisar</i> among the enharmonic &mdash; are not included: the book gives them for the one
-      octave &Pi;&alpha;&hellip;&Pi;&alpha;, and the diatonic column shows that martyries do not
-      simply repeat by octave (&Zeta;&omega; and &Nu;&eta; take a different sign in each register,
-      &Delta;&iota; and &Kappa;&epsilon; a dotted one only above &Kappa;&epsilon;), so the other
-      two registers cannot be derived from it.</li>
+    <li>The three makam columns stop where the book does. Their other two registers are not
+      derivable from the octave it prints: the diatonic column shows martyries do not simply
+      repeat by octave &mdash; &Zeta;&omega; and &Nu;&eta; take a different sign in each register,
+      and &Delta;&iota; and &Kappa;&epsilon; a dotted one only above &Kappa;&epsilon; &mdash; so
+      filling those cells would be invention, not transcription.</li>
+    <li>Those columns are also a reading of the book, not a reproduction of it. Each glyph was
+      identified by rendering the candidate signs in this font and comparing them against the
+      scan, and each <i>idem</i> was read as &bdquo;as in the diatonic column&ldquo; rather than
+      &bdquo;as in the column to the left&ldquo; &mdash; the reading under which all three come
+      out as coherent scales, each altering the diatonic in one or two places
+      (<i>Mu&#537;tar</i> at &Gamma;&alpha; and &Delta;&iota;, <i>Hisar</i> at &Delta;&iota; and
+      &Zeta;&omega;, <i>Ni&#537;abur</i> sharing <i>Agem</i>'s lower tetrachord with a diatonic
+      upper one).</li>
   </ul>
 
   <footer>
@@ -400,9 +422,8 @@ function signFor(scale, value) {
   return DIATONIC_SIGNS[value];
 }
 
-function martyria(scale, value) {
+function martyria(sign, value) {
   const letter = letterFor(value);
-  const sign = signFor(scale, value);
   const above = value <= HIGHEST_LOW_DEGREE;
   return {
     text: String.fromCodePoint(letter.codepoint) +
@@ -415,7 +436,9 @@ function martyria(scale, value) {
 }
 
 /* --------------------------------------------------------------------------
-   The eight modes. Each names its genus and the scale its martyries come from.
+   The columns: first the eight modes, each naming its genus and the scale its
+   martyries come from, then the three makam scales the book prints alongside
+   them.
    -------------------------------------------------------------------------- */
 
 const MODES = [
@@ -435,6 +458,49 @@ const MODES = [
     detail: "plagal IV" },
 ];
 
+/* The book prints three makam scales beside the modes, and they cannot be
+   generated the way the modes are: no reference implementation carries them,
+   and the book gives them for the single octave Πα…Πα. They are transcribed
+   cell by cell from the table on p. 83 — each "idem" and "ca în diatonic"
+   resolved to the sign it stands for — and left empty elsewhere rather than
+   guessed. Extending them is not a matter of repeating the octave: the
+   diatonic column shows martyries change with the register (Ζω and Νη take a
+   different sign in each, Δι and Κε a dotted one only above Κε).
+
+   The book's fourth scale, "Agem", is the enharmonic scale of modes III and
+   VII, so it is already a column above rather than one here. */
+const BOOK_SCALES = [
+  { name: "Muştar", genus: "chromatic", signs: {
+      0: "alpha", 1: "legetos", 2: "hardChromaticPa", 3: "hardChromaticDi",
+      4: "alphaDotted", 5: "legetos", 6: "nana", 7: "alpha" } },
+  { name: "Nişabur", genus: "enharmonic", signs: {
+      0: "delta", 1: "alpha", 2: "legetos", 3: "deltaDotted",
+      4: "alphaDotted", 5: "legetos", 6: "nana", 7: "alpha" } },
+  { name: "Hisar", genus: "enharmonic", signs: {
+      0: "alpha", 1: "legetos", 2: "nana", 3: "hardChromaticPa",
+      4: "alphaDotted", 5: "nana", 6: "nana", 7: "alpha" } },
+];
+
+const COLUMNS = [
+  ...MODES.map((mode) => ({
+    kind: "mode",
+    genus: mode.genus,
+    title: "Mode " + mode.roman,
+    subtitle: [
+      mode.detail ? mode.genus + " (" + mode.detail + ")" : mode.genus,
+      "base " + mode.base + " (" + mode.west + ")",
+    ],
+    signAt: (value) => signFor(mode.scale, value),
+  })),
+  ...BOOK_SCALES.map((scale) => ({
+    kind: "book",
+    genus: scale.genus,
+    title: "\u201e" + scale.name + "\u201d",
+    subtitle: [scale.genus, "book octave only"],
+    signAt: (value) => scale.signs[value] || null,
+  })),
+];
+
 /* -------------------------------------------------------------------------- */
 
 function hex(codepoint) {
@@ -451,25 +517,24 @@ function element(tag, className, text) {
 function buildHead() {
   const thead = element("thead");
 
-  const modeRow = element("tr");
+  const titleRow = element("tr");
   const corner = element("th", "note-name", "Degree");
   corner.rowSpan = 2;
-  modeRow.append(corner);
-  for (const mode of MODES) {
-    const th = element("th", "mode-num genus-" + mode.genus, "Mode " + mode.roman);
-    modeRow.append(th);
-  }
+  titleRow.append(corner);
 
-  const genusRow = element("tr");
-  for (const mode of MODES) {
-    const th = element("th", "genus-" + mode.genus);
-    const genus = mode.detail ? mode.genus + " (" + mode.detail + ")" : mode.genus;
-    th.append(element("div", null, genus));
-    th.append(element("div", null, "base " + mode.base + " (" + mode.west + ")"));
-    genusRow.append(th);
-  }
+  const subtitleRow = element("tr");
+  COLUMNS.forEach((column, i) => {
+    const edge = column.kind === "book" && COLUMNS[i - 1].kind === "mode" ? " book-first" : "";
+    const title = element("th", "col-title genus-" + column.genus + edge, column.title);
+    if (column.kind === "book") title.classList.add("book-scale");
+    titleRow.append(title);
 
-  thead.append(modeRow, genusRow);
+    const sub = element("th", "genus-" + column.genus + edge);
+    for (const line of column.subtitle) sub.append(element("div", null, line));
+    subtitleRow.append(sub);
+  });
+
+  thead.append(titleRow, subtitleRow);
   return thead;
 }
 
@@ -479,7 +544,7 @@ function buildBody() {
   for (const octave of OCTAVES) {
     const bandRow = element("tr", "octave-start");
     const band = element("th", "octave-band", octave.label);
-    band.colSpan = MODES.length + 1;
+    band.colSpan = COLUMNS.length + 1;
     bandRow.append(band);
     tbody.append(bandRow);
 
@@ -495,15 +560,24 @@ function buildBody() {
       th.append(element("span", "west", "(" + info.west + ")"));
       tr.append(th);
 
-      for (const mode of MODES) {
-        const m = martyria(mode.scale, value);
-        const td = element("td", "col-" + mode.genus);
-        td.title =
-          m.letterName + " " + hex(m.letterCodepoint) + " + " +
-          m.signName + " " + hex(m.signCodepoint);
-        td.append(element("span", "martyria", m.text));
+      COLUMNS.forEach((column, i) => {
+        const edge = column.kind === "book" && COLUMNS[i - 1].kind === "mode" ? " book-first" : "";
+        const td = element("td", "col-" + column.genus + edge);
+        const sign = column.signAt(value);
+
+        if (sign == null) {
+          td.classList.add("not-in-book");
+          td.title = "the book gives this scale for \u03a0\u03b1\u2026\u03a0\u03b1 only";
+          td.append(element("span", null, "\u2014"));
+        } else {
+          const m = martyria(sign, value);
+          td.title =
+            m.letterName + " " + hex(m.letterCodepoint) + " + " +
+            m.signName + " " + hex(m.signCodepoint);
+          td.append(element("span", "martyria", m.text));
+        }
         tr.append(td);
-      }
+      });
       tbody.append(tr);
     }
   }
