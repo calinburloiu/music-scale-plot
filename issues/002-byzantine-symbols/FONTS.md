@@ -7,6 +7,17 @@ stacked above or below it), and **microtonal accidentals** (diesis / yfesis).
 All candidates below were downloaded and inspected locally (glyph coverage, metrics, OpenType
 tables) and rendered to the specimen images in `specimens/`.
 
+## Status: decided and vendored
+
+**`Neanes` is now in the repository** at [`fonts/Neanes.woff2`](../../fonts/Neanes.woff2) (68 KB,
+converted from the pinned upstream OTF with `fontTools`), with its OFL text at `fonts/OFL.txt` and
+provenance in [`fonts/README.md`](../../fonts/README.md). Pages reference it by relative path, so
+it works from `file://` and from GitHub Pages with no network. `modes-table.html` in this directory
+is the first page to use it; the app itself has not been wired up yet.
+
+Almouzios remains a drop-in alternative — swapping face is a one-line `font-family` change — so the
+comparison below stands.
+
 ## TL;DR
 
 **Ship an SBMuFL font — `Almouzios` or `Neanes`, both OFL 1.1 — vendored as a woff2 in the

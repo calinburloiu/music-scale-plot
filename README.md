@@ -29,3 +29,10 @@ is not tested, and how the test harness loads `app.js`.
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).
+
+### Third-party assets
+
+`fonts/Neanes.woff2` is **not** covered by the Apache-2.0 licence above. It is the
+[Neanes](https://github.com/neanes/sbmufl) Byzantine music font, Copyright (c) 2022, Daniel,
+licensed under the [SIL Open Font License 1.1](fonts/OFL.txt). See
+[fonts/README.md](fonts/README.md) for provenance and terms.

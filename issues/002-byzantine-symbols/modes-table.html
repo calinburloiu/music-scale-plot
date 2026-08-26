@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Martyries of the eight modes — all three octaves (issue #2)</title>
+
+<style>
+/* ---------------------------------------------------------------------------
+   The Byzantine font is vendored in this repository (../../fonts/Neanes.woff2),
+   so this page needs no network: it works from file:// and from GitHub Pages
+   alike. See ../../fonts/README.md for provenance and licence.
+   --------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Neanes";
+  src: url("../../fonts/Neanes.woff2") format("woff2");
+  font-display: block;
+}
+
+:root {
+  --bg: #fbfaf7;
+  --panel: #ffffff;
+  --ink: #1d1b16;
+  --muted: #6b6559;
+  --line: #ddd8cc;
+  --rule: #b9b1a0;
+  --accent: #7a3b12;
+  --diatonic: #f4f1e6;
+  --chromatic: #f6ece6;
+  --enharmonic: #eaeff1;
+  --warn-bg: #fdf6e3;
+  --warn-line: #e0cf9a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 2.5rem 1.5rem 5rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+main { max-width: 1180px; margin: 0 auto; }
+
+h1 { font-size: 1.8rem; margin: 0 0 .3rem; letter-spacing: -.01em; }
+h2 { font-size: 1.15rem; margin: 2.5rem 0 .6rem; }
+p { max-width: 78ch; }
+.lede { color: var(--muted); }
+code {
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #f0ece1;
+  padding: .1em .35em;
+  border-radius: 3px;
+}
+
+.note {
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  border-left: 4px solid #c9a227;
+  padding: .8rem 1rem;
+  margin: 1.5rem 0;
+  border-radius: 3px;
+}
+.note[hidden] { display: none; }
+
+.scroller {
+  overflow-x: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+table { border-collapse: collapse; width: 100%; }
+
+th, td {
+  border: 1px solid var(--line);
+  padding: .35rem .5rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
+thead th {
+  background: #f3efe4;
+  font-size: .8rem;
+  line-height: 1.35;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+thead tr:nth-child(2) th { top: 2.3rem; font-weight: 500; color: var(--muted); }
+
+thead th.genus-diatonic   { background: var(--diatonic); }
+thead th.genus-chromatic  { background: var(--chromatic); }
+thead th.genus-enharmonic { background: var(--enharmonic); }
+
+th.mode-num { font-size: 1.05rem; font-weight: 700; color: var(--accent); }
+
+/* The note column, sticky on horizontal scroll. */
+th.note-name {
+  background: var(--panel);
+  text-align: left;
+  white-space: nowrap;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  font-weight: 500;
+}
+th.note-name .greek { font-weight: 700; margin-right: .35rem; }
+th.note-name .west { color: var(--muted); font-size: .85em; }
+
+tr.octave-start td, tr.octave-start th { border-top: 2px solid var(--rule); }
+
+th.octave-band {
+  background: #f3efe4;
+  text-align: left;
+  font-size: .8rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  position: sticky;
+  left: 0;
+}
+
+.martyria {
+  font-family: "Neanes", serif;
+  font-size: 40px;
+  line-height: 1;
+  /* The glyphs sit high above the baseline in this face; give the row room. */
+  display: inline-block;
+  padding: .35em 0 .1em;
+}
+
+td.col-diatonic   { background: #fcfbf6; }
+td.col-chromatic  { background: #fdf9f6; }
+td.col-enharmonic { background: #f9fbfc; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 1.2rem; margin: .8rem 0 0; font-size: .9rem; }
+.legend span { display: inline-flex; align-items: center; gap: .4rem; color: var(--muted); }
+.legend i { width: 1rem; height: 1rem; border: 1px solid var(--line); display: inline-block; }
+.legend i.d { background: var(--diatonic); }
+.legend i.c { background: var(--chromatic); }
+.legend i.e { background: var(--enharmonic); }
+
+footer { margin-top: 3rem; color: var(--muted); font-size: .9rem; }
+a { color: var(--accent); }
+</style>
+</head>
+
+<body>
+<main>
+  <h1>Martyries of the eight modes</h1>
+  <p class="lede">
+    All twenty-one degrees of the three octaves &times; all eight modes (<i>ehuri</i> /
+    <i>glasuri</i>), every cell filled with an explicit martyria. Research page for
+    <a href="https://github.com/calinburloiu/music-scale-plot/issues/2">issue&nbsp;#2</a>.
+  </p>
+
+  <p>
+    This is the table on p.&nbsp;83 of the Romanian psaltic theory course, rebuilt with two
+    deliberate differences. The book groups the modes that share a scale into one column
+    (&bdquo;Ehurile 1, 4, 5, 8&ldquo;) and fills the rest with <i>idem</i> or
+    <i>ca &icirc;n diatonic</i>; here <strong>every mode gets its own column</strong> and
+    <strong>every cell carries its own martyria</strong>, even where that makes four columns
+    identical. And where the book shows one octave, P&#259;&hellip;P&#259;, this shows all three.
+  </p>
+
+  <div class="note" id="font-warning" hidden>
+    <strong>The Byzantine font did not load.</strong> The martyries are Private Use Area
+    codepoints with no fallback glyph, so the cells below will be blank or show boxes. Check that
+    <code>../../fonts/Neanes.woff2</code> is reachable from this page.
+  </div>
+
+  <div class="legend">
+    <span><i class="d"></i> diatonic</span>
+    <span><i class="c"></i> chromatic</span>
+    <span><i class="e"></i> enharmonic</span>
+  </div>
+
+  <h2>The table</h2>
+  <div class="scroller">
+    <table id="modes-table"></table>
+  </div>
+
+  <h2>How each cell is built</h2>
+  <p>
+    A martyria is two SBMuFL glyphs in one string: the <strong>note letter</strong> (a spacing
+    glyph) followed by the <strong>genus sign</strong> (a zero-advance mark). The font's
+    <code>mark</code> GPOS lookups stack and centre the second on the first, so no manual
+    positioning is involved &mdash; see
+    <a href="MARTYRIA-COMPOSITION.md">MARTYRIA-COMPOSITION.md</a>. Hover any cell to see the two
+    glyph names and their codepoints.
+  </p>
+  <p>
+    Which sign a degree takes depends on the <em>scale</em>, not on the mode's base note, which
+    is why the four diatonic modes share one set of martyries and the two enharmonic ones share
+    another. The per-degree sign tables reproduce those of the
+    <a href="https://github.com/neanes/neanes">Neanes</a> scorewriter
+    (<code>LayoutService.getRootSign</code>), the reference implementation of the notation:
+  </p>
+  <ul>
+    <li><strong>Diatonic</strong> &mdash; a lookup per degree: &Pi;&alpha;&nbsp;alpha,
+      &Beta;&omicron;&upsilon;&nbsp;legetos, &Gamma;&alpha;&nbsp;nana, &Delta;&iota;&nbsp;dotted
+      delta, &Kappa;&epsilon;&nbsp;dotted alpha &mdash; and the sign changes with the register:
+      &Zeta;&omega; below &Pi;&alpha; takes the zo sign, &Zeta;&omega; above &Kappa;&epsilon;
+      takes legetos.</li>
+    <li><strong>Soft chromatic</strong> &mdash; the two signs alternate by degree parity:
+      &Delta;&iota; and every second degree from it take the soft chromatic &Delta;&iota; sign,
+      the degrees between take the soft chromatic &Kappa;&epsilon; sign.</li>
+    <li><strong>Hard chromatic</strong> &mdash; the same alternation with the hard chromatic
+      &Pi;&alpha; and &Delta;&iota; signs, anchored so that &Pi;&alpha; takes the
+      &Pi;&alpha;&nbsp;sign.</li>
+    <li><strong>Enharmonic</strong> &mdash; the diatonic table with the three degrees around the
+      base re-lettered (&Nu;&eta;&nbsp;nana, &Pi;&alpha;&nbsp;delta,
+      &Beta;&omicron;&upsilon;&nbsp;alpha), which is what the flattened
+      &Beta;&omicron;&upsilon; and &Zeta;&omega; of the <i>agem</i> scale amount to.</li>
+  </ul>
+  <p>
+    Register also decides where the sign goes. Degrees of the low octave carry the
+    <code>&hellip;Above</code> marks, so the sign sits on top and the letter underneath; the
+    middle and high octaves carry the <code>&hellip;Below</code> marks and read letter-over-sign.
+    That is not a stylistic choice: each note letter declares only one of the two attachment
+    anchors, so the other pairing simply does not stack.
+  </p>
+
+  <h2>Caveats</h2>
+  <ul>
+    <li>The genus assignment follows the Romanian tradition the book documents &mdash; ehurile
+      1,&nbsp;4,&nbsp;5,&nbsp;8 diatonic, 2 and 6 chromatic, 3 and 7 enharmonic. Greek practice
+      differs on modes&nbsp;3 and&nbsp;7, which it notates diatonically on
+      &Gamma;&alpha;/&Zeta;&omega; and turns enharmonic with a fthora.</li>
+    <li>Each mode is shown in its principal (sticheraric/papadic) form. Several have secondary
+      forms in another scale &mdash; mode&nbsp;4 <i>heirmologic</i> on
+      &Beta;&omicron;&upsilon; (legetos), mode&nbsp;6 <i>heirmologic</i> soft chromatic,
+      mode&nbsp;1 <i>tetraphonic</i> from &Kappa;&epsilon; &mdash; which would each need a column
+      of their own.</li>
+    <li>The book's three makam columns (<i>Mu&#537;tar</i>, <i>Nisabur</i>, <i>Hisar</i>) are out
+      of scope here; they are scales, not modes.</li>
+  </ul>
+
+  <footer>
+    Font: <a href="https://github.com/neanes/sbmufl">Neanes</a>, SIL OFL 1.1, vendored at
+    <code>fonts/Neanes.woff2</code>. See <a href="FONTS.md">FONTS.md</a> for the font survey and
+    <a href="../../fonts/README.md">fonts/README.md</a> for attribution.
+  </footer>
+</main>
+
+<script>
+"use strict";
+
+/* --------------------------------------------------------------------------
+   SBMuFL codepoints. Names are the ones in neanes/sbmufl glyphnames.json.
+   -------------------------------------------------------------------------- */
+
+// Note letters, by octave block. Same degree order in all three blocks.
+const DEGREE_ORDER = ["Zo", "Ni", "Pa", "Vou", "Ga", "Di", "Ke"];
+const LETTER_BLOCK = { low: 0xe130, middle: 0xe137, high: 0xe13e };
+
+// Genus signs. Each is a zero-advance mark; "above" = "below" + 0x20.
+const SIGN_BELOW = {
+  zo: 0xe150,
+  delta: 0xe151,
+  alpha: 0xe152,
+  legetos: 0xe153,
+  nana: 0xe154,
+  deltaDotted: 0xe155,
+  alphaDotted: 0xe156,
+  hardChromaticPa: 0xe157,
+  hardChromaticDi: 0xe158,
+  softChromaticDi: 0xe159,
+  softChromaticKe: 0xe15a,
+};
+
+const SIGN_NAME = {
+  zo: "martyriaZo",
+  delta: "martyriaDelta",
+  alpha: "martyriaAlpha",
+  legetos: "martyriaLegetos",
+  nana: "martyriaNana",
+  deltaDotted: "martyriaDeltaDotted",
+  alphaDotted: "martyriaAlphaDotted",
+  hardChromaticPa: "martyriaHardChromaticPa",
+  hardChromaticDi: "martyriaHardChromaticDi",
+  softChromaticDi: "martyriaSoftChromaticDi",
+  softChromaticKe: "martyriaSoftChromaticKe",
+};
+
+/* --------------------------------------------------------------------------
+   Degrees. Πα of the middle octave is 0, as in the Neanes scorewriter, so the
+   three octaves run -9 (low Ζω) … 11 (high Κε).
+   -------------------------------------------------------------------------- */
+
+const OCTAVES = [
+  { key: "low", label: "Low octave", first: -9 },
+  { key: "middle", label: "Middle octave", first: -2 },
+  { key: "high", label: "High octave", first: 5 },
+];
+
+const DEGREE_INFO = {
+  Zo: { greek: "Ζω", west: "Si" },
+  Ni: { greek: "Νη", west: "Do" },
+  Pa: { greek: "Πα", west: "Re" },
+  Vou: { greek: "Βου", west: "Mi" },
+  Ga: { greek: "Γα", west: "Fa" },
+  Di: { greek: "Δι", west: "Sol" },
+  Ke: { greek: "Κε", west: "La" },
+};
+
+const LOWEST = -9;
+
+// The low octave attaches its sign above the letter, the other two below it.
+const HIGHEST_LOW_DEGREE = -3;
+
+function degreeName(value) {
+  return DEGREE_ORDER[((((value - LOWEST) % 7) + 7) % 7)];
+}
+
+function octaveOf(value) {
+  if (value <= HIGHEST_LOW_DEGREE) return "low";
+  return value <= 4 ? "middle" : "high";
+}
+
+function letterFor(value) {
+  const octave = octaveOf(value);
+  const index = DEGREE_ORDER.indexOf(degreeName(value));
+  const suffix = octave === "middle" ? "" : octave === "low" ? "Low" : "High";
+  return {
+    codepoint: LETTER_BLOCK[octave] + index,
+    name: "martyriaNote" + degreeName(value) + suffix,
+  };
+}
+
+/* --------------------------------------------------------------------------
+   Which genus sign each degree takes, per scale. These reproduce the tables in
+   Neanes' LayoutService (diatonicRootSignMap, enharmonicGaRootSignMap, and the
+   parity rule the two chromatic scales use).
+   -------------------------------------------------------------------------- */
+
+const DIATONIC_SIGNS = {
+  "-9": "nana", "-8": "delta", "-7": "alpha", "-6": "legetos", "-5": "nana",
+  "-4": "delta", "-3": "alpha", "-2": "zo", "-1": "delta", "0": "alpha",
+  "1": "legetos", "2": "nana", "3": "deltaDotted", "4": "alphaDotted",
+  "5": "legetos", "6": "nana", "7": "alpha", "8": "legetos", "9": "nana",
+  "10": "deltaDotted", "11": "alphaDotted",
+};
+
+// The enharmonic scale on Γα re-letters the three degrees below it.
+const ENHARMONIC_GA_SIGNS = Object.assign({}, DIATONIC_SIGNS, {
+  "-1": "nana", "0": "delta", "1": "alpha",
+});
+
+function signFor(scale, value) {
+  if (scale === "hardChromatic") {
+    return value % 2 === 0 ? "hardChromaticPa" : "hardChromaticDi";
+  }
+  if (scale === "softChromatic") {
+    return value % 2 === 0 ? "softChromaticKe" : "softChromaticDi";
+  }
+  if (scale === "enharmonicGa") return ENHARMONIC_GA_SIGNS[value];
+  return DIATONIC_SIGNS[value];
+}
+
+function martyria(scale, value) {
+  const letter = letterFor(value);
+  const sign = signFor(scale, value);
+  const above = value <= HIGHEST_LOW_DEGREE;
+  return {
+    text: String.fromCodePoint(letter.codepoint) +
+          String.fromCodePoint(SIGN_BELOW[sign] + (above ? 0x20 : 0)),
+    letterName: letter.name,
+    letterCodepoint: letter.codepoint,
+    signName: SIGN_NAME[sign] + (above ? "Above" : "Below"),
+    signCodepoint: SIGN_BELOW[sign] + (above ? 0x20 : 0),
+  };
+}
+
+/* --------------------------------------------------------------------------
+   The eight modes. Each names its genus and the scale its martyries come from.
+   -------------------------------------------------------------------------- */
+
+const MODES = [
+  { roman: "I", genus: "diatonic", scale: "diatonic", base: "Πα", west: "Re" },
+  { roman: "II", genus: "chromatic", scale: "softChromatic", base: "Δι", west: "Sol",
+    detail: "soft" },
+  { roman: "III", genus: "enharmonic", scale: "enharmonicGa", base: "Γα", west: "Fa" },
+  { roman: "IV", genus: "diatonic", scale: "diatonic", base: "Δι", west: "Sol" },
+  { roman: "V", genus: "diatonic", scale: "diatonic", base: "Πα", west: "Re",
+    detail: "plagal I" },
+  { roman: "VI", genus: "chromatic", scale: "hardChromatic", base: "Πα", west: "Re",
+    detail: "hard, plagal II" },
+  { roman: "VII", genus: "enharmonic", scale: "enharmonicGa", base: "Γα", west: "Fa",
+    detail: "varys" },
+  { roman: "VIII", genus: "diatonic", scale: "diatonic", base: "Νη", west: "Do",
+    detail: "plagal IV" },
+];
+
+/* -------------------------------------------------------------------------- */
+
+function hex(codepoint) {
+  return "U+" + codepoint.toString(16).toUpperCase();
+}
+
+function element(tag, className, text) {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  if (text != null) el.textContent = text;
+  return el;
+}
+
+function buildHead() {
+  const thead = element("thead");
+
+  const modeRow = element("tr");
+  const corner = element("th", "note-name", "Degree");
+  corner.rowSpan = 2;
+  modeRow.append(corner);
+  for (const mode of MODES) {
+    const th = element("th", "mode-num genus-" + mode.genus, "Mode " + mode.roman);
+    modeRow.append(th);
+  }
+
+  const genusRow = element("tr");
+  for (const mode of MODES) {
+    const th = element("th", "genus-" + mode.genus);
+    const genus = mode.detail ? mode.genus + " (" + mode.detail + ")" : mode.genus;
+    th.append(element("div", null, genus));
+    th.append(element("div", null, "base " + mode.base + " (" + mode.west + ")"));
+    genusRow.append(th);
+  }
+
+  thead.append(modeRow, genusRow);
+  return thead;
+}
+
+function buildBody() {
+  const tbody = element("tbody");
+
+  for (const octave of OCTAVES) {
+    const bandRow = element("tr", "octave-start");
+    const band = element("th", "octave-band", octave.label);
+    band.colSpan = MODES.length + 1;
+    bandRow.append(band);
+    tbody.append(bandRow);
+
+    for (let i = 0; i < 7; i++) {
+      const value = octave.first + i;
+      const name = degreeName(value);
+      const info = DEGREE_INFO[name];
+
+      const tr = element("tr");
+      const th = element("th", "note-name");
+      th.append(element("span", "greek", info.greek));
+      th.append(document.createTextNode(name + " "));
+      th.append(element("span", "west", "(" + info.west + ")"));
+      tr.append(th);
+
+      for (const mode of MODES) {
+        const m = martyria(mode.scale, value);
+        const td = element("td", "col-" + mode.genus);
+        td.title =
+          m.letterName + " " + hex(m.letterCodepoint) + " + " +
+          m.signName + " " + hex(m.signCodepoint);
+        td.append(element("span", "martyria", m.text));
+        tr.append(td);
+      }
+      tbody.append(tr);
+    }
+  }
+  return tbody;
+}
+
+const table = document.getElementById("modes-table");
+table.append(buildHead(), buildBody());
+
+// PUA codepoints have no fallback glyph, so say so rather than showing blanks.
+if (document.fonts && document.fonts.load) {
+  document.fonts.load('40px "Neanes"').then((faces) => {
+    if (faces.length === 0) document.getElementById("font-warning").hidden = false;
+  }).catch(() => {
+    document.getElementById("font-warning").hidden = false;
+  });
+}
+</script>
+</body>
+</html>
