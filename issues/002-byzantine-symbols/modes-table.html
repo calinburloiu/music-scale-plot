@@ -124,13 +124,34 @@ th.octave-band {
   left: 0;
 }
 
+/* A martyria draws far outside the box a default line box would give it. The
+   face declares an ascent of 1.4em and a descent of .466em, so the strut puts
+   the baseline almost at the bottom of a line-height:1 box — while the ink of
+   these glyphs runs to .654em *below* the baseline and .3em past the advance
+   width of the letter. Left alone it spills through the row and column rules.
+
+   So size the box from the ink instead of from the strut: a line-height that
+   places the baseline --ink-ascent below the top edge, and padding deep enough
+   for the rest. All four ink figures are the worst case over the 168 martyries
+   of this table, measured with ctx.measureText() on the vendored face; a
+   different face needs them measured again. */
 .martyria {
+  --font-ascent: 1.4em;
+  --font-descent: .466em;
+  --ink-ascent: .55em;
+  --ink-descent: .654em;
+  --ink-overhang: .3em;
+  --clearance: .12em;
+  --baseline: calc(var(--ink-ascent) + var(--clearance));
+  --line: calc(2 * var(--baseline) - var(--font-ascent) + var(--font-descent));
+
+  display: inline-block;
   font-family: "Neanes", serif;
   font-size: 40px;
-  line-height: 1;
-  /* The glyphs sit high above the baseline in this face; give the row room. */
-  display: inline-block;
-  padding: .35em 0 .1em;
+  line-height: var(--line);
+  padding-bottom: calc(
+    var(--ink-ascent) + var(--ink-descent) + 2 * var(--clearance) - var(--line));
+  padding-right: calc(var(--ink-overhang) + var(--clearance));
 }
 
 td.col-diatonic   { background: #fcfbf6; }
@@ -212,10 +233,12 @@ a { color: var(--accent); }
     <li><strong>Hard chromatic</strong> &mdash; the same alternation with the hard chromatic
       &Pi;&alpha; and &Delta;&iota; signs, anchored so that &Pi;&alpha; takes the
       &Pi;&alpha;&nbsp;sign.</li>
-    <li><strong>Enharmonic</strong> &mdash; the diatonic table with the three degrees around the
-      base re-lettered (&Nu;&eta;&nbsp;nana, &Pi;&alpha;&nbsp;delta,
-      &Beta;&omicron;&upsilon;&nbsp;alpha), which is what the flattened
-      &Beta;&omicron;&upsilon; and &Zeta;&omega; of the <i>agem</i> scale amount to.</li>
+    <li><strong>Enharmonic</strong> (the <i>agem</i> scale) &mdash; the diatonic table with the
+      degrees the two flattenings pull out of the chain re-lettered: the tetrachord below
+      &Gamma;&alpha; takes the signs of &Gamma;&alpha;-&Delta;&iota;-&Kappa;&epsilon;
+      (&Nu;&eta;&nbsp;nana, &Pi;&alpha;&nbsp;delta, &Beta;&omicron;&upsilon;&nbsp;alpha), and a
+      flattened &Zeta;&omega; &mdash; the foot of a tetrachord, like &Gamma;&alpha; &mdash; takes
+      nana in place of the diatonic legetos.</li>
   </ul>
   <p>
     Register also decides where the sign goes. Degrees of the low octave carry the
@@ -236,8 +259,14 @@ a { color: var(--accent); }
       &Beta;&omicron;&upsilon; (legetos), mode&nbsp;6 <i>heirmologic</i> soft chromatic,
       mode&nbsp;1 <i>tetraphonic</i> from &Kappa;&epsilon; &mdash; which would each need a column
       of their own.</li>
-    <li>The book's three makam columns (<i>Mu&#537;tar</i>, <i>Nisabur</i>, <i>Hisar</i>) are out
-      of scope here; they are scales, not modes.</li>
+    <li>The book's fourth enharmonic column, the <i>Agem</i> scale, is not missing: it is what
+      modes&nbsp;III and&nbsp;VII are built from, so it is the enharmonic column here. Its three
+      neighbours &mdash; <i>Mu&#537;tar</i> among the chromatic scales, <i>Ni&#537;abur</i> and
+      <i>Hisar</i> among the enharmonic &mdash; are not included: the book gives them for the one
+      octave &Pi;&alpha;&hellip;&Pi;&alpha;, and the diatonic column shows that martyries do not
+      simply repeat by octave (&Zeta;&omega; and &Nu;&eta; take a different sign in each register,
+      &Delta;&iota; and &Kappa;&epsilon; a dotted one only above &Kappa;&epsilon;), so the other
+      two registers cannot be derived from it.</li>
   </ul>
 
   <footer>
@@ -346,9 +375,18 @@ const DIATONIC_SIGNS = {
   "10": "deltaDotted", "11": "alphaDotted",
 };
 
-// The enharmonic scale on Γα re-letters the three degrees below it.
+/* The enharmonic ("agem") scale flattens both Βου and Ζω, and re-letters the
+   degrees each flattening pulls out of the diatonic chain: the tetrachord below
+   Γα, Νη-Πα-Βου, takes the signs of Γα-Δι-Κε in their undotted (lower-register)
+   form, and a flattened Ζω becomes the foot of a tetrachord like Γα, so it takes
+   nana rather than legetos.
+
+   Neanes splits this across one scale per fthora — enharmonicGaRootSignMap for
+   the first three, enharmonicZo/ZoHighRootSignMap for Ζω — because a fthora
+   re-letters only its own tetrachord. A mode in the enharmonic scale carries
+   both permanently, which is what the book's "Agem" column prints. */
 const ENHARMONIC_GA_SIGNS = Object.assign({}, DIATONIC_SIGNS, {
-  "-1": "nana", "0": "delta", "1": "alpha",
+  "-2": "nana", "-1": "nana", "0": "delta", "1": "alpha", "5": "nana",
 });
 
 function signFor(scale, value) {
@@ -384,14 +422,15 @@ const MODES = [
   { roman: "I", genus: "diatonic", scale: "diatonic", base: "Πα", west: "Re" },
   { roman: "II", genus: "chromatic", scale: "softChromatic", base: "Δι", west: "Sol",
     detail: "soft" },
-  { roman: "III", genus: "enharmonic", scale: "enharmonicGa", base: "Γα", west: "Fa" },
+  { roman: "III", genus: "enharmonic", scale: "enharmonicGa", base: "Γα", west: "Fa",
+    detail: "agem" },
   { roman: "IV", genus: "diatonic", scale: "diatonic", base: "Δι", west: "Sol" },
   { roman: "V", genus: "diatonic", scale: "diatonic", base: "Πα", west: "Re",
     detail: "plagal I" },
   { roman: "VI", genus: "chromatic", scale: "hardChromatic", base: "Πα", west: "Re",
     detail: "hard, plagal II" },
   { roman: "VII", genus: "enharmonic", scale: "enharmonicGa", base: "Γα", west: "Fa",
-    detail: "varys" },
+    detail: "agem, varys" },
   { roman: "VIII", genus: "diatonic", scale: "diatonic", base: "Νη", west: "Do",
     detail: "plagal IV" },
 ];
