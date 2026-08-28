@@ -323,4 +323,5 @@ the entire point of the standard.
 - [OpenType Cookbook](https://opentypecookbook.com/)
 - *Cursuri de Teoria Muzicii Psaltice* (Romanian psaltic theory course), pp. 80 and 83 —
   the scanned pages supplied with issue #2.
-- `FONTS.md` in this directory — font choice, licensing and hosting for issue #2.
+- `FONTS.md` in this directory — font choice for issue #2, and the comparison behind it;
+  `SBMUFL-FONTS.md` next to it for the SBMuFL codepoints, licensing and hosting.

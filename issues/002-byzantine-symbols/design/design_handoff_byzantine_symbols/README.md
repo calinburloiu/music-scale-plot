@@ -181,7 +181,9 @@ is that PUA codepoints are Unicode category `Co`, so HarfBuzz will not apply the
 without GDEF mark classes. FONTS.md verified the features *exist* in the font, not that they
 *apply*. **Do not build on the one-`fillText` claim without re-testing it.**
 
-So compose it yourself. This is FONTS.md's own documented fallback path, and it is short. All
+So compose it yourself. This is the documented fallback path of the font research (measure the
+ink box rather than hard-code an offset — see `SBMUFL-FONTS.md` → "Metrics: measure, never
+hard-code"), and it is short. All
 values in units of 1/100 em (measure at 100 px, scale by `fontSize/100`):
 
 ```js
@@ -264,8 +266,8 @@ Both OFL 1.1, both SBMuFL, identical codepoints and identical composition maths 
 is purely typographic and belongs to the client. Almouzios is the heavier, calligraphic face and
 the closer match to the scanned plate; Neanes is the crisper engraving.
 
-The prototype loads them from the SHA-pinned jsDelivr URLs in FONTS.md, which is fine for a mock.
-**For the app, vendor woff2 in the repo** (~70 KB each) per FONTS.md: it keeps the
+The prototype loads them from the SHA-pinned jsDelivr URLs in `SBMUFL-FONTS.md`, which is fine
+for a mock. **For the app, vendor woff2 in the repo** (~70 KB each) per `SBMUFL-FONTS.md`: it keeps the
 open-from-`file://`, zero-network, no-build character, is smaller than the brotli'd OTF, and is
 same-origin on github.io. Ship each font's full OFL text alongside, add a NOTICE section to
 `README.md` so the root Apache-2.0 licence is not read as covering `fonts/`, and credit
@@ -350,7 +352,8 @@ Minimum control size 22 px (play button); wells 34 px; picker rows 26 px tall.
 |---|---|
 | `Byzantine Symbols UX (design 3).dc.html` | the design source — options `#3a`, `#3b`, `#3c`, `#3d`. This is the design to build. |
 | `support.js` | runtime the design file needs in order to open in a browser. Not part of the app. |
-| `FONTS.md` | the font research this design implements, with the full codepoint tables. Its GPOS conclusion is corrected above. |
+| `FONTS.md` | the font research this design implements — the generic findings and the comparison. Its GPOS conclusion is corrected above. |
+| `SBMUFL-FONTS.md` | the SBMuFL half of that research: the full codepoint tables, metrics, hosting, licensing and implementation notes. |
 | `Byzantine Symbols UX — standalone.html` | the same design as one self-contained offline file, fonts inlined — for sharing, not for building from. |
 
 Open the design file in a browser and read `#3a` (the app in Byzantine mode, one picker open),
