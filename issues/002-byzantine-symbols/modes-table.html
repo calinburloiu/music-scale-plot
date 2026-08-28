@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Martyries of the eight modes — all three octaves (issue #2)</title>
+
+<style>
+/* ---------------------------------------------------------------------------
+   The Byzantine font is vendored in this repository (../../fonts/Neanes.woff2),
+   so this page needs no network: it works from file:// and from GitHub Pages
+   alike. See ../../fonts/README.md for provenance and licence.
+   --------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Neanes";
+  src: url("../../fonts/Neanes.woff2") format("woff2");
+  font-display: block;
+}
+
+:root {
+  --bg: #fbfaf7;
+  --panel: #ffffff;
+  --ink: #1d1b16;
+  --muted: #6b6559;
+  --line: #ddd8cc;
+  --rule: #b9b1a0;
+  --accent: #7a3b12;
+  --diatonic: #f4f1e6;
+  --chromatic: #f6ece6;
+  --enharmonic: #eaeff1;
+
+  /* Height of the first header row. The second row sticks directly below it,
+     so the two must agree: a row taller than this leaves a seam the table
+     shows through. It fits the tallest title, the two-line "Mode VII varys". */
+  --head-row: 3.4rem;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 2.5rem 1.5rem 5rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+main { max-width: 1180px; margin: 0 auto; }
+
+h1 { font-size: 1.8rem; margin: 0 0 .3rem; letter-spacing: -.01em; }
+h2 { font-size: 1.15rem; margin: 2.5rem 0 .6rem; }
+p { max-width: 78ch; }
+.lede { color: var(--muted); }
+code {
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #f0ece1;
+  padding: .1em .35em;
+  border-radius: 3px;
+}
+
+.scroller {
+  overflow: auto;
+  max-height: calc(100vh - 2rem);
+  overscroll-behavior: contain;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+table { border-collapse: separate; border-spacing: 0; width: 100%; }
+
+th, td {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: .35rem .5rem;
+  text-align: center;
+  vertical-align: middle;
+}
+tr > :last-child { border-right: 0; }
+tbody tr:last-child > * { border-bottom: 0; }
+
+thead th {
+  background: #f3efe4;
+  font-size: .8rem;
+  line-height: 1.35;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+thead tr:first-child th { height: var(--head-row); }
+thead tr:nth-child(2) th {
+  top: var(--head-row);
+  font-weight: 500;
+  color: var(--muted);
+  border-bottom: 2px solid var(--rule);
+}
+
+thead th.genus-diatonic   { background: var(--diatonic); }
+thead th.genus-chromatic  { background: var(--chromatic); }
+thead th.genus-enharmonic { background: var(--enharmonic); }
+
+th.col-title { font-size: 1.05rem; font-weight: 700; color: var(--accent); white-space: nowrap; }
+th.col-title.wrap { white-space: normal; line-height: 1.2; }
+th.col-title.makam-scale { font-size: .95rem; font-style: italic; }
+
+/* The makam scales are a separate kind of column: scales, not modes,
+   and transcribed rather than generated. */
+th.makam-first, td.makam-first { border-left: 2px solid var(--rule); }
+td.out-of-range { color: var(--muted); opacity: .55; }
+
+/* Cells filled in beyond the octave transcribed: the two &Nu;&eta; added here. */
+td.inferred { background: #fdfaf0; }
+td.inferred .martyria { opacity: .78; }
+
+/* The note column, sticky on horizontal scroll. */
+th.note-name {
+  background: var(--panel);
+  text-align: left;
+  white-space: nowrap;
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  font-weight: 500;
+}
+/* The corner is stuck on both axes at once: it has to outrank the header row
+   it sits in (2) as well as the body's sticky first column (1). */
+thead th.note-name { background: #f3efe4; z-index: 3; }
+th.note-name .greek { font-weight: 700; margin-right: .35rem; }
+th.note-name .west { color: var(--muted); font-size: .85em; }
+
+tr.octave-start td, tr.octave-start th { border-top: 2px solid var(--rule); }
+
+th.octave-band {
+  background: #f3efe4;
+  text-align: left;
+  font-size: .8rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+th.octave-band span {
+  display: inline-block;
+  position: sticky;
+  left: .5rem;
+}
+
+/* A martyria draws far outside the box a default line box would give it. The
+   face declares an ascent of 1.4em and a descent of .466em, so the strut puts
+   the baseline almost at the bottom of a line-height:1 box — while the ink of
+   these glyphs runs to .654em *below* the baseline and .3em past the advance
+   width of the letter. Left alone it spills through the row and column rules.
+
+   So size the box from the ink instead of from the strut: a line-height that
+   places the baseline --ink-ascent below the top edge, and padding deep enough
+   for the rest. All four ink figures are the worst case over the 168 martyries
+   of this table, measured with ctx.measureText() on the vendored face; a
+   different face needs them measured again. */
+.martyria {
+  --font-ascent: 1.4em;
+  --font-descent: .466em;
+  --ink-ascent: .55em;
+  --ink-descent: .654em;
+  --ink-overhang: .3em;
+  --clearance: .12em;
+  --baseline: calc(var(--ink-ascent) + var(--clearance));
+  --line: calc(2 * var(--baseline) - var(--font-ascent) + var(--font-descent));
+
+  display: inline-block;
+  font-family: "Neanes", serif;
+  font-size: 40px;
+  line-height: var(--line);
+  padding-bottom: calc(
+    var(--ink-ascent) + var(--ink-descent) + 2 * var(--clearance) - var(--line));
+  padding-right: calc(var(--ink-overhang) + var(--clearance));
+}
+
+td.col-diatonic   { background: #fcfbf6; }
+td.col-chromatic  { background: #fdf9f6; }
+td.col-enharmonic { background: #f9fbfc; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 1.2rem; margin: .8rem 0 0; font-size: .9rem; }
+.legend span { display: inline-flex; align-items: center; gap: .4rem; color: var(--muted); }
+.legend i { width: 1rem; height: 1rem; border: 1px solid var(--line); display: inline-block; }
+.legend i.d { background: var(--diatonic); }
+.legend i.c { background: var(--chromatic); }
+.legend i.e { background: var(--enharmonic); }
+
+footer { margin-top: 3rem; color: var(--muted); font-size: .9rem; }
+a { color: var(--accent); }
+</style>
+</head>
+
+<body>
+<main>
+  <h1>Martyries of the eight modes</h1>
+
+  <div class="legend">
+    <span><i class="d"></i> diatonic</span>
+    <span><i class="c"></i> chromatic</span>
+    <span><i class="e"></i> enharmonic</span>
+  </div>
+
+  <h2>The table</h2>
+  <div class="scroller">
+    <table>
+      <thead>
+        <tr>
+          <th class="note-name" rowspan="2">Degree</th>
+          <th class="col-title genus-diatonic">Mode I</th>
+          <th class="col-title genus-chromatic">Mode II</th>
+          <th class="col-title genus-enharmonic">Mode III</th>
+          <th class="col-title genus-diatonic">Mode IV</th>
+          <th class="col-title genus-diatonic">Mode V</th>
+          <th class="col-title genus-chromatic">Mode VI</th>
+          <th class="col-title genus-enharmonic">Mode VII</th>
+          <th class="col-title genus-diatonic wrap">Mode&nbsp;VII<br><i>varys</i></th>
+          <th class="col-title genus-diatonic">Mode VIII</th>
+          <th class="col-title genus-chromatic makam-first makam-scale">M&uuml;stear</th>
+          <th class="col-title genus-enharmonic makam-scale">Ni&#351;abur</th>
+          <th class="col-title genus-enharmonic makam-scale">Hisar</th>
+        </tr>
+        <tr>
+          <th class="genus-diatonic"><div>diatonic</div><div>base &Pi;&alpha; (Re)</div></th>
+          <th class="genus-chromatic"><div>chromatic (soft)</div><div>base &Delta;&iota; (Sol)</div></th>
+          <th class="genus-enharmonic"><div>enharmonic (acem)</div><div>base &Gamma;&alpha; (Fa)</div></th>
+          <th class="genus-diatonic"><div>diatonic</div><div>base &Delta;&iota; (Sol)</div></th>
+          <th class="genus-diatonic"><div>diatonic (plagal I)</div><div>base &Pi;&alpha; (Re)</div></th>
+          <th class="genus-chromatic"><div>chromatic (hard, plagal II)</div><div>base &Pi;&alpha; (Re)</div></th>
+          <th class="genus-enharmonic"><div>enharmonic (acem)</div><div>base &Gamma;&alpha; (Fa)</div></th>
+          <th class="genus-diatonic"><div>diatonic</div><div>base &Zeta;&omega; (Si)</div></th>
+          <th class="genus-diatonic"><div>diatonic (plagal IV)</div><div>base &Nu;&eta; (Do)</div></th>
+          <th class="genus-chromatic makam-first"><div>chroa <i>zygos</i></div><div>chromatic</div><div>&Pi;&alpha;&hellip;&Pi;&alpha; only</div></th>
+          <th class="genus-enharmonic"><div>chroa <i>kliton</i></div><div>enharmonic</div><div>&Pi;&alpha;&hellip;&Pi;&alpha; only</div></th>
+          <th class="genus-enharmonic"><div>chroa <i>spathi</i></div><div>enharmonic</div><div>&Pi;&alpha;&hellip;&Pi;&alpha; only</div></th>
+        </tr>
+      </thead>
+
+      <tbody>
+        <tr class="octave-start">
+          <th class="octave-band" colspan="13"><span>Low octave</span></th>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Zeta;&omega;</span>Zo <span class="west">(Si)</span></th>
+          <td class="col-diatonic" title="martyriaNoteZoLow U+E130 + martyriaNanaAbove U+E174"><span class="martyria">&#xE130;&#xE174;</span></td>
+          <td class="col-chromatic" title="martyriaNoteZoLow U+E130 + martyriaSoftChromaticDiAbove U+E179"><span class="martyria">&#xE130;&#xE179;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteZoLow U+E130 + martyriaNanaAbove U+E174"><span class="martyria">&#xE130;&#xE174;</span></td>
+          <td class="col-diatonic" title="martyriaNoteZoLow U+E130 + martyriaNanaAbove U+E174"><span class="martyria">&#xE130;&#xE174;</span></td>
+          <td class="col-diatonic" title="martyriaNoteZoLow U+E130 + martyriaNanaAbove U+E174"><span class="martyria">&#xE130;&#xE174;</span></td>
+          <td class="col-chromatic" title="martyriaNoteZoLow U+E130 + martyriaHardChromaticDiAbove U+E178"><span class="martyria">&#xE130;&#xE178;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteZoLow U+E130 + martyriaNanaAbove U+E174"><span class="martyria">&#xE130;&#xE174;</span></td>
+          <td class="col-diatonic out-of-range" title="the diatonic varys is shown for its own octave, &Zeta;&omega;&hellip;&Zeta;&omega;&prime;, only"><span>&mdash;</span></td>
+          <td class="col-diatonic" title="martyriaNoteZoLow U+E130 + martyriaNanaAbove U+E174"><span class="martyria">&#xE130;&#xE174;</span></td>
+          <td class="col-chromatic makam-first out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Nu;&eta;</span>Ni <span class="west">(Do)</span></th>
+          <td class="col-diatonic" title="martyriaNoteNiLow U+E131 + martyriaDeltaAbove U+E171"><span class="martyria">&#xE131;&#xE171;</span></td>
+          <td class="col-chromatic" title="martyriaNoteNiLow U+E131 + martyriaSoftChromaticKeAbove U+E17A"><span class="martyria">&#xE131;&#xE17A;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteNiLow U+E131 + martyriaDeltaAbove U+E171"><span class="martyria">&#xE131;&#xE171;</span></td>
+          <td class="col-diatonic" title="martyriaNoteNiLow U+E131 + martyriaDeltaAbove U+E171"><span class="martyria">&#xE131;&#xE171;</span></td>
+          <td class="col-diatonic" title="martyriaNoteNiLow U+E131 + martyriaDeltaAbove U+E171"><span class="martyria">&#xE131;&#xE171;</span></td>
+          <td class="col-chromatic" title="martyriaNoteNiLow U+E131 + martyriaHardChromaticPaAbove U+E177"><span class="martyria">&#xE131;&#xE177;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteNiLow U+E131 + martyriaDeltaAbove U+E171"><span class="martyria">&#xE131;&#xE171;</span></td>
+          <td class="col-diatonic out-of-range" title="the diatonic varys is shown for its own octave, &Zeta;&omega;&hellip;&Zeta;&omega;&prime;, only"><span>&mdash;</span></td>
+          <td class="col-diatonic" title="martyriaNoteNiLow U+E131 + martyriaDeltaAbove U+E171"><span class="martyria">&#xE131;&#xE171;</span></td>
+          <td class="col-chromatic makam-first out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Pi;&alpha;</span>Pa <span class="west">(Re)</span></th>
+          <td class="col-diatonic" title="martyriaNotePaLow U+E132 + martyriaAlphaAbove U+E172"><span class="martyria">&#xE132;&#xE172;</span></td>
+          <td class="col-chromatic" title="martyriaNotePaLow U+E132 + martyriaSoftChromaticDiAbove U+E179"><span class="martyria">&#xE132;&#xE179;</span></td>
+          <td class="col-enharmonic" title="martyriaNotePaLow U+E132 + martyriaAlphaAbove U+E172"><span class="martyria">&#xE132;&#xE172;</span></td>
+          <td class="col-diatonic" title="martyriaNotePaLow U+E132 + martyriaAlphaAbove U+E172"><span class="martyria">&#xE132;&#xE172;</span></td>
+          <td class="col-diatonic" title="martyriaNotePaLow U+E132 + martyriaAlphaAbove U+E172"><span class="martyria">&#xE132;&#xE172;</span></td>
+          <td class="col-chromatic" title="martyriaNotePaLow U+E132 + martyriaHardChromaticDiAbove U+E178"><span class="martyria">&#xE132;&#xE178;</span></td>
+          <td class="col-enharmonic" title="martyriaNotePaLow U+E132 + martyriaAlphaAbove U+E172"><span class="martyria">&#xE132;&#xE172;</span></td>
+          <td class="col-diatonic out-of-range" title="the diatonic varys is shown for its own octave, &Zeta;&omega;&hellip;&Zeta;&omega;&prime;, only"><span>&mdash;</span></td>
+          <td class="col-diatonic" title="martyriaNotePaLow U+E132 + martyriaAlphaAbove U+E172"><span class="martyria">&#xE132;&#xE172;</span></td>
+          <td class="col-chromatic makam-first out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Beta;&omicron;&upsilon;</span>Vou <span class="west">(Mi)</span></th>
+          <td class="col-diatonic" title="martyriaNoteVouLow U+E133 + martyriaLegetosAbove U+E173"><span class="martyria">&#xE133;&#xE173;</span></td>
+          <td class="col-chromatic" title="martyriaNoteVouLow U+E133 + martyriaSoftChromaticKeAbove U+E17A"><span class="martyria">&#xE133;&#xE17A;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteVouLow U+E133 + martyriaLegetosAbove U+E173"><span class="martyria">&#xE133;&#xE173;</span></td>
+          <td class="col-diatonic" title="martyriaNoteVouLow U+E133 + martyriaLegetosAbove U+E173"><span class="martyria">&#xE133;&#xE173;</span></td>
+          <td class="col-diatonic" title="martyriaNoteVouLow U+E133 + martyriaLegetosAbove U+E173"><span class="martyria">&#xE133;&#xE173;</span></td>
+          <td class="col-chromatic" title="martyriaNoteVouLow U+E133 + martyriaHardChromaticPaAbove U+E177"><span class="martyria">&#xE133;&#xE177;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteVouLow U+E133 + martyriaLegetosAbove U+E173"><span class="martyria">&#xE133;&#xE173;</span></td>
+          <td class="col-diatonic out-of-range" title="the diatonic varys is shown for its own octave, &Zeta;&omega;&hellip;&Zeta;&omega;&prime;, only"><span>&mdash;</span></td>
+          <td class="col-diatonic" title="martyriaNoteVouLow U+E133 + martyriaLegetosAbove U+E173"><span class="martyria">&#xE133;&#xE173;</span></td>
+          <td class="col-chromatic makam-first out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Gamma;&alpha;</span>Ga <span class="west">(Fa)</span></th>
+          <td class="col-diatonic" title="martyriaNoteGaLow U+E134 + martyriaNanaAbove U+E174"><span class="martyria">&#xE134;&#xE174;</span></td>
+          <td class="col-chromatic" title="martyriaNoteGaLow U+E134 + martyriaSoftChromaticDiAbove U+E179"><span class="martyria">&#xE134;&#xE179;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteGaLow U+E134 + martyriaNanaAbove U+E174"><span class="martyria">&#xE134;&#xE174;</span></td>
+          <td class="col-diatonic" title="martyriaNoteGaLow U+E134 + martyriaNanaAbove U+E174"><span class="martyria">&#xE134;&#xE174;</span></td>
+          <td class="col-diatonic" title="martyriaNoteGaLow U+E134 + martyriaNanaAbove U+E174"><span class="martyria">&#xE134;&#xE174;</span></td>
+          <td class="col-chromatic" title="martyriaNoteGaLow U+E134 + martyriaHardChromaticDiAbove U+E178"><span class="martyria">&#xE134;&#xE178;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteGaLow U+E134 + martyriaNanaAbove U+E174"><span class="martyria">&#xE134;&#xE174;</span></td>
+          <td class="col-diatonic out-of-range" title="the diatonic varys is shown for its own octave, &Zeta;&omega;&hellip;&Zeta;&omega;&prime;, only"><span>&mdash;</span></td>
+          <td class="col-diatonic" title="martyriaNoteGaLow U+E134 + martyriaNanaAbove U+E174"><span class="martyria">&#xE134;&#xE174;</span></td>
+          <td class="col-chromatic makam-first out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Delta;&iota;</span>Di <span class="west">(Sol)</span></th>
+          <td class="col-diatonic" title="martyriaNoteDiLow U+E135 + martyriaDeltaAbove U+E171"><span class="martyria">&#xE135;&#xE171;</span></td>
+          <td class="col-chromatic" title="martyriaNoteDiLow U+E135 + martyriaSoftChromaticKeAbove U+E17A"><span class="martyria">&#xE135;&#xE17A;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteDiLow U+E135 + martyriaDeltaAbove U+E171"><span class="martyria">&#xE135;&#xE171;</span></td>
+          <td class="col-diatonic" title="martyriaNoteDiLow U+E135 + martyriaDeltaAbove U+E171"><span class="martyria">&#xE135;&#xE171;</span></td>
+          <td class="col-diatonic" title="martyriaNoteDiLow U+E135 + martyriaDeltaAbove U+E171"><span class="martyria">&#xE135;&#xE171;</span></td>
+          <td class="col-chromatic" title="martyriaNoteDiLow U+E135 + martyriaHardChromaticPaAbove U+E177"><span class="martyria">&#xE135;&#xE177;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteDiLow U+E135 + martyriaDeltaAbove U+E171"><span class="martyria">&#xE135;&#xE171;</span></td>
+          <td class="col-diatonic out-of-range" title="the diatonic varys is shown for its own octave, &Zeta;&omega;&hellip;&Zeta;&omega;&prime;, only"><span>&mdash;</span></td>
+          <td class="col-diatonic" title="martyriaNoteDiLow U+E135 + martyriaDeltaAbove U+E171"><span class="martyria">&#xE135;&#xE171;</span></td>
+          <td class="col-chromatic makam-first out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Kappa;&epsilon;</span>Ke <span class="west">(La)</span></th>
+          <td class="col-diatonic" title="martyriaNoteKeLow U+E136 + martyriaAlphaAbove U+E172"><span class="martyria">&#xE136;&#xE172;</span></td>
+          <td class="col-chromatic" title="martyriaNoteKeLow U+E136 + martyriaSoftChromaticDiAbove U+E179"><span class="martyria">&#xE136;&#xE179;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteKeLow U+E136 + martyriaAlphaAbove U+E172"><span class="martyria">&#xE136;&#xE172;</span></td>
+          <td class="col-diatonic" title="martyriaNoteKeLow U+E136 + martyriaAlphaAbove U+E172"><span class="martyria">&#xE136;&#xE172;</span></td>
+          <td class="col-diatonic" title="martyriaNoteKeLow U+E136 + martyriaAlphaAbove U+E172"><span class="martyria">&#xE136;&#xE172;</span></td>
+          <td class="col-chromatic" title="martyriaNoteKeLow U+E136 + martyriaHardChromaticDiAbove U+E178"><span class="martyria">&#xE136;&#xE178;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteKeLow U+E136 + martyriaAlphaAbove U+E172"><span class="martyria">&#xE136;&#xE172;</span></td>
+          <td class="col-diatonic out-of-range" title="the diatonic varys is shown for its own octave, &Zeta;&omega;&hellip;&Zeta;&omega;&prime;, only"><span>&mdash;</span></td>
+          <td class="col-diatonic" title="martyriaNoteKeLow U+E136 + martyriaAlphaAbove U+E172"><span class="martyria">&#xE136;&#xE172;</span></td>
+          <td class="col-chromatic makam-first out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+        </tr>
+
+        <tr class="octave-start">
+          <th class="octave-band" colspan="13"><span>Middle octave</span></th>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Zeta;&omega;</span>Zo <span class="west">(Si)</span></th>
+          <td class="col-diatonic" title="martyriaNoteZo U+E137 + martyriaZoBelow U+E150"><span class="martyria">&#xE137;&#xE150;</span></td>
+          <td class="col-chromatic" title="martyriaNoteZo U+E137 + martyriaSoftChromaticKeBelow U+E15A"><span class="martyria">&#xE137;&#xE15A;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteZo U+E137 + martyriaNanaBelow U+E154"><span class="martyria">&#xE137;&#xE154;</span></td>
+          <td class="col-diatonic" title="martyriaNoteZo U+E137 + martyriaZoBelow U+E150"><span class="martyria">&#xE137;&#xE150;</span></td>
+          <td class="col-diatonic" title="martyriaNoteZo U+E137 + martyriaZoBelow U+E150"><span class="martyria">&#xE137;&#xE150;</span></td>
+          <td class="col-chromatic" title="martyriaNoteZo U+E137 + martyriaHardChromaticPaBelow U+E157"><span class="martyria">&#xE137;&#xE157;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteZo U+E137 + martyriaNanaBelow U+E154"><span class="martyria">&#xE137;&#xE154;</span></td>
+          <td class="col-diatonic" title="martyriaNoteZo U+E137 + martyriaZoBelow U+E150"><span class="martyria">&#xE137;&#xE150;</span></td>
+          <td class="col-diatonic" title="martyriaNoteZo U+E137 + martyriaZoBelow U+E150"><span class="martyria">&#xE137;&#xE150;</span></td>
+          <td class="col-chromatic makam-first out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Nu;&eta;</span>Ni <span class="west">(Do)</span></th>
+          <td class="col-diatonic" title="martyriaNoteNi U+E138 + martyriaDeltaBelow U+E151"><span class="martyria">&#xE138;&#xE151;</span></td>
+          <td class="col-chromatic" title="martyriaNoteNi U+E138 + martyriaSoftChromaticDiBelow U+E159"><span class="martyria">&#xE138;&#xE159;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteNi U+E138 + martyriaNanaBelow U+E154"><span class="martyria">&#xE138;&#xE154;</span></td>
+          <td class="col-diatonic" title="martyriaNoteNi U+E138 + martyriaDeltaBelow U+E151"><span class="martyria">&#xE138;&#xE151;</span></td>
+          <td class="col-diatonic" title="martyriaNoteNi U+E138 + martyriaDeltaBelow U+E151"><span class="martyria">&#xE138;&#xE151;</span></td>
+          <td class="col-chromatic" title="martyriaNoteNi U+E138 + martyriaHardChromaticDiBelow U+E158"><span class="martyria">&#xE138;&#xE158;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteNi U+E138 + martyriaNanaBelow U+E154"><span class="martyria">&#xE138;&#xE154;</span></td>
+          <td class="col-diatonic" title="martyriaNoteNi U+E138 + martyriaDeltaBelow U+E151"><span class="martyria">&#xE138;&#xE151;</span></td>
+          <td class="col-diatonic" title="martyriaNoteNi U+E138 + martyriaDeltaBelow U+E151"><span class="martyria">&#xE138;&#xE151;</span></td>
+          <td class="col-chromatic makam-first inferred" title="added below the transcribed &Pi;&alpha;&hellip;&Pi;&alpha; octave: &Nu;&eta; takes the diatonic sign &mdash; martyriaNoteNi U+E138 + martyriaDeltaBelow U+E151"><span class="martyria">&#xE138;&#xE151;</span></td>
+          <td class="col-enharmonic inferred" title="added below the transcribed &Pi;&alpha;&hellip;&Pi;&alpha; octave: &Nu;&eta; takes the diatonic sign &mdash; martyriaNoteNi U+E138 + martyriaDeltaBelow U+E151"><span class="martyria">&#xE138;&#xE151;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Pi;&alpha;</span>Pa <span class="west">(Re)</span></th>
+          <td class="col-diatonic" title="martyriaNotePa U+E139 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE139;&#xE152;</span></td>
+          <td class="col-chromatic" title="martyriaNotePa U+E139 + martyriaSoftChromaticKeBelow U+E15A"><span class="martyria">&#xE139;&#xE15A;</span></td>
+          <td class="col-enharmonic" title="martyriaNotePa U+E139 + martyriaDeltaBelow U+E151"><span class="martyria">&#xE139;&#xE151;</span></td>
+          <td class="col-diatonic" title="martyriaNotePa U+E139 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE139;&#xE152;</span></td>
+          <td class="col-diatonic" title="martyriaNotePa U+E139 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE139;&#xE152;</span></td>
+          <td class="col-chromatic" title="martyriaNotePa U+E139 + martyriaHardChromaticPaBelow U+E157"><span class="martyria">&#xE139;&#xE157;</span></td>
+          <td class="col-enharmonic" title="martyriaNotePa U+E139 + martyriaDeltaBelow U+E151"><span class="martyria">&#xE139;&#xE151;</span></td>
+          <td class="col-diatonic" title="martyriaNotePa U+E139 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE139;&#xE152;</span></td>
+          <td class="col-diatonic" title="martyriaNotePa U+E139 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE139;&#xE152;</span></td>
+          <td class="col-chromatic makam-first" title="martyriaNotePa U+E139 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE139;&#xE152;</span></td>
+          <td class="col-enharmonic" title="martyriaNotePa U+E139 + martyriaDeltaBelow U+E151"><span class="martyria">&#xE139;&#xE151;</span></td>
+          <td class="col-enharmonic" title="martyriaNotePa U+E139 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE139;&#xE152;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Beta;&omicron;&upsilon;</span>Vou <span class="west">(Mi)</span></th>
+          <td class="col-diatonic" title="martyriaNoteVou U+E13A + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13A;&#xE153;</span></td>
+          <td class="col-chromatic" title="martyriaNoteVou U+E13A + martyriaSoftChromaticDiBelow U+E159"><span class="martyria">&#xE13A;&#xE159;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteVou U+E13A + martyriaAlphaBelow U+E152"><span class="martyria">&#xE13A;&#xE152;</span></td>
+          <td class="col-diatonic" title="martyriaNoteVou U+E13A + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13A;&#xE153;</span></td>
+          <td class="col-diatonic" title="martyriaNoteVou U+E13A + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13A;&#xE153;</span></td>
+          <td class="col-chromatic" title="martyriaNoteVou U+E13A + martyriaHardChromaticDiBelow U+E158"><span class="martyria">&#xE13A;&#xE158;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteVou U+E13A + martyriaAlphaBelow U+E152"><span class="martyria">&#xE13A;&#xE152;</span></td>
+          <td class="col-diatonic" title="martyriaNoteVou U+E13A + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13A;&#xE153;</span></td>
+          <td class="col-diatonic" title="martyriaNoteVou U+E13A + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13A;&#xE153;</span></td>
+          <td class="col-chromatic makam-first" title="martyriaNoteVou U+E13A + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13A;&#xE153;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteVou U+E13A + martyriaAlphaBelow U+E152"><span class="martyria">&#xE13A;&#xE152;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteVou U+E13A + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13A;&#xE153;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Gamma;&alpha;</span>Ga <span class="west">(Fa)</span></th>
+          <td class="col-diatonic" title="martyriaNoteGa U+E13B + martyriaNanaBelow U+E154"><span class="martyria">&#xE13B;&#xE154;</span></td>
+          <td class="col-chromatic" title="martyriaNoteGa U+E13B + martyriaSoftChromaticKeBelow U+E15A"><span class="martyria">&#xE13B;&#xE15A;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteGa U+E13B + martyriaNanaBelow U+E154"><span class="martyria">&#xE13B;&#xE154;</span></td>
+          <td class="col-diatonic" title="martyriaNoteGa U+E13B + martyriaNanaBelow U+E154"><span class="martyria">&#xE13B;&#xE154;</span></td>
+          <td class="col-diatonic" title="martyriaNoteGa U+E13B + martyriaNanaBelow U+E154"><span class="martyria">&#xE13B;&#xE154;</span></td>
+          <td class="col-chromatic" title="martyriaNoteGa U+E13B + martyriaHardChromaticPaBelow U+E157"><span class="martyria">&#xE13B;&#xE157;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteGa U+E13B + martyriaNanaBelow U+E154"><span class="martyria">&#xE13B;&#xE154;</span></td>
+          <td class="col-diatonic" title="martyriaNoteGa U+E13B + martyriaNanaBelow U+E154"><span class="martyria">&#xE13B;&#xE154;</span></td>
+          <td class="col-diatonic" title="martyriaNoteGa U+E13B + martyriaNanaBelow U+E154"><span class="martyria">&#xE13B;&#xE154;</span></td>
+          <td class="col-chromatic makam-first" title="martyriaNoteGa U+E13B + martyriaHardChromaticPaBelow U+E157"><span class="martyria">&#xE13B;&#xE157;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteGa U+E13B + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13B;&#xE153;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteGa U+E13B + martyriaNanaBelow U+E154"><span class="martyria">&#xE13B;&#xE154;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Delta;&iota;</span>Di <span class="west">(Sol)</span></th>
+          <td class="col-diatonic" title="martyriaNoteDi U+E13C + martyriaDeltaDottedBelow U+E155"><span class="martyria">&#xE13C;&#xE155;</span></td>
+          <td class="col-chromatic" title="martyriaNoteDi U+E13C + martyriaSoftChromaticDiBelow U+E159"><span class="martyria">&#xE13C;&#xE159;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteDi U+E13C + martyriaDeltaDottedBelow U+E155"><span class="martyria">&#xE13C;&#xE155;</span></td>
+          <td class="col-diatonic" title="martyriaNoteDi U+E13C + martyriaDeltaDottedBelow U+E155"><span class="martyria">&#xE13C;&#xE155;</span></td>
+          <td class="col-diatonic" title="martyriaNoteDi U+E13C + martyriaDeltaDottedBelow U+E155"><span class="martyria">&#xE13C;&#xE155;</span></td>
+          <td class="col-chromatic" title="martyriaNoteDi U+E13C + martyriaHardChromaticDiBelow U+E158"><span class="martyria">&#xE13C;&#xE158;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteDi U+E13C + martyriaDeltaDottedBelow U+E155"><span class="martyria">&#xE13C;&#xE155;</span></td>
+          <td class="col-diatonic" title="martyriaNoteDi U+E13C + martyriaDeltaDottedBelow U+E155"><span class="martyria">&#xE13C;&#xE155;</span></td>
+          <td class="col-diatonic" title="martyriaNoteDi U+E13C + martyriaDeltaDottedBelow U+E155"><span class="martyria">&#xE13C;&#xE155;</span></td>
+          <td class="col-chromatic makam-first" title="martyriaNoteDi U+E13C + martyriaZygosBelow U+E15B"><span class="martyria">&#xE13C;&#xE15B;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteDi U+E13C + martyriaDeltaDottedBelow U+E155"><span class="martyria">&#xE13C;&#xE155;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteDi U+E13C + martyriaHardChromaticPaBelow U+E157"><span class="martyria">&#xE13C;&#xE157;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Kappa;&epsilon;</span>Ke <span class="west">(La)</span></th>
+          <td class="col-diatonic" title="martyriaNoteKe U+E13D + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE13D;&#xE156;</span></td>
+          <td class="col-chromatic" title="martyriaNoteKe U+E13D + martyriaSoftChromaticKeBelow U+E15A"><span class="martyria">&#xE13D;&#xE15A;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteKe U+E13D + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE13D;&#xE156;</span></td>
+          <td class="col-diatonic" title="martyriaNoteKe U+E13D + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE13D;&#xE156;</span></td>
+          <td class="col-diatonic" title="martyriaNoteKe U+E13D + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE13D;&#xE156;</span></td>
+          <td class="col-chromatic" title="martyriaNoteKe U+E13D + martyriaHardChromaticPaBelow U+E157"><span class="martyria">&#xE13D;&#xE157;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteKe U+E13D + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE13D;&#xE156;</span></td>
+          <td class="col-diatonic" title="martyriaNoteKe U+E13D + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE13D;&#xE156;</span></td>
+          <td class="col-diatonic" title="martyriaNoteKe U+E13D + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE13D;&#xE156;</span></td>
+          <td class="col-chromatic makam-first" title="martyriaNoteKe U+E13D + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE13D;&#xE156;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteKe U+E13D + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE13D;&#xE156;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteKe U+E13D + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE13D;&#xE156;</span></td>
+        </tr>
+
+        <tr class="octave-start">
+          <th class="octave-band" colspan="13"><span>High octave</span></th>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Zeta;&omega;</span>Zo <span class="west">(Si)</span></th>
+          <td class="col-diatonic" title="martyriaNoteZoHigh U+E13E + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13E;&#xE153;</span></td>
+          <td class="col-chromatic" title="martyriaNoteZoHigh U+E13E + martyriaSoftChromaticDiBelow U+E159"><span class="martyria">&#xE13E;&#xE159;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteZoHigh U+E13E + martyriaNanaBelow U+E154"><span class="martyria">&#xE13E;&#xE154;</span></td>
+          <td class="col-diatonic" title="martyriaNoteZoHigh U+E13E + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13E;&#xE153;</span></td>
+          <td class="col-diatonic" title="martyriaNoteZoHigh U+E13E + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13E;&#xE153;</span></td>
+          <td class="col-chromatic" title="martyriaNoteZoHigh U+E13E + martyriaHardChromaticDiBelow U+E158"><span class="martyria">&#xE13E;&#xE158;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteZoHigh U+E13E + martyriaNanaBelow U+E154"><span class="martyria">&#xE13E;&#xE154;</span></td>
+          <td class="col-diatonic" title="martyriaNoteZoHigh U+E13E + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13E;&#xE153;</span></td>
+          <td class="col-diatonic" title="martyriaNoteZoHigh U+E13E + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13E;&#xE153;</span></td>
+          <td class="col-chromatic makam-first" title="martyriaNoteZoHigh U+E13E + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13E;&#xE153;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteZoHigh U+E13E + martyriaLegetosBelow U+E153"><span class="martyria">&#xE13E;&#xE153;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteZoHigh U+E13E + martyriaNanaBelow U+E154"><span class="martyria">&#xE13E;&#xE154;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Nu;&eta;</span>Ni <span class="west">(Do)</span></th>
+          <td class="col-diatonic" title="martyriaNoteNiHigh U+E13F + martyriaNanaBelow U+E154"><span class="martyria">&#xE13F;&#xE154;</span></td>
+          <td class="col-chromatic" title="martyriaNoteNiHigh U+E13F + martyriaSoftChromaticKeBelow U+E15A"><span class="martyria">&#xE13F;&#xE15A;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteNiHigh U+E13F + martyriaNanaBelow U+E154"><span class="martyria">&#xE13F;&#xE154;</span></td>
+          <td class="col-diatonic" title="martyriaNoteNiHigh U+E13F + martyriaNanaBelow U+E154"><span class="martyria">&#xE13F;&#xE154;</span></td>
+          <td class="col-diatonic" title="martyriaNoteNiHigh U+E13F + martyriaNanaBelow U+E154"><span class="martyria">&#xE13F;&#xE154;</span></td>
+          <td class="col-chromatic" title="martyriaNoteNiHigh U+E13F + martyriaHardChromaticPaBelow U+E157"><span class="martyria">&#xE13F;&#xE157;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteNiHigh U+E13F + martyriaNanaBelow U+E154"><span class="martyria">&#xE13F;&#xE154;</span></td>
+          <td class="col-diatonic out-of-range" title="the diatonic varys is shown for its own octave, &Zeta;&omega;&hellip;&Zeta;&omega;&prime;, only"><span>&mdash;</span></td>
+          <td class="col-diatonic" title="martyriaNoteNiHigh U+E13F + martyriaNanaBelow U+E154"><span class="martyria">&#xE13F;&#xE154;</span></td>
+          <td class="col-chromatic makam-first" title="martyriaNoteNiHigh U+E13F + martyriaNanaBelow U+E154"><span class="martyria">&#xE13F;&#xE154;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteNiHigh U+E13F + martyriaNanaBelow U+E154"><span class="martyria">&#xE13F;&#xE154;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteNiHigh U+E13F + martyriaNanaBelow U+E154"><span class="martyria">&#xE13F;&#xE154;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Pi;&alpha;</span>Pa <span class="west">(Re)</span></th>
+          <td class="col-diatonic" title="martyriaNotePaHigh U+E140 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE140;&#xE152;</span></td>
+          <td class="col-chromatic" title="martyriaNotePaHigh U+E140 + martyriaSoftChromaticDiBelow U+E159"><span class="martyria">&#xE140;&#xE159;</span></td>
+          <td class="col-enharmonic" title="martyriaNotePaHigh U+E140 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE140;&#xE152;</span></td>
+          <td class="col-diatonic" title="martyriaNotePaHigh U+E140 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE140;&#xE152;</span></td>
+          <td class="col-diatonic" title="martyriaNotePaHigh U+E140 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE140;&#xE152;</span></td>
+          <td class="col-chromatic" title="martyriaNotePaHigh U+E140 + martyriaHardChromaticDiBelow U+E158"><span class="martyria">&#xE140;&#xE158;</span></td>
+          <td class="col-enharmonic" title="martyriaNotePaHigh U+E140 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE140;&#xE152;</span></td>
+          <td class="col-diatonic out-of-range" title="the diatonic varys is shown for its own octave, &Zeta;&omega;&hellip;&Zeta;&omega;&prime;, only"><span>&mdash;</span></td>
+          <td class="col-diatonic" title="martyriaNotePaHigh U+E140 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE140;&#xE152;</span></td>
+          <td class="col-chromatic makam-first" title="martyriaNotePaHigh U+E140 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE140;&#xE152;</span></td>
+          <td class="col-enharmonic" title="martyriaNotePaHigh U+E140 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE140;&#xE152;</span></td>
+          <td class="col-enharmonic" title="martyriaNotePaHigh U+E140 + martyriaAlphaBelow U+E152"><span class="martyria">&#xE140;&#xE152;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Beta;&omicron;&upsilon;</span>Vou <span class="west">(Mi)</span></th>
+          <td class="col-diatonic" title="martyriaNoteVouHigh U+E141 + martyriaLegetosBelow U+E153"><span class="martyria">&#xE141;&#xE153;</span></td>
+          <td class="col-chromatic" title="martyriaNoteVouHigh U+E141 + martyriaSoftChromaticKeBelow U+E15A"><span class="martyria">&#xE141;&#xE15A;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteVouHigh U+E141 + martyriaLegetosBelow U+E153"><span class="martyria">&#xE141;&#xE153;</span></td>
+          <td class="col-diatonic" title="martyriaNoteVouHigh U+E141 + martyriaLegetosBelow U+E153"><span class="martyria">&#xE141;&#xE153;</span></td>
+          <td class="col-diatonic" title="martyriaNoteVouHigh U+E141 + martyriaLegetosBelow U+E153"><span class="martyria">&#xE141;&#xE153;</span></td>
+          <td class="col-chromatic" title="martyriaNoteVouHigh U+E141 + martyriaHardChromaticPaBelow U+E157"><span class="martyria">&#xE141;&#xE157;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteVouHigh U+E141 + martyriaLegetosBelow U+E153"><span class="martyria">&#xE141;&#xE153;</span></td>
+          <td class="col-diatonic out-of-range" title="the diatonic varys is shown for its own octave, &Zeta;&omega;&hellip;&Zeta;&omega;&prime;, only"><span>&mdash;</span></td>
+          <td class="col-diatonic" title="martyriaNoteVouHigh U+E141 + martyriaLegetosBelow U+E153"><span class="martyria">&#xE141;&#xE153;</span></td>
+          <td class="col-chromatic makam-first out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Gamma;&alpha;</span>Ga <span class="west">(Fa)</span></th>
+          <td class="col-diatonic" title="martyriaNoteGaHigh U+E142 + martyriaNanaBelow U+E154"><span class="martyria">&#xE142;&#xE154;</span></td>
+          <td class="col-chromatic" title="martyriaNoteGaHigh U+E142 + martyriaSoftChromaticDiBelow U+E159"><span class="martyria">&#xE142;&#xE159;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteGaHigh U+E142 + martyriaNanaBelow U+E154"><span class="martyria">&#xE142;&#xE154;</span></td>
+          <td class="col-diatonic" title="martyriaNoteGaHigh U+E142 + martyriaNanaBelow U+E154"><span class="martyria">&#xE142;&#xE154;</span></td>
+          <td class="col-diatonic" title="martyriaNoteGaHigh U+E142 + martyriaNanaBelow U+E154"><span class="martyria">&#xE142;&#xE154;</span></td>
+          <td class="col-chromatic" title="martyriaNoteGaHigh U+E142 + martyriaHardChromaticDiBelow U+E158"><span class="martyria">&#xE142;&#xE158;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteGaHigh U+E142 + martyriaNanaBelow U+E154"><span class="martyria">&#xE142;&#xE154;</span></td>
+          <td class="col-diatonic out-of-range" title="the diatonic varys is shown for its own octave, &Zeta;&omega;&hellip;&Zeta;&omega;&prime;, only"><span>&mdash;</span></td>
+          <td class="col-diatonic" title="martyriaNoteGaHigh U+E142 + martyriaNanaBelow U+E154"><span class="martyria">&#xE142;&#xE154;</span></td>
+          <td class="col-chromatic makam-first out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Delta;&iota;</span>Di <span class="west">(Sol)</span></th>
+          <td class="col-diatonic" title="martyriaNoteDiHigh U+E143 + martyriaDeltaDottedBelow U+E155"><span class="martyria">&#xE143;&#xE155;</span></td>
+          <td class="col-chromatic" title="martyriaNoteDiHigh U+E143 + martyriaSoftChromaticKeBelow U+E15A"><span class="martyria">&#xE143;&#xE15A;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteDiHigh U+E143 + martyriaDeltaDottedBelow U+E155"><span class="martyria">&#xE143;&#xE155;</span></td>
+          <td class="col-diatonic" title="martyriaNoteDiHigh U+E143 + martyriaDeltaDottedBelow U+E155"><span class="martyria">&#xE143;&#xE155;</span></td>
+          <td class="col-diatonic" title="martyriaNoteDiHigh U+E143 + martyriaDeltaDottedBelow U+E155"><span class="martyria">&#xE143;&#xE155;</span></td>
+          <td class="col-chromatic" title="martyriaNoteDiHigh U+E143 + martyriaHardChromaticPaBelow U+E157"><span class="martyria">&#xE143;&#xE157;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteDiHigh U+E143 + martyriaDeltaDottedBelow U+E155"><span class="martyria">&#xE143;&#xE155;</span></td>
+          <td class="col-diatonic out-of-range" title="the diatonic varys is shown for its own octave, &Zeta;&omega;&hellip;&Zeta;&omega;&prime;, only"><span>&mdash;</span></td>
+          <td class="col-diatonic" title="martyriaNoteDiHigh U+E143 + martyriaDeltaDottedBelow U+E155"><span class="martyria">&#xE143;&#xE155;</span></td>
+          <td class="col-chromatic makam-first out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+        </tr>
+
+        <tr>
+          <th class="note-name"><span class="greek">&Kappa;&epsilon;</span>Ke <span class="west">(La)</span></th>
+          <td class="col-diatonic" title="martyriaNoteKeHigh U+E144 + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE144;&#xE156;</span></td>
+          <td class="col-chromatic" title="martyriaNoteKeHigh U+E144 + martyriaSoftChromaticDiBelow U+E159"><span class="martyria">&#xE144;&#xE159;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteKeHigh U+E144 + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE144;&#xE156;</span></td>
+          <td class="col-diatonic" title="martyriaNoteKeHigh U+E144 + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE144;&#xE156;</span></td>
+          <td class="col-diatonic" title="martyriaNoteKeHigh U+E144 + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE144;&#xE156;</span></td>
+          <td class="col-chromatic" title="martyriaNoteKeHigh U+E144 + martyriaHardChromaticDiBelow U+E158"><span class="martyria">&#xE144;&#xE158;</span></td>
+          <td class="col-enharmonic" title="martyriaNoteKeHigh U+E144 + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE144;&#xE156;</span></td>
+          <td class="col-diatonic out-of-range" title="the diatonic varys is shown for its own octave, &Zeta;&omega;&hellip;&Zeta;&omega;&prime;, only"><span>&mdash;</span></td>
+          <td class="col-diatonic" title="martyriaNoteKeHigh U+E144 + martyriaAlphaDottedBelow U+E156"><span class="martyria">&#xE144;&#xE156;</span></td>
+          <td class="col-chromatic makam-first out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+          <td class="col-enharmonic out-of-range" title="this scale is transcribed for its &Pi;&alpha;&hellip;&Pi;&alpha; octave only"><span>&mdash;</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer>
+    Font: <a href="https://github.com/neanes/sbmufl">Neanes</a>, SIL OFL 1.1, vendored at
+    <code>fonts/Neanes.woff2</code>. See <a href="FONTS.md">FONTS.md</a> for the font survey and
+    <a href="../../fonts/README.md">fonts/README.md</a> for attribution. The martyries are Private
+    Use Area codepoints with no fallback glyph: if the cells above are blank or show boxes, the
+    font did not load and <code>../../fonts/Neanes.woff2</code> is not reachable from this page.
+  </footer>
+</main>
+
+</body>
+</html>
