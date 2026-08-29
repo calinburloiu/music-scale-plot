@@ -896,6 +896,7 @@ body {
   }
 
   /* Settings rows: stack label above full-width input */
+  .notation-row,
   .base-note-row,
   .interval-type-row,
   .edo-settings-row {
@@ -903,12 +904,14 @@ body {
     align-items: stretch;
     gap: 0.35rem;
   }
+  .notation-row label,
   .base-note-row label,
   .interval-type-row label,
   .edo-settings-row label {
     width: auto;
     font-size: 0.68rem;
   }
+  .notation-row select,
   .base-note-row select,
   .interval-type-row select,
   .edo-settings-row input {
