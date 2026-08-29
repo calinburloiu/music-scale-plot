@@ -121,3 +121,185 @@ test("the symbol wells on a note row", async (t) => {
     }
   });
 });
+
+test("symbol state on a note row", async (t) => {
+  await t.test("reads nothing from a fresh row", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const symbols = h.app.readNoteSymbols(noteRows(h)[0]);
+    assert.equal(symbols.fthora, "");
+    assert.equal(symbols.martyria, null);
+  });
+
+  await t.test("stores a martyria as data attributes and reads it back", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeMartyria(row, "midPa", "alpha", 0);
+
+    assert.equal(row.dataset.martyriaNote, "midPa");
+    assert.equal(row.dataset.martyriaGenus, "alpha");
+    assert.equal(row.dataset.martyriaTicks, "0");
+    assert.deepEqual({ ...h.app.readNoteSymbols(row).martyria }, {
+      note: "midPa",
+      genus: "alpha",
+      ticks: 0,
+    });
+  });
+
+  await t.test("defaults a martyria written with no genus to the 'none' sentinel", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeMartyria(row, "midPa", "", 0);
+
+    assert.equal(h.app.readNoteSymbols(row).martyria.genus, h.app.GENUS_NONE);
+  });
+
+  await t.test("clears a martyria completely, leaving no stale attributes", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeMartyria(row, "midPa", "alpha", 1);
+    h.app.clearMartyria(row);
+
+    assert.equal(h.app.readNoteSymbols(row).martyria, null);
+    assert.equal(row.dataset.martyriaNote, undefined);
+    assert.equal(row.dataset.martyriaGenus, undefined);
+    assert.equal(row.dataset.martyriaTicks, undefined);
+  });
+
+  await t.test("stores and clears a fthora independently of the martyria", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeMartyria(row, "midPa", "alpha", 0);
+    h.app.writeFthora(row, "diatonicPa");
+    assert.equal(h.app.readNoteSymbols(row).fthora, "diatonicPa");
+
+    h.app.writeFthora(row, "");
+    assert.equal(h.app.readNoteSymbols(row).fthora, "");
+    assert.equal(row.dataset.fthora, undefined);
+    assert.ok(h.app.readNoteSymbols(row).martyria, "clearing the fthora must not touch the martyria");
+  });
+});
+
+test("what a well shows", async (t) => {
+  await t.test("paints the resolved glyphs into the well button", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeMartyria(row, "midPa", "alpha", 0);
+    h.app.writeFthora(row, "diatonicPa");
+
+    assert.equal(
+      row.querySelector(".martyria-well").textContent,
+      h.app.resolveMartyriaGlyphs("midPa", "alpha", 0)
+    );
+    assert.equal(
+      row.querySelector(".fthora-well").textContent,
+      h.app.resolveFthoraGlyph("diatonicPa")
+    );
+  });
+
+  await t.test("marks a well empty when it holds nothing, and filled when it does", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+    const well = row.querySelector(".martyria-well");
+
+    assert.ok(well.classList.contains("is-empty"), "a fresh well is empty");
+
+    h.app.writeMartyria(row, "midPa", "alpha", 0);
+    assert.ok(!well.classList.contains("is-empty"), "a written well is not empty");
+
+    h.app.clearMartyria(row);
+    assert.ok(well.classList.contains("is-empty"), "a cleared well is empty again");
+    assert.equal(well.textContent, "", "a cleared well shows nothing");
+  });
+
+  await t.test("shows the letter alone when the genus is none", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeMartyria(row, "midPa", h.app.GENUS_NONE, 0);
+
+    assert.equal(
+      row.querySelector(".martyria-well").textContent,
+      h.app.resolveMartyriaGlyphs("midPa", h.app.GENUS_NONE, 0),
+      "the well shows the bare letter"
+    );
+  });
+});
+
+test("symbols across an editor rebuild", async (t) => {
+  await t.test("survive a notation switch, because nothing is rebuilt", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+    h.app.writeMartyria(noteRows(h)[0], "midPa", "alpha", 0);
+    h.app.writeFthora(noteRows(h)[0], "diatonicPa");
+
+    setNotation(h, "generic");
+    setNotation(h, "byzantine");
+
+    const symbols = h.app.readNoteSymbols(noteRows(h)[0]);
+    assert.equal(symbols.martyria.note, "midPa");
+    assert.equal(symbols.fthora, "diatonicPa");
+    assert.equal(
+      noteRows(h)[0].querySelector(".martyria-well").textContent,
+      h.app.resolveMartyriaGlyphs("midPa", "alpha", 0),
+      "the well was not repainted"
+    );
+  });
+
+  await t.test("survive a scale-mode change, which rebuilds the rows but keeps names", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+    h.app.writeMartyria(noteRows(h)[0], "midPa", "alpha", 1);
+    h.app.writeFthora(noteRows(h)[1], "diatonicVou");
+
+    h.document.getElementById("scale-mode").value = "absolute";
+    h.document.getElementById("scale-mode").dispatchEvent(
+      new h.window.Event("change", { bubbles: true })
+    );
+
+    assert.deepEqual({ ...h.app.readNoteSymbols(noteRows(h)[0]).martyria }, {
+      note: "midPa",
+      genus: "alpha",
+      ticks: 1,
+    });
+    assert.equal(h.app.readNoteSymbols(noteRows(h)[1]).fthora, "diatonicVou");
+    assert.equal(
+      noteRows(h)[0].querySelector(".martyria-well").textContent,
+      h.app.resolveMartyriaGlyphs("midPa", "alpha", 1),
+      "the rebuilt well was not repainted"
+    );
+  });
+
+  await t.test("are dropped by an interval-type change, which resets the scale", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+    h.app.writeMartyria(noteRows(h)[0], "midPa", "alpha", 0);
+
+    h.document.getElementById("interval-type").value = "cents";
+    h.document.getElementById("interval-type").dispatchEvent(
+      new h.window.Event("change", { bubbles: true })
+    );
+
+    assert.equal(
+      h.app.readNoteSymbols(noteRows(h)[0]).martyria,
+      null,
+      "resetScaleToDefault drops symbols, exactly as it already drops names"
+    );
+  });
+});

@@ -259,6 +259,7 @@ function addNote() {
   noteRow.dataset.degree = degree;
   const absVal = mode === "absolute" ? getDefaultAbsoluteForNewNote() : undefined;
   noteRow.innerHTML = makeNoteRowHTML(degree, mode, absVal);
+  refreshNoteRowWells(noteRow);
 
   editor.appendChild(intervalRow);
   editor.appendChild(noteRow);
@@ -854,6 +855,7 @@ function resetScaleToDefault() {
   noteRow1.className = "row note-row";
   noteRow1.dataset.degree = 1;
   noteRow1.innerHTML = makeNoteRowHTML(1, mode);
+  refreshNoteRowWells(noteRow1);
 
   const intervalRow = document.createElement("div");
   intervalRow.className = "row interval-row";
@@ -864,6 +866,7 @@ function resetScaleToDefault() {
   noteRow2.dataset.degree = 2;
   // In absolute mode, Note 2's absolute = the relative default (stacked on unison)
   noteRow2.innerHTML = makeNoteRowHTML(2, mode, defaultVal);
+  refreshNoteRowWells(noteRow2);
 
   editor.appendChild(noteRow1);
   editor.appendChild(intervalRow);
@@ -957,6 +960,7 @@ function onScaleModeChange() {
       noteData.push({
         name: nameInp ? nameInp.value : "",
         absolute: absInp ? absInp.value : "",
+        symbols: noteSymbolAttrs(row),
       });
     } else {
       const intInp = row.querySelector(".interval");
@@ -989,6 +993,7 @@ function onScaleModeChange() {
     noteRow.innerHTML = makeNoteRowHTML(i + 1, newMode, absVal);
     const nameInp = noteRow.querySelector(".note-name");
     if (nameInp) nameInp.value = noteData[i].name;
+    applyNoteSymbolAttrs(noteRow, noteData[i].symbols);
     editor.appendChild(noteRow);
 
     if (i < intervalData.length) {
