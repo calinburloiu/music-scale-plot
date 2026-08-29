@@ -455,9 +455,9 @@ function drawNoteLabel(text, x, y, spec) {
   ctx.fillText(text, x, y);
 }
 
-function drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextBlockH, font, monoFont) {
+function drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextBlockH, font, monoFont, byz) {
   const halfNote = maxNoteWidth / 2;
-  const axisCenterY = CANVAS_PADDING + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH / 2;
+  const axisCenterY = CANVAS_PADDING + byz.gutter + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH / 2;
   const tickTop = axisCenterY - TICK_LENGTH / 2;
   const tickBottom = axisCenterY + TICK_LENGTH / 2;
   const startX = CANVAS_PADDING + halfNote;
@@ -487,6 +487,15 @@ function drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextB
     if (j < intervals.length) tx += intervals[j].cents * PX_PER_CENT;
   }
 
+  const noteSpec = {
+    byzantine: byz.on,
+    font: font,
+    align: "center",
+    vAlign: "top",
+    textAlign: "center",
+    textBaseline: "top",
+  };
+
   let lx = startX;
   for (let j = 0; j < intervals.length; j++) {
     const iv = intervals[j];
@@ -512,16 +521,12 @@ function drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextB
       ctx.fillText(iv.displayInterval, cx, intervalTextCenterY);
     }
 
-    ctx.font = font;
-    ctx.fillStyle = "#000";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "top";
-    if (j === 0 && iv.noteBelow) {
-      ctx.fillText(iv.noteBelow, lx, noteTextY);
+    if (j === 0) {
+      drawNoteLabel(iv.noteBelow, lx, noteTextY, noteSpec);
+      if (byz.on) drawByzantineMark(iv.fthoraBelow, lx, byz.anchor, "center", "bottom");
     }
-    if (iv.noteAbove) {
-      ctx.fillText(iv.noteAbove, lx + w, noteTextY);
-    }
+    drawNoteLabel(iv.noteAbove, lx + w, noteTextY, noteSpec);
+    if (byz.on) drawByzantineMark(iv.fthoraAbove, lx + w, byz.anchor, "center", "bottom");
     lx += w;
   }
 }
@@ -738,14 +743,14 @@ function render() {
   if (isLines && isHorizontal) {
     const halfNote = maxNoteWidth / 2;
     displayWidth = CANVAS_PADDING + halfNote + stackLength + halfNote + CANVAS_PADDING;
-    displayHeight = CANVAS_PADDING + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + NOTE_TEXT_HEIGHT + CANVAS_PADDING;
+    displayHeight = CANVAS_PADDING + fthoraGutter + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + noteBandH + CANVAS_PADDING;
   } else if (isLines && !isHorizontal) {
     displayWidth = CANVAS_PADDING + fthoraGutter + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + maxNoteWidth + CANVAS_PADDING;
     displayHeight = CANVAS_PADDING * 2 + signOverhang * 2 + stackLength;
   } else if (isHorizontal) {
-    const textAreaHeight = NOTE_TEXT_HEIGHT + TEXT_MARGIN * 2;
+    const textAreaHeight = noteBandH + TEXT_MARGIN * 2;
     displayWidth = CANVAS_PADDING * 2 + stackLength + maxTextWidth;
-    displayHeight = CANVAS_PADDING + RECT_WIDTH + TEXT_MARGIN + textAreaHeight + CANVAS_PADDING;
+    displayHeight = CANVAS_PADDING + fthoraGutter + RECT_WIDTH + TEXT_MARGIN + textAreaHeight + CANVAS_PADDING;
   } else {
     const textAreaWidth = maxTextWidth + TEXT_MARGIN * 2;
     displayWidth = CANVAS_PADDING + fthoraGutter + RECT_WIDTH + TEXT_MARGIN + textAreaWidth + CANVAS_PADDING;
@@ -761,13 +766,21 @@ function render() {
   ctx.clearRect(0, 0, displayWidth, displayHeight);
 
   if (isLines && isHorizontal) {
-    drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextBlockH, font, monoFont);
+    drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextBlockH, font, monoFont, byz);
   } else if (isLines && !isHorizontal) {
     drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont, byz);
   } else if (isHorizontal) {
     const baseX = CANVAS_PADDING;
-    const baseY = CANVAS_PADDING;
+    const baseY = CANVAS_PADDING + fthoraGutter;
     const textY = baseY + RECT_WIDTH + TEXT_MARGIN;
+    const noteSpec = {
+      byzantine: isByzantine,
+      font: font,
+      align: "center",
+      vAlign: "top",
+      textAlign: "center",
+      textBaseline: "top",
+    };
 
     let x = baseX;
 
@@ -808,17 +821,13 @@ function render() {
         }
       }
 
-      ctx.font = font;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "top";
-
-      if (j === 0 && iv.noteBelow) {
-        ctx.fillText(iv.noteBelow, x, textY);
+      if (j === 0) {
+        drawNoteLabel(iv.noteBelow, x, textY, noteSpec);
+        if (isByzantine) drawByzantineMark(iv.fthoraBelow, x, fthoraAnchor, "center", "bottom");
       }
 
-      if (iv.noteAbove) {
-        ctx.fillText(iv.noteAbove, x + w, textY);
-      }
+      drawNoteLabel(iv.noteAbove, x + w, textY, noteSpec);
+      if (isByzantine) drawByzantineMark(iv.fthoraAbove, x + w, fthoraAnchor, "center", "bottom");
 
       x += w;
     }
