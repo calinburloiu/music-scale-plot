@@ -1,15 +1,17 @@
 "use strict";
 
 /**
- * Loads the real `index.html` + `app.js` into a fresh jsdom window.
+ * Loads the real `index.html` into a fresh jsdom window, running every script
+ * it references via `<script src>`, in document order.
  *
- * `app.js` is a classic script with no module system: it reads DOM elements at
- * the top level and wires up listeners as a side effect of loading. Rather than
- * restructuring the app to make it testable, the harness loads the file exactly
- * as the browser does and appends a generated epilogue that re-exports every
- * top-level declaration as a live getter on `window.__app`. Production code
- * therefore stays untouched, and any new top-level `function`/`const` in
- * `app.js` becomes testable automatically.
+ * The app's scripts are classic scripts with no module system: they read DOM
+ * elements at the top level and wire up listeners as a side effect of loading.
+ * Rather than restructuring the app to make it testable, the harness loads each
+ * file exactly as the browser does and runs a generated epilogue afterwards
+ * that re-exports every top-level declaration, across all the scripts, as a
+ * live getter on `window.__app`. Production code therefore stays untouched,
+ * and any new top-level `function`/`const` in any of the app's scripts becomes
+ * testable automatically.
  *
  * Browser APIs jsdom does not implement are replaced with recording stubs (see
  * canvas-stub.js and audio-stub.js) so drawing, audio and PNG export can be
@@ -26,9 +28,15 @@ const { FakeAudioContext } = require("./audio-stub.js");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const HTML_PATH = path.join(ROOT, "index.html");
-const APP_PATH = path.join(ROOT, "app.js");
 
-/** Matches a top-level (column 0) declaration in app.js. */
+/** Matches `<script src="...">` in index.html, in document order. */
+const SCRIPT_SRC = /<script\b[^>]*\bsrc="([^"]+)"/g;
+
+function scriptPaths(html) {
+  return [...html.matchAll(SCRIPT_SRC)].map((m) => path.join(ROOT, m[1]));
+}
+
+/** Matches a top-level (column 0) declaration in a script. */
 const TOP_LEVEL_DECLARATION = /^(?:function|const|let|var)\s+([A-Za-z_$][\w$]*)/gm;
 
 function topLevelNames(source) {
@@ -43,7 +51,7 @@ function topLevelNames(source) {
  */
 function buildExportEpilogue(names) {
   const accessors = names.map((name) => `get ${name}() { return ${name}; }`);
-  return `\n;window.__app = { ${accessors.join(", ")} };\n`;
+  return `window.__app = { ${accessors.join(", ")} };\n`;
 }
 
 /**
@@ -57,7 +65,6 @@ function loadApp(options = {}) {
   const devicePixelRatio = options.devicePixelRatio ?? 2;
 
   const html = fs.readFileSync(HTML_PATH, "utf8");
-  const appSource = fs.readFileSync(APP_PATH, "utf8");
 
   const jsdomErrors = [];
   const virtualConsole = new VirtualConsole();
@@ -107,11 +114,27 @@ function loadApp(options = {}) {
     downloads.push({ download: this.download, href: this.href });
   };
 
-  const names = topLevelNames(appSource);
-  // Run through `vm` with app.js's real filename so stack traces and
-  // `--experimental-test-coverage` attribute the code to the file on disk.
-  vm.runInContext(appSource + buildExportEpilogue(names), dom.getInternalVMContext(), {
-    filename: APP_PATH,
+  const files = scriptPaths(html).map((file) => ({
+    file,
+    source: fs.readFileSync(file, "utf8"),
+  }));
+
+  const names = [];
+  for (const { source } of files) {
+    for (const name of topLevelNames(source)) {
+      if (!names.includes(name)) names.push(name);
+    }
+  }
+
+  // Each file runs under its own real filename so stack traces and
+  // --experimental-test-coverage attribute the code to the file on disk.
+  // Classic scripts share one global lexical environment, so a `const` in
+  // byzantine.js is visible to app.js and to the epilogue below.
+  for (const { file, source } of files) {
+    vm.runInContext(source, dom.getInternalVMContext(), { filename: file });
+  }
+  vm.runInContext(buildExportEpilogue(names), dom.getInternalVMContext(), {
+    filename: path.join(ROOT, "__harness_exports__.js"),
   });
 
   const app = window.__app;
@@ -131,8 +154,10 @@ function loadApp(options = {}) {
     audioContexts,
     /** Errors jsdom itself reported (unimplemented APIs, uncaught throws). */
     jsdomErrors,
-    /** Names re-exported from app.js, for harness self-tests. */
+    /** Names re-exported from the app's scripts, for harness self-tests. */
     exportedNames: names,
+    /** Absolute paths of the scripts index.html loaded, in document order. */
+    scriptFiles: files.map((f) => f.file),
 
     el: (selector) => document.querySelector(selector),
     all: (selector) => [...document.querySelectorAll(selector)],
@@ -262,5 +287,6 @@ module.exports = {
   buildAbsoluteScale,
   pickColor,
   measureTextWidth,
+  scriptPaths,
   ROOT,
 };
