@@ -513,6 +513,72 @@ body {
   text-align: center;
 }
 
+.martyria-picker.open { display: block; }
+
+.martyria-picker-body {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+
+.martyria-notes-column,
+.martyria-genus-column {
+  max-height: 300px;
+  overflow-y: auto;
+  min-width: 9rem;
+}
+
+.martyria-genus-column.is-inert { opacity: 0.45; }
+
+.byz-column-title {
+  position: sticky;
+  top: 0;
+  padding: 0.25rem 0.5rem;
+  background: var(--paper);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.byz-group-title {
+  padding: 0.35rem 0.5rem 0.15rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.byz-separator {
+  height: 1px;
+  margin: 0.4rem 0.5rem;
+  background: var(--rule);
+}
+
+.martyria-picker-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--rule);
+}
+
+.martyria-done {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--paper-fade);
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.martyria-done:hover { border-color: var(--ink); }
+
 .byz-label {
   font-family: 'DM Sans', sans-serif;
   font-size: 0.82rem;

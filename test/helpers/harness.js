@@ -292,6 +292,33 @@ function pickFthora(harness, noteRow, fthoraId) {
   fireClick(harness, option);
 }
 
+/**
+ * Drives the martyria picker: opens it, picks a note and/or a genus, then
+ * either presses Done (which propagates the ladder) or closes the panel by
+ * clicking the well again (which does not).
+ */
+function pickMartyria(harness, noteRow, { note, genus, ticks = 0, done = false } = {}) {
+  openWell(harness, noteRow, "martyria");
+
+  if (note !== undefined) {
+    const selector = `.martyria-note-option[data-note="${note}"][data-ticks="${ticks}"]`;
+    const option = noteRow.querySelector(selector);
+    if (!option) throw new Error(`No note option "${note}" (ticks ${ticks}) in the picker`);
+    if (option.disabled) throw new Error(`Note option "${note}" is disabled for this degree`);
+    fireClick(harness, option);
+  }
+
+  if (genus !== undefined) {
+    // Picking a note rebuilds the panel, so the genus option must be re-queried.
+    const option = noteRow.querySelector(`.martyria-genus-option[data-genus="${genus}"]`);
+    if (!option) throw new Error(`No genus option "${genus}" in the picker`);
+    fireClick(harness, option);
+  }
+
+  if (done) fireClick(harness, noteRow.querySelector(".martyria-done"));
+  else fireClick(harness, noteRow.querySelector(".martyria-well"));
+}
+
 module.exports = {
   loadApp,
   fireInput,
@@ -308,6 +335,7 @@ module.exports = {
   pickColor,
   openWell,
   pickFthora,
+  pickMartyria,
   measureTextWidth,
   scriptPaths,
   ROOT,

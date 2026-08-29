@@ -9,6 +9,8 @@ const {
   noteRows,
   openWell,
   pickFthora,
+  pickMartyria,
+  setNoteCount,
   fireClick,
 } = require("../helpers/harness.js");
 
@@ -101,6 +103,14 @@ test("the fthora picker", async (t) => {
     fireClick(h, h.el(".interval-row .color-swatch"));
 
     assert.ok(!panel.classList.contains("open"), "opening a colour dropdown must close the fthora panel");
+
+    const colorDropdown = h.el(".interval-row .color-dropdown.open");
+    fireClick(h, noteRows(h)[0].querySelector(".fthora-well"));
+
+    assert.ok(
+      !colorDropdown.classList.contains("open"),
+      "opening the fthora panel must close the colour dropdown"
+    );
   });
 
   await t.test("closes when the user clicks outside the editor", () => {
@@ -110,5 +120,273 @@ test("the fthora picker", async (t) => {
     fireClick(h, h.document.body);
 
     assert.ok(!panel.classList.contains("open"));
+  });
+});
+
+test("the martyria picker: the Notes column", async (t) => {
+  await t.test("lists None, then the 21 letters in three labelled octave groups", () => {
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "martyria");
+
+    const ids = [...panel.querySelectorAll(".martyria-note-option")].map((o) => o.dataset.note);
+    assert.equal(ids[0], "", "None must come first");
+    assert.deepEqual(ids.slice(1), Array.from(h.app.BYZ_NOTES).map((n) => n.id));
+
+    assert.deepEqual(
+      [...panel.querySelectorAll(".martyria-notes-column .byz-group-title")].map((el) => el.textContent),
+      ["Low", "Middle", "High"]
+    );
+  });
+
+  await t.test("shows the bare letter and its Greek and Latin name", () => {
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "martyria");
+
+    const option = panel.querySelector('.martyria-note-option[data-note="midPa"]');
+    assert.equal(
+      option.querySelector(".byz-glyph").textContent,
+      h.app.resolveMartyriaGlyphs("midPa", h.app.GENUS_NONE, 0),
+      "the Notes column previews the letter without a genus"
+    );
+    assert.equal(option.querySelector(".byz-label").textContent, "Πα Pa");
+  });
+
+  await t.test("disables the positions that would not leave room for the whole scale", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 3);
+    // Degree 2 of 3: one degree below, one above. Legal range is 1 … 26.
+    const panel = openWell(h, noteRows(h)[1], "martyria");
+
+    const disabled = (noteId) =>
+      panel.querySelector(`.martyria-note-option[data-note="${noteId}"]`).disabled;
+
+    assert.equal(disabled("lowZo"), true, "no predecessor could sit below low Ζω");
+    assert.equal(disabled("lowNi"), false);
+    assert.equal(disabled("highKe"), false, "high Κε still leaves the tick octave above");
+  });
+
+  await t.test("shows the illegal rows rather than hiding them, so the range is visible", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 3);
+    const panel = openWell(h, noteRows(h)[2], "martyria");
+
+    assert.ok(
+      panel.querySelector('.martyria-note-option[data-note="lowZo"]'),
+      "an illegal row must still be listed"
+    );
+  });
+
+  await t.test("hides the tick rows until some degree has actually reached them", () => {
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "martyria");
+
+    assert.equal(
+      panel.querySelector('.martyria-note-option[data-ticks="1"]'),
+      null,
+      "the tick octave is a consequence of a pick, not an ordinary choice"
+    );
+  });
+
+  await t.test("shows the tick rows once a degree carries a tick", () => {
+    const h = byzantineApp(t);
+    h.app.writeMartyria(noteRows(h)[1], "highZo", h.app.GENUS_NONE, 1);
+    const panel = openWell(h, noteRows(h)[0], "martyria");
+
+    assert.ok(
+      panel.querySelector('.martyria-note-option[data-note="highZo"][data-ticks="1"]'),
+      "the ticked rows should be listed now"
+    );
+    assert.deepEqual(
+      [...panel.querySelectorAll(".martyria-notes-column .byz-group-title")].map((el) => el.textContent),
+      ["Low", "Middle", "High", "High + octave tick"]
+    );
+  });
+
+  await t.test("marks the row the well currently holds", () => {
+    const h = byzantineApp(t);
+    h.app.writeMartyria(noteRows(h)[0], "midPa", "alpha", 0);
+    const panel = openWell(h, noteRows(h)[0], "martyria");
+
+    const selected = panel.querySelectorAll(".martyria-note-option.is-selected");
+    assert.equal(selected.length, 1);
+    assert.equal(selected[0].dataset.note, "midPa");
+  });
+});
+
+test("the martyria picker: the Genus column", async (t) => {
+  await t.test("is inert until a note is selected", () => {
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "martyria");
+
+    assert.equal(panel.querySelectorAll(".martyria-genus-option").length, 0);
+    assert.ok(panel.querySelector(".martyria-genus-column").classList.contains("is-inert"));
+  });
+
+  await t.test("puts None first, then the compatible genera in the modes table's order", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    openWell(h, row, "martyria");
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midDi"]'));
+
+    const ids = [...row.querySelectorAll(".martyria-genus-option")].map((o) => o.dataset.genus);
+    assert.equal(ids[0], h.app.GENUS_NONE);
+    assert.deepEqual(ids.slice(1, 6), Array.from(h.app.compatibleGenera("midDi")));
+  });
+
+  await t.test("separates the compatible genera from the uncommon ones with a rule", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    openWell(h, row, "martyria");
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midDi"]'));
+
+    const column = row.querySelector(".martyria-genus-column");
+    const children = [...column.children];
+    const ruleIndex = children.findIndex((el) => el.classList.contains("byz-separator"));
+    assert.ok(ruleIndex > 0, "there is no separator");
+
+    const before = children.slice(0, ruleIndex).filter((el) => el.dataset.genus);
+    const after = children.slice(ruleIndex).filter((el) => el.dataset.genus);
+    assert.deepEqual(
+      before.map((el) => el.dataset.genus).slice(1),
+      Array.from(h.app.compatibleGenera("midDi"))
+    );
+    assert.deepEqual(after.map((el) => el.dataset.genus), Array.from(h.app.otherGenera("midDi")));
+  });
+
+  await t.test("previews every genus composed on the selected letter", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    openWell(h, row, "martyria");
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midDi"]'));
+
+    const option = row.querySelector('.martyria-genus-option[data-genus="zygos"]');
+    assert.equal(
+      option.querySelector(".byz-glyph").textContent,
+      h.app.resolveMartyriaGlyphs("midDi", "zygos", 0),
+      "a genus is only ever seen on a letter, so that is what the row shows"
+    );
+  });
+
+  await t.test("recomposes the previews when a different letter is picked", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    openWell(h, row, "martyria");
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midDi"]'));
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="lowDi"]'));
+
+    const option = row.querySelector('.martyria-genus-option[data-genus="delta"]');
+    assert.equal(
+      option.querySelector(".byz-glyph").textContent,
+      h.app.resolveMartyriaGlyphs("lowDi", "delta", 0),
+      "the low register takes the Above mark set, so the preview must change"
+    );
+  });
+});
+
+test("picking a martyria", async (t) => {
+  await t.test("writes the letter as soon as it is clicked, with no genus", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    openWell(h, row, "martyria");
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midPa"]'));
+
+    assert.deepEqual({ ...h.app.readNoteSymbols(row).martyria }, {
+      note: "midPa",
+      genus: "none",
+      ticks: 0,
+    });
+  });
+
+  await t.test("keeps the panel open after a pick, so the genus can follow", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    openWell(h, row, "martyria");
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midPa"]'));
+
+    assert.ok(row.querySelector(".martyria-picker").classList.contains("open"));
+  });
+
+  await t.test("adds the genus without disturbing the letter", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    pickMartyria(h, row, { note: "midPa", genus: "alpha" });
+
+    assert.deepEqual({ ...h.app.readNoteSymbols(row).martyria }, {
+      note: "midPa",
+      genus: "alpha",
+      ticks: 0,
+    });
+    assert.equal(
+      row.querySelector(".martyria-well").textContent,
+      h.app.resolveMartyriaGlyphs("midPa", "alpha", 0)
+    );
+  });
+
+  await t.test("keeps the genus when the letter is changed", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    pickMartyria(h, row, { note: "midPa", genus: "alpha" });
+
+    pickMartyria(h, row, { note: "midVou" });
+
+    assert.equal(h.app.readNoteSymbols(row).martyria.genus, "alpha");
+  });
+
+  await t.test("clears the well when None is picked, without touching the fthora", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    pickMartyria(h, row, { note: "midPa", genus: "alpha" });
+    pickFthora(h, row, "diatonicPa");
+
+    pickMartyria(h, row, { note: "" });
+
+    assert.equal(h.app.readNoteSymbols(row).martyria, null);
+    assert.equal(h.app.readNoteSymbols(row).fthora, "diatonicPa");
+  });
+
+  await t.test("ignores a genus click while no letter is selected", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    openWell(h, row, "martyria");
+
+    assert.equal(row.querySelector(".martyria-genus-option"), null);
+    assert.equal(h.app.readNoteSymbols(row).martyria, null);
+  });
+
+  await t.test("redraws the chart on every pick", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    openWell(h, row, "martyria");
+    h.ctx.reset();
+
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midPa"]'));
+
+    assert.ok(h.ctx.callsOf("fillRect").length > 0, "the chart was never redrawn");
+  });
+
+  await t.test("closes the panel when Done is pressed", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    openWell(h, row, "martyria");
+
+    fireClick(h, row.querySelector(".martyria-done"));
+
+    assert.ok(!row.querySelector(".martyria-picker").classList.contains("open"));
+  });
+
+  await t.test("does nothing when a disabled row is clicked", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 3);
+    const row = noteRows(h)[2];
+    const panel = openWell(h, row, "martyria");
+
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="lowZo"]'));
+
+    assert.equal(h.app.readNoteSymbols(row).martyria, null, "an illegal position must not be written");
+    assert.ok(panel.classList.contains("open"), "and the panel stays open");
   });
 });

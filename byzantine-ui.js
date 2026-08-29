@@ -143,6 +143,139 @@ function buildFthoraPicker(panel, row) {
   }
 }
 
+function degreeCount() {
+  return editor.querySelectorAll(".note-row").length;
+}
+
+function noteRowDegree(row) {
+  return parseInt(row.dataset.degree, 10) || 1;
+}
+
+/** True once some degree has been pushed into the tick octave. */
+function scaleHasTicks() {
+  for (const row of editor.querySelectorAll(".note-row")) {
+    if (parseInt(row.dataset.martyriaTicks || "0", 10) > 0) return true;
+  }
+  return false;
+}
+
+function byzColumnTitle(text) {
+  const el = document.createElement("div");
+  el.className = "byz-column-title";
+  el.textContent = text;
+  return el;
+}
+
+function byzGroupTitle(text) {
+  const el = document.createElement("div");
+  el.className = "byz-group-title";
+  el.textContent = text;
+  return el;
+}
+
+function buildMartyriaPicker(panel, row) {
+  const current = readNoteSymbols(row).martyria;
+
+  panel.innerHTML = "";
+
+  const body = document.createElement("div");
+  body.className = "martyria-picker-body";
+  body.appendChild(buildNotesColumn(noteRowDegree(row), degreeCount(), current, scaleHasTicks()));
+  body.appendChild(buildGenusColumn(current));
+  panel.appendChild(body);
+
+  const footer = document.createElement("div");
+  footer.className = "martyria-picker-footer";
+  const done = document.createElement("button");
+  done.type = "button";
+  done.className = "martyria-done";
+  done.textContent = "Done";
+  footer.appendChild(done);
+  panel.appendChild(footer);
+}
+
+function buildNotesColumn(degree, count, current, showTicks) {
+  const column = document.createElement("div");
+  column.className = "martyria-notes-column";
+  column.appendChild(byzColumnTitle("Notes"));
+  column.appendChild(
+    makeByzOption({
+      className: "martyria-note-option",
+      data: { note: "", ticks: "0" },
+      glyph: "",
+      label: "None",
+    })
+  );
+
+  const groups = [
+    { title: "Low", octave: "low", ticks: 0 },
+    { title: "Middle", octave: "mid", ticks: 0 },
+    { title: "High", octave: "high", ticks: 0 },
+  ];
+  // The tick octave is a consequence of a pick, not an ordinary choice, so it
+  // is only offered once propagation has actually reached into it.
+  if (showTicks) groups.push({ title: "High + octave tick", octave: "high", ticks: 1 });
+
+  for (const group of groups) {
+    column.appendChild(byzGroupTitle(group.title));
+    for (const note of BYZ_NOTES) {
+      if (note.octave !== group.octave) continue;
+      const position = ladderPosition(note.id, group.ticks);
+      const option = makeByzOption({
+        className: "martyria-note-option",
+        data: { note: note.id, ticks: String(group.ticks) },
+        glyph: resolveMartyriaGlyphs(note.id, GENUS_NONE, group.ticks),
+        label: note.greek + " " + note.latin,
+        disabled: !isLadderPositionLegal(position, degree, count),
+      });
+      if (current && current.note === note.id && current.ticks === group.ticks) {
+        option.classList.add("is-selected");
+      }
+      column.appendChild(option);
+    }
+  }
+  return column;
+}
+
+function buildGenusColumn(current) {
+  const column = document.createElement("div");
+  column.className = "martyria-genus-column";
+  column.appendChild(byzColumnTitle("Genus"));
+
+  if (!current) {
+    column.classList.add("is-inert");
+    return column;
+  }
+
+  // Every row previews itself on the selected letter, because that is the only
+  // form the user will ever see it in. The octave tick is left off: it marks a
+  // register, not a genus.
+  function genusOption(id, label) {
+    const option = makeByzOption({
+      className: "martyria-genus-option",
+      data: { genus: id },
+      glyph: resolveMartyriaGlyphs(current.note, id, 0),
+      label: label,
+    });
+    if (current.genus === id) option.classList.add("is-selected");
+    return option;
+  }
+
+  column.appendChild(genusOption(GENUS_NONE, "None"));
+  for (const id of compatibleGenera(current.note)) {
+    column.appendChild(genusOption(id, byzGenusById(id).label));
+  }
+
+  const separator = document.createElement("div");
+  separator.className = "byz-separator";
+  column.appendChild(separator);
+
+  for (const id of otherGenera(current.note)) {
+    column.appendChild(genusOption(id, byzGenusById(id).label));
+  }
+  return column;
+}
+
 function toggleWellPicker(well) {
   const panel = well.parentElement.querySelector(".fthora-picker, .martyria-picker");
   const wasOpen = panel.classList.contains("open");
@@ -150,7 +283,8 @@ function toggleWellPicker(well) {
   if (wasOpen) return;
 
   const row = well.closest(".note-row");
-  buildFthoraPicker(panel, row);
+  if (panel.classList.contains("fthora-picker")) buildFthoraPicker(panel, row);
+  else buildMartyriaPicker(panel, row);
   panel.classList.add("open");
   row.classList.add("picker-open");
 }
@@ -166,9 +300,31 @@ function closeByzantinePickers() {
 function applyByzantineOption(option) {
   const row = option.closest(".note-row");
   if (!row) return;
+
   if (option.classList.contains("fthora-option")) {
     writeFthora(row, option.dataset.fthora);
     closeAllDropdowns();
+  } else if (option.classList.contains("martyria-note-option")) {
+    if (!option.dataset.note) {
+      clearMartyria(row);
+    } else {
+      const existing = readNoteSymbols(row).martyria;
+      writeMartyria(
+        row,
+        option.dataset.note,
+        existing ? existing.genus : GENUS_NONE,
+        parseInt(option.dataset.ticks, 10) || 0
+      );
+    }
+    // Rebuild so the genus previews recompose on the new letter. The panel
+    // stays open: the user picks a note, then a genus, then presses Done.
+    buildMartyriaPicker(row.querySelector(".martyria-picker"), row);
+  } else if (option.classList.contains("martyria-genus-option")) {
+    const existing = readNoteSymbols(row).martyria;
+    if (!existing) return;
+    writeMartyria(row, existing.note, option.dataset.genus, existing.ticks);
+    // Same as above: stays open for Done.
+    buildMartyriaPicker(row.querySelector(".martyria-picker"), row);
   }
   render();
 }
@@ -182,6 +338,14 @@ function handleByzantineClick(e) {
   if (well) {
     e.stopPropagation();
     toggleWellPicker(well);
+    return true;
+  }
+
+  const done = e.target.closest(".martyria-done");
+  if (done) {
+    e.stopPropagation();
+    closeAllDropdowns();
+    render();
     return true;
   }
 
