@@ -473,7 +473,7 @@ function drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextB
   const tickBottom = axisCenterY + TICK_LENGTH / 2;
   const startX = CANVAS_PADDING + halfNote;
   const noteTextY = tickBottom + TEXT_MARGIN;
-  const intervalTextCenterY = CANVAS_PADDING + intervalTextBlockH / 2;
+  const intervalTextCenterY = CANVAS_PADDING + byz.gutter + intervalTextBlockH / 2;
 
   let x = startX;
   for (const iv of intervals) {
@@ -730,8 +730,10 @@ function render() {
     : isHorizontal
       ? (maxFthoraHeight > 0 ? maxFthoraHeight + TEXT_MARGIN : 0)
       : (maxFthoraWidth > 0 ? maxFthoraWidth + TEXT_MARGIN : 0);
-  // The fthora's ink is right-aligned (vertical) or bottom-aligned
-  // (horizontal) here, a text margin clear of whatever starts after the gutter.
+  // The gutter is a band of its own along the left (vertical) or top
+  // (horizontal) edge of the canvas. The fthora's ink is right- or
+  // bottom-aligned at the band's far edge, one text margin clear of whatever
+  // the chart lays out after it — the boxes, or the line chart's interval text.
   const fthoraAnchor = CANVAS_PADDING + fthoraGutter - TEXT_MARGIN;
   // Both signs are ink-centred on a separator, and the extreme separators sit
   // one CANVAS_PADDING from the edge: reserve whatever ink overflows that, at

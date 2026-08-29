@@ -933,6 +933,27 @@ test("Byzantine notation, horizontal lines", async (t) => {
     closeTo(axisOf(withFthora) - axisOf(without), gutter, 1e-6);
   });
 
+  await t.test("moves the interval text down with the axis, clear of the gutter", () => {
+    const withFthora = chart(t, [PA, VOU]);
+    const without = chart(t, [{ note: "midPa", genus: "alpha" }, VOU]);
+
+    const box = withFthora.app.inkBox(
+      withFthora.ctx,
+      withFthora.app.resolveFthoraGlyph("diatonicPa"),
+      byzFontOf(withFthora)
+    );
+    const gutter = box.bottom - box.top + withFthora.app.TEXT_MARGIN;
+
+    const valueY = (h) => drawnCall(h, "9/8").args[2];
+
+    closeTo(
+      valueY(withFthora) - valueY(without),
+      gutter,
+      1e-6,
+      "the interval text must clear the gutter, or the fthora is drawn through it"
+    );
+  });
+
   await t.test("bottom-aligns the fthora above the axis", () => {
     const h = chart(t, [PA, VOU]);
     const { CANVAS_PADDING, TEXT_MARGIN } = h.app;
