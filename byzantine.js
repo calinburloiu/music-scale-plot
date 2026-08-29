@@ -138,3 +138,47 @@ function otherGenera(noteId) {
   const compatible = compatibleGenera(noteId);
   return BYZ_GENERA.filter((genus) => !compatible.includes(genus.id)).map((genus) => genus.id);
 }
+
+// ---------------------------------------------------------------------------
+// SBMuFL resolvers — the only code that knows a codepoint.
+//
+// Swapping to a different encoding (the Byzantine Music Unicode block, say) is
+// a second pair of these two functions. Nothing above this line changes.
+// ---------------------------------------------------------------------------
+
+const BYZ_NOTE_BASE = 0xe130;        // martyriaNoteZoLow; three contiguous blocks of seven
+const BYZ_GENUS_BELOW_BASE = 0xe150; // marks that hang under the letter
+const BYZ_GENUS_ABOVE_BASE = 0xe170; // marks that sit over the letter
+const BYZ_TICK = 0xe145;             // martyriaTick — a spacing glyph, not a mark
+const BYZ_FTHORA_BASE = 0xe1d0;      // fthoraDiatonicNiLow
+
+/**
+ * The glyph string for one martyria: letter, then genus mark, then ticks.
+ *
+ * The register decides which mark set is used, because each letter carries
+ * only one anchor — martyriaTop for the low register, martyriaBottom for the
+ * middle and high ones. Pair a middle letter with an …Above mark and the
+ * font's mark-to-base lookup cannot attach it. See MARTYRIA-COMPOSITION.md §5.
+ */
+function resolveMartyriaGlyphs(noteId, genusId, ticks) {
+  const note = byzNoteById(noteId);
+  if (!note) return "";
+
+  let out = String.fromCharCode(
+    BYZ_NOTE_BASE + BYZ_OCTAVES.indexOf(note.octave) * BYZ_LETTERS.length + note.letterIndex
+  );
+
+  const genus = genusId && genusId !== GENUS_NONE ? byzGenusById(genusId) : null;
+  if (genus) {
+    const base = note.octave === "low" ? BYZ_GENUS_ABOVE_BASE : BYZ_GENUS_BELOW_BASE;
+    out += String.fromCharCode(base + genus.index);
+  }
+
+  for (let i = 0; i < (ticks || 0); i++) out += String.fromCharCode(BYZ_TICK);
+  return out;
+}
+
+function resolveFthoraGlyph(fthoraId) {
+  const fthora = byzFthoraById(fthoraId);
+  return fthora ? String.fromCharCode(BYZ_FTHORA_BASE + fthora.index) : "";
+}

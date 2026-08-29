@@ -199,3 +199,72 @@ test("the martyria compatibility table", async (t) => {
     }
   });
 });
+
+test("resolving a martyria to glyphs", async (t) => {
+  await t.test("puts the letter first and the genus mark second", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // Middle Pa + alpha: the worked example in MARTYRIA-COMPOSITION.md §6.
+    assert.equal(h.app.resolveMartyriaGlyphs("midPa", "alpha", 0), "");
+  });
+
+  await t.test("takes the mark from the Above set for the low register", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // A low letter carries only a martyriaTop anchor, so it accepts …Above.
+    assert.equal(h.app.resolveMartyriaGlyphs("lowZo", "nana", 0), "");
+    assert.equal(h.app.resolveMartyriaGlyphs("lowKe", "alpha", 0), "");
+  });
+
+  await t.test("takes the mark from the Below set for the middle and high registers", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.resolveMartyriaGlyphs("midZo", "zo", 0), "");
+    assert.equal(h.app.resolveMartyriaGlyphs("highKe", "softChromaticDi", 0), "");
+  });
+
+  await t.test("draws the letter alone when the genus is none", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.resolveMartyriaGlyphs("midPa", h.app.GENUS_NONE, 0), "");
+    assert.equal(h.app.resolveMartyriaGlyphs("midPa", "", 0), "", "a missing genus is the same as none");
+  });
+
+  await t.test("appends the octave tick after the mark", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.resolveMartyriaGlyphs("highKe", "softChromaticDi", 1), "");
+    assert.equal(h.app.resolveMartyriaGlyphs("highKe", h.app.GENUS_NONE, 1), "");
+  });
+
+  await t.test("resolves nothing for an unknown note", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.resolveMartyriaGlyphs("nonesuch", "alpha", 0), "");
+  });
+});
+
+test("resolving a fthora to a glyph", async (t) => {
+  await t.test("indexes the standalone block", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.resolveFthoraGlyph("diatonicNiLow"), "");
+    assert.equal(h.app.resolveFthoraGlyph("diatonicPa"), "");
+    assert.equal(h.app.resolveFthoraGlyph("chroaSpathi"), "");
+  });
+
+  await t.test("resolves nothing for an unknown or empty id", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.resolveFthoraGlyph("nonesuch"), "");
+    assert.equal(h.app.resolveFthoraGlyph(""), "");
+  });
+});
