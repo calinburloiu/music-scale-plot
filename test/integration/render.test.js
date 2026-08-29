@@ -977,3 +977,35 @@ test("Byzantine notation, horizontal lines", async (t) => {
     }
   });
 });
+
+test("the Byzantine note band", async (t) => {
+  await t.test("reserves no band when no degree carries a martyria", () => {
+    const h = byzantineChart(t, [{}, {}], { orientation: "horizontal" });
+    const { CANVAS_PADDING, RECT_WIDTH, TEXT_MARGIN } = h.app;
+
+    closeTo(
+      parseFloat(h.canvas().style.height),
+      CANVAS_PADDING + RECT_WIDTH + TEXT_MARGIN + TEXT_MARGIN * 2 + CANVAS_PADDING,
+      1e-6,
+      "the canvas must not grow a note band for a scale that has no martyria"
+    );
+  });
+
+  await t.test("never shrinks the band below the generic name band", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const { NOTE_TEXT_HEIGHT, byzantineNoteBandHeight } = h.app;
+
+    assert.equal(
+      byzantineNoteBandHeight(NOTE_TEXT_HEIGHT - 10),
+      NOTE_TEXT_HEIGHT,
+      "a martyria shorter than the name band still gets the whole band"
+    );
+    assert.equal(
+      byzantineNoteBandHeight(NOTE_TEXT_HEIGHT + 10),
+      NOTE_TEXT_HEIGHT + 10,
+      "a taller martyria sizes the band from its own ink"
+    );
+    assert.equal(byzantineNoteBandHeight(0), 0, "no martyria, no band");
+  });
+});

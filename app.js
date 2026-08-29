@@ -431,6 +431,17 @@ function maxInkExtent(texts, font) {
   return { width: width, height: height };
 }
 
+/**
+ * The band a chart reserves for its note text in Byzantine notation. A
+ * martyria shorter than the generic name band still gets that whole band; a
+ * scale with no martyria at all gets no band, so the canvas does not grow for
+ * signs it never draws.
+ */
+function byzantineNoteBandHeight(maxMartyriaInkHeight) {
+  if (maxMartyriaInkHeight <= 0) return 0;
+  return Math.max(maxMartyriaInkHeight, NOTE_TEXT_HEIGHT);
+}
+
 function drawByzantineMark(text, x, y, align, vAlign) {
   if (!text) return;
   ctx.font = byzantineFont(BYZ_FONT_SIZE);
@@ -661,7 +672,8 @@ function render() {
   const monoFont = '21px "SF Mono", "Fira Code", Consolas, monospace';
 
   let maxNoteWidth = 0;
-  let maxNoteHeight = NOTE_TEXT_HEIGHT;
+  // The tallest martyria's ink, and 0 when no degree carries one.
+  let maxNoteHeight = 0;
   let maxFthoraWidth = 0;
   let maxFthoraHeight = 0;
 
@@ -673,7 +685,7 @@ function render() {
       byzFont
     );
     maxNoteWidth = notes.width;
-    maxNoteHeight = Math.max(maxNoteHeight, notes.height);
+    maxNoteHeight = notes.height;
 
     const fthores = maxInkExtent(
       intervals.flatMap((iv) => [iv.fthoraBelow, iv.fthoraAbove]),
@@ -730,7 +742,7 @@ function render() {
     ? Math.max(maxNoteWidth, maxFthoraWidth)
     : Math.max(maxNoteHeight, maxFthoraHeight);
   const signOverhang = isByzantine ? Math.max(0, signExtent / 2 - CANVAS_PADDING) : 0;
-  const noteBandH = isByzantine ? maxNoteHeight : NOTE_TEXT_HEIGHT;
+  const noteBandH = isByzantine ? byzantineNoteBandHeight(maxNoteHeight) : NOTE_TEXT_HEIGHT;
   const byz = {
     on: isByzantine,
     font: byzFont,
