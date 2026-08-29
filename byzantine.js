@@ -216,3 +216,61 @@ function isLadderPositionLegal(position, degree, degreeCount) {
   if (position < degree - 1) return false;
   return position + (degreeCount - degree) <= LADDER_MAX;
 }
+
+// ---------------------------------------------------------------------------
+// Ink-anchored text.
+//
+// A martyria's ink sits well above the baseline in Neanes and below it in
+// other SBMuFL faces, and a fthora sits around -0.65 … -1.1 em because the
+// font expects it over a neume. A constant offset would break on a font swap,
+// so both signs are placed from measured ink, on both axes, always.
+// ---------------------------------------------------------------------------
+
+const BYZ_FONT_SIZE = 40;
+
+function byzantineFont(size) {
+  return (size || BYZ_FONT_SIZE) + 'px "Neanes", serif';
+}
+
+/**
+ * The ink's extent relative to the pen origin, with y growing downward — so
+ * `top` is normally negative. `adv` is the advance width, which for a martyria
+ * is narrower than the ink because the genus mark has no advance.
+ */
+function inkBox(ctx, text, font) {
+  const previousFont = ctx.font;
+  if (font) ctx.font = font;
+  const metrics = ctx.measureText(text);
+  ctx.font = previousFont;
+
+  return {
+    adv: metrics.width,
+    left: -(metrics.actualBoundingBoxLeft || 0),
+    right: metrics.actualBoundingBoxRight === undefined ? metrics.width : metrics.actualBoundingBoxRight,
+    top: -(metrics.actualBoundingBoxAscent || 0),
+    bottom: metrics.actualBoundingBoxDescent || 0,
+  };
+}
+
+/**
+ * Draws `text` so that its *ink* lands on (x, y) as asked, rather than its
+ * baseline and pen origin. Uses ctx.font as the caller set it.
+ */
+function drawGlyphs(ctx, text, x, y, options) {
+  if (!text) return;
+  const align = (options && options.align) || "left";
+  const vAlign = (options && options.vAlign) || "middle";
+  const box = inkBox(ctx, text, ctx.font);
+
+  let penX = x - box.left;
+  if (align === "right") penX = x - box.right;
+  else if (align === "center") penX = x - (box.left + box.right) / 2;
+
+  let penY = y - (box.top + box.bottom) / 2;
+  if (vAlign === "top") penY = y - box.top;
+  else if (vAlign === "bottom") penY = y - box.bottom;
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(text, penX, penY);
+}

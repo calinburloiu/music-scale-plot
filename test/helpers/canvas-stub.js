@@ -22,6 +22,25 @@
 const CHAR_WIDTH_RATIO = 0.6;
 const DEFAULT_FONT_SIZE = 10;
 
+// The ink model. A genus mark has no advance, an …Above mark raises the
+// modelled ascent and a …Below mark deepens the descent, so the stub has the
+// same shape as a real SBMuFL font. See docs/TESTING.md §5.
+const INK_LEFT_BEARING_RATIO = 0.05;
+const INK_WIDTH_RATIO = 0.6;
+const ASCENT_RATIO = 0.75;
+const DESCENT_RATIO = 0.2;
+const MARK_ABOVE_ASCENT_RATIO = 1.15;
+const MARK_BELOW_DESCENT_RATIO = 0.6;
+
+const MARK_BELOW_FIRST = 0xe150;
+const MARK_BELOW_LAST = 0xe15b;
+const MARK_ABOVE_FIRST = 0xe170;
+const MARK_ABOVE_LAST = 0xe17b;
+
+function isZeroAdvance(code) {
+  return code >= MARK_BELOW_FIRST && code <= MARK_ABOVE_LAST;
+}
+
 const RECORDED_STATE = [
   "font",
   "fillStyle",
@@ -36,9 +55,39 @@ function fontSizeOf(font) {
   return Number.isFinite(size) && size > 0 ? size : DEFAULT_FONT_SIZE;
 }
 
-/** The measurement model, exposed so tests can predict layout maths. */
+/** The full measurement model, exposed so tests can predict layout maths. */
+function measureTextInk(text, font) {
+  const size = fontSizeOf(font);
+  const chars = [...String(text)];
+
+  let pen = 0;
+  let right = 0;
+  let ascent = size * ASCENT_RATIO;
+  let descent = size * DESCENT_RATIO;
+
+  for (const ch of chars) {
+    const code = ch.codePointAt(0);
+    right = Math.max(right, pen + size * (INK_LEFT_BEARING_RATIO + INK_WIDTH_RATIO));
+    if (code >= MARK_ABOVE_FIRST && code <= MARK_ABOVE_LAST) {
+      ascent = Math.max(ascent, size * MARK_ABOVE_ASCENT_RATIO);
+    } else if (code >= MARK_BELOW_FIRST && code <= MARK_BELOW_LAST) {
+      descent = Math.max(descent, size * MARK_BELOW_DESCENT_RATIO);
+    }
+    if (!isZeroAdvance(code)) pen += size * CHAR_WIDTH_RATIO;
+  }
+
+  return {
+    width: pen,
+    actualBoundingBoxLeft: chars.length ? -size * INK_LEFT_BEARING_RATIO : 0,
+    actualBoundingBoxRight: right,
+    actualBoundingBoxAscent: chars.length ? ascent : 0,
+    actualBoundingBoxDescent: chars.length ? descent : 0,
+  };
+}
+
+/** Advance width only — what the app's non-Byzantine measurement uses. */
 function measureTextWidth(text, font) {
-  return String(text).length * fontSizeOf(font) * CHAR_WIDTH_RATIO;
+  return measureTextInk(text, font).width;
 }
 
 class RecordingContext2D {
@@ -84,7 +133,7 @@ class RecordingContext2D {
   }
 
   measureText(text) {
-    return { width: measureTextWidth(text, this.font) };
+    return measureTextInk(text, this.font);
   }
 
   /** All recorded calls to `method`, in draw order. */
@@ -102,4 +151,15 @@ class RecordingContext2D {
   }
 }
 
-module.exports = { RecordingContext2D, measureTextWidth, CHAR_WIDTH_RATIO };
+module.exports = {
+  RecordingContext2D,
+  measureTextWidth,
+  measureTextInk,
+  CHAR_WIDTH_RATIO,
+  INK_LEFT_BEARING_RATIO,
+  INK_WIDTH_RATIO,
+  ASCENT_RATIO,
+  DESCENT_RATIO,
+  MARK_ABOVE_ASCENT_RATIO,
+  MARK_BELOW_DESCENT_RATIO,
+};

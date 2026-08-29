@@ -3,8 +3,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { loadApp } = require("../helpers/harness.js");
-const { equalArray } = require("../helpers/assertions.js");
+const { loadApp, measureTextInk } = require("../helpers/harness.js");
+const { equalArray, closeTo } = require("../helpers/assertions.js");
 
 test("the Byzantine note vocabulary", async (t) => {
   await t.test("holds 21 letters: three registers of seven, ascending in pitch", () => {
@@ -345,5 +345,144 @@ test("which ladder positions a degree may take", async (t) => {
     assert.equal(h.app.isLadderPositionLegal(0, 1, 1), true);
     assert.equal(h.app.isLadderPositionLegal(27, 1, 1), true);
     assert.equal(h.app.isLadderPositionLegal(28, 1, 1), false, "still off the ladder");
+  });
+});
+
+test("the ink model in the canvas stub", async (t) => {
+  await t.test("gives a genus mark no advance, so it lands on the letter", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = '40px "Neanes"';
+
+    const letter = measureTextInk("", font);
+    const composed = measureTextInk("", font);
+
+    assert.equal(composed.width, letter.width, "the mark must not move the pen");
+  });
+
+  await t.test("gives the octave tick a normal advance, because it is a spacing glyph", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = '40px "Neanes"';
+
+    assert.ok(
+      measureTextInk("", font).width > measureTextInk("", font).width,
+      "martyriaTick is not a mark"
+    );
+  });
+
+  await t.test("raises the ascent for an Above mark and deepens the descent for a Below one", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = '40px "Neanes"';
+
+    const plain = measureTextInk("", font);
+    const above = measureTextInk("", font);
+    const below = measureTextInk("", font);
+
+    assert.ok(above.actualBoundingBoxAscent > plain.actualBoundingBoxAscent);
+    assert.ok(below.actualBoundingBoxDescent > plain.actualBoundingBoxDescent);
+  });
+});
+
+test("measuring a glyph string's ink", async (t) => {
+  await t.test("reports the ink's extent relative to the pen, not the advance", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = h.app.byzantineFont(h.app.BYZ_FONT_SIZE);
+    const text = h.app.resolveMartyriaGlyphs("midPa", "alpha", 0);
+
+    const box = h.app.inkBox(h.ctx, text, font);
+    const metrics = measureTextInk(text, font);
+
+    closeTo(box.adv, metrics.width, 1e-9, "adv is the advance");
+    closeTo(box.left, -metrics.actualBoundingBoxLeft, 1e-9, "left is the ink's left edge");
+    closeTo(box.right, metrics.actualBoundingBoxRight, 1e-9);
+    closeTo(box.top, -metrics.actualBoundingBoxAscent, 1e-9, "y grows downward, so top is negative");
+    closeTo(box.bottom, metrics.actualBoundingBoxDescent, 1e-9);
+  });
+
+  await t.test("leaves the context's font as it found it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    h.ctx.font = "24px sans-serif";
+
+    h.app.inkBox(h.ctx, "", '40px "Neanes"');
+
+    assert.equal(h.ctx.font, "24px sans-serif", "measuring must not leak a font change");
+  });
+});
+
+test("drawing ink-anchored glyphs", async (t) => {
+  function drawn(h, text, x, y, options) {
+    h.ctx.reset();
+    h.ctx.font = h.app.byzantineFont(h.app.BYZ_FONT_SIZE);
+    h.app.drawGlyphs(h.ctx, text, x, y, options);
+    const [call] = h.ctx.callsOf("fillText");
+    return { call, box: h.app.inkBox(h.ctx, text, h.ctx.font) };
+  }
+
+  await t.test("puts the ink's left edge on x when asked to align left", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const { call, box } = drawn(h, "", 100, 50, { align: "left", vAlign: "middle" });
+
+    closeTo(call.args[1] + box.left, 100, 1e-9, "ink left edge");
+  });
+
+  await t.test("puts the ink's right edge on x when asked to align right", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const { call, box } = drawn(h, "", 100, 50, { align: "right", vAlign: "middle" });
+
+    closeTo(call.args[1] + box.right, 100, 1e-9, "ink right edge");
+  });
+
+  await t.test("centres the ink horizontally when asked", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const { call, box } = drawn(h, "", 100, 50, { align: "center", vAlign: "middle" });
+
+    closeTo(call.args[1] + (box.left + box.right) / 2, 100, 1e-9, "ink centre");
+  });
+
+  await t.test("centres the ink vertically on y, measured, not guessed", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const { call, box } = drawn(h, "", 100, 50, { align: "left", vAlign: "middle" });
+
+    closeTo(call.args[2] + (box.top + box.bottom) / 2, 50, 1e-9, "ink vertical centre");
+  });
+
+  await t.test("puts the ink's top or bottom edge on y when asked", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const top = drawn(h, "", 100, 50, { align: "center", vAlign: "top" });
+    closeTo(top.call.args[2] + top.box.top, 50, 1e-9, "ink top edge");
+
+    const bottom = drawn(h, "", 100, 50, { align: "center", vAlign: "bottom" });
+    closeTo(bottom.call.args[2] + bottom.box.bottom, 50, 1e-9, "ink bottom edge");
+  });
+
+  await t.test("draws from a neutral alignment, so the caller's anchoring is the only one", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    h.ctx.textAlign = "center";
+    h.ctx.textBaseline = "top";
+    const { call } = drawn(h, "", 100, 50, { align: "left", vAlign: "middle" });
+
+    assert.equal(call.state.textAlign, "left");
+    assert.equal(call.state.textBaseline, "alphabetic");
+  });
+
+  await t.test("draws nothing for an empty string", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    h.ctx.reset();
+
+    h.app.drawGlyphs(h.ctx, "", 100, 50, { align: "left", vAlign: "middle" });
+
+    assert.equal(h.ctx.callsOf("fillText").length, 0);
   });
 });

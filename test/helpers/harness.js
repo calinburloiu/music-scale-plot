@@ -23,7 +23,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { JSDOM, VirtualConsole } = require("jsdom");
 
-const { RecordingContext2D, measureTextWidth } = require("./canvas-stub.js");
+const { RecordingContext2D, measureTextWidth, measureTextInk } = require("./canvas-stub.js");
 const { FakeAudioContext } = require("./audio-stub.js");
 
 const ROOT = path.resolve(__dirname, "..", "..");
@@ -337,6 +337,7 @@ module.exports = {
   pickFthora,
   pickMartyria,
   measureTextWidth,
+  measureTextInk,
   scriptPaths,
   ROOT,
 };
