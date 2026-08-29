@@ -723,10 +723,13 @@ function render() {
   const fthoraAnchor = CANVAS_PADDING + fthoraGutter - TEXT_MARGIN;
   // Both signs are ink-centred on a separator, and the extreme separators sit
   // one CANVAS_PADDING from the edge: reserve whatever ink overflows that, at
-  // both ends of the stack, so the first and last sign are never clipped.
-  const signOverhang = isByzantine
-    ? Math.max(0, Math.max(maxNoteHeight, maxFthoraHeight) / 2 - CANVAS_PADDING)
-    : 0;
+  // both ends of the stack, so the first and last sign are never clipped. The
+  // stack runs along x when horizontal, so there it is the ink's width that
+  // overflows the padding, and its height when vertical.
+  const signExtent = isHorizontal
+    ? Math.max(maxNoteWidth, maxFthoraWidth)
+    : Math.max(maxNoteHeight, maxFthoraHeight);
+  const signOverhang = isByzantine ? Math.max(0, signExtent / 2 - CANVAS_PADDING) : 0;
   const noteBandH = isByzantine ? maxNoteHeight : NOTE_TEXT_HEIGHT;
   const byz = {
     on: isByzantine,
@@ -741,6 +744,8 @@ function render() {
 
   let displayWidth, displayHeight;
   if (isLines && isHorizontal) {
+    // The half-note padding at each end already clears the martyria's ink, so
+    // this chart reserves no overhang of its own.
     const halfNote = maxNoteWidth / 2;
     displayWidth = CANVAS_PADDING + halfNote + stackLength + halfNote + CANVAS_PADDING;
     displayHeight = CANVAS_PADDING + fthoraGutter + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + noteBandH + CANVAS_PADDING;
@@ -749,7 +754,7 @@ function render() {
     displayHeight = CANVAS_PADDING * 2 + signOverhang * 2 + stackLength;
   } else if (isHorizontal) {
     const textAreaHeight = noteBandH + TEXT_MARGIN * 2;
-    displayWidth = CANVAS_PADDING * 2 + stackLength + maxTextWidth;
+    displayWidth = CANVAS_PADDING * 2 + signOverhang * 2 + stackLength + maxTextWidth;
     displayHeight = CANVAS_PADDING + fthoraGutter + RECT_WIDTH + TEXT_MARGIN + textAreaHeight + CANVAS_PADDING;
   } else {
     const textAreaWidth = maxTextWidth + TEXT_MARGIN * 2;
@@ -770,7 +775,7 @@ function render() {
   } else if (isLines && !isHorizontal) {
     drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont, byz);
   } else if (isHorizontal) {
-    const baseX = CANVAS_PADDING;
+    const baseX = CANVAS_PADDING + signOverhang;
     const baseY = CANVAS_PADDING + fthoraGutter;
     const textY = baseY + RECT_WIDTH + TEXT_MARGIN;
     const noteSpec = {

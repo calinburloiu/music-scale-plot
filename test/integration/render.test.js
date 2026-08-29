@@ -770,15 +770,17 @@ test("Byzantine notation, horizontal boxes", async (t) => {
 
   await t.test("draws each martyria below the boxes, centred on its separator", () => {
     const h = chart(t, [PA, VOU]);
-    const { CANVAS_PADDING } = h.app;
 
     const text = martyriaOf(h, PA);
     const call = drawnCall(h, text);
     const box = h.app.inkBox(h.ctx, text, byzFontOf(h));
+    // Degree 1 sits at the start of the stack, i.e. the left edge of the
+    // first box — wherever the layout has put it.
+    const boxX = h.ctx.callsOf("fillRect")[0].args[0];
 
     closeTo(
       call.args[1] + (box.left + box.right) / 2,
-      CANVAS_PADDING,
+      boxX,
       1e-6,
       "the first separator is the left edge of the first box"
     );
@@ -875,6 +877,10 @@ test("Byzantine notation, horizontal boxes", async (t) => {
     );
   });
 
+  await t.test("keeps every sign's ink inside the canvas", () => {
+    assertSignsFitTheCanvas(chart(t, [PA, VOU]));
+  });
+
   await t.test("leaves the box geometry untouched", () => {
     const h = byzantineChart(t, [PA, VOU], {
       orientation: "horizontal",
@@ -951,6 +957,10 @@ test("Byzantine notation, horizontal lines", async (t) => {
     ).args[0];
 
     closeTo(firstTickX, CANVAS_PADDING + widest / 2, 1e-6, "the axis starts half a martyria in");
+  });
+
+  await t.test("keeps every sign's ink inside the canvas", () => {
+    assertSignsFitTheCanvas(chart(t, [PA, VOU]));
   });
 
   await t.test("draws every martyria exactly once", () => {
