@@ -17,16 +17,27 @@ const BYZ_LETTERS = [
   { key: "Ke", greek: "Κε", latin: "Ke" },
 ];
 
+// Freezes a vocabulary table: every row, then the array itself. Every table
+// in this file (BYZ_NOTES, and BYZ_GENERA / BYZ_FTHORES / MARTYRIA_COMPATIBILITY
+// that follow it) is immutable data — a shared reference no caller should be
+// able to mutate out from under the others.
+function freezeTable(rows) {
+  rows.forEach((row) => Object.freeze(row));
+  return Object.freeze(rows);
+}
+
 // 21 note letters, ascending in pitch. The array index is the note's ladder
 // position (see ladderPosition) and coincides with SBMuFL codepoint order.
-const BYZ_NOTES = BYZ_OCTAVES.flatMap((octave) =>
-  BYZ_LETTERS.map((letter, letterIndex) => ({
-    id: octave + letter.key,
-    octave: octave,
-    letterIndex: letterIndex,
-    greek: letter.greek,
-    latin: letter.latin,
-  }))
+const BYZ_NOTES = freezeTable(
+  BYZ_OCTAVES.flatMap((octave) =>
+    BYZ_LETTERS.map((letter, letterIndex) => ({
+      id: octave + letter.key,
+      octave: octave,
+      letterIndex: letterIndex,
+      greek: letter.greek,
+      latin: letter.latin,
+    }))
+  )
 );
 
 function byzNoteById(id) {

@@ -44,4 +44,26 @@ test("the Byzantine note vocabulary", async (t) => {
     assert.equal(midPa.latin, "Pa");
     assert.equal(h.app.byzNoteById("nonesuch"), null, "an unknown id resolves to null");
   });
+
+  await t.test("is frozen: the vocabulary table cannot be mutated", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const notes = h.app.BYZ_NOTES;
+    assert.ok(Object.isFrozen(notes), "BYZ_NOTES array itself must be frozen");
+    assert.ok(Object.isFrozen(notes[0]), "each note object must be frozen");
+
+    const originalId = notes[0].id;
+    assert.throws(() => {
+      "use strict";
+      notes[0].id = "mutated";
+    }, "mutating a frozen note property must throw in strict mode");
+    assert.equal(notes[0].id, originalId, "the note object did not change");
+
+    assert.throws(() => {
+      "use strict";
+      notes.push({ id: "intruder" });
+    }, "pushing onto a frozen array must throw in strict mode");
+    assert.equal(notes.length, 21, "the array length did not change");
+  });
 });
