@@ -94,3 +94,109 @@ function applyNoteSymbolAttrs(row, attrs) {
   }
   refreshNoteRowWells(row);
 }
+
+// ---------------------------------------------------------------------------
+// Pickers.
+//
+// Only one picker is open at a time. Opening one goes through app.js's
+// closeAllDropdowns(), which is the same machinery the colour picker uses, so
+// the two can never be open together.
+// ---------------------------------------------------------------------------
+
+/** One clickable row of a picker: a glyph preview and a label. */
+function makeByzOption(spec) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "byz-option " + spec.className;
+  for (const key of Object.keys(spec.data)) button.dataset[key] = spec.data[key];
+  if (spec.disabled) button.disabled = true;
+
+  const glyph = document.createElement("span");
+  glyph.className = "byz-glyph";
+  glyph.textContent = spec.glyph;
+
+  const label = document.createElement("span");
+  label.className = "byz-label";
+  label.textContent = spec.label;
+
+  button.appendChild(glyph);
+  button.appendChild(label);
+  return button;
+}
+
+/** One flat list: None, then the sixteen fthores in block order. */
+function buildFthoraPicker(panel, row) {
+  const current = readNoteSymbols(row).fthora;
+  panel.innerHTML = "";
+  panel.appendChild(
+    makeByzOption({ className: "fthora-option", data: { fthora: "" }, glyph: "", label: "None" })
+  );
+  for (const fthora of BYZ_FTHORES) {
+    const option = makeByzOption({
+      className: "fthora-option",
+      data: { fthora: fthora.id },
+      glyph: resolveFthoraGlyph(fthora.id),
+      label: fthora.label,
+    });
+    if (current === fthora.id) option.classList.add("is-selected");
+    panel.appendChild(option);
+  }
+}
+
+function toggleWellPicker(well) {
+  const panel = well.parentElement.querySelector(".fthora-picker, .martyria-picker");
+  const wasOpen = panel.classList.contains("open");
+  closeAllDropdowns();
+  if (wasOpen) return;
+
+  const row = well.closest(".note-row");
+  buildFthoraPicker(panel, row);
+  panel.classList.add("open");
+  row.classList.add("picker-open");
+}
+
+function closeByzantinePickers() {
+  for (const panel of editor.querySelectorAll(".fthora-picker.open, .martyria-picker.open")) {
+    panel.classList.remove("open");
+    const row = panel.closest(".note-row");
+    if (row) row.classList.remove("picker-open");
+  }
+}
+
+function applyByzantineOption(option) {
+  const row = option.closest(".note-row");
+  if (!row) return;
+  if (option.classList.contains("fthora-option")) {
+    writeFthora(row, option.dataset.fthora);
+    closeAllDropdowns();
+  }
+  render();
+}
+
+/**
+ * Routes a click inside the editor. Returns true when it handled the event, so
+ * app.js's listener can stop.
+ */
+function handleByzantineClick(e) {
+  const well = e.target.closest(".fthora-well, .martyria-well");
+  if (well) {
+    e.stopPropagation();
+    toggleWellPicker(well);
+    return true;
+  }
+
+  const option = e.target.closest(".byz-option");
+  if (option) {
+    e.stopPropagation();
+    if (!option.disabled) applyByzantineOption(option);
+    return true;
+  }
+
+  // A click on the panel's own chrome must not reach the document listener,
+  // which would close it.
+  if (e.target.closest(".fthora-picker, .martyria-picker")) {
+    e.stopPropagation();
+    return true;
+  }
+  return false;
+}

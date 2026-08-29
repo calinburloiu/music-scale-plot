@@ -1065,6 +1065,7 @@ function closeAllDropdowns() {
     const row = dd.closest(".interval-row");
     if (row) row.classList.remove("dropdown-open");
   }
+  closeByzantinePickers();
 }
 
 function setSwatchColor(swatch, hex) {
@@ -1146,6 +1147,8 @@ function syncIntervalColors(sourceRow) {
 }
 
 editor.addEventListener("click", function (e) {
+  if (handleByzantineClick(e)) return;
+
   const swatch = e.target.closest(".color-swatch");
   if (swatch) {
     e.stopPropagation();

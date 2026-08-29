@@ -278,6 +278,20 @@ function pickColor(harness, intervalRow, hex) {
   return option;
 }
 
+/** Clicks a well and returns its picker panel. `kind` is "fthora" or "martyria". */
+function openWell(harness, noteRow, kind) {
+  fireClick(harness, noteRow.querySelector(`.${kind}-well`));
+  return noteRow.querySelector(`.${kind}-picker`);
+}
+
+/** Opens the fthora picker and clicks one of its rows. `""` picks None. */
+function pickFthora(harness, noteRow, fthoraId) {
+  const panel = openWell(harness, noteRow, "fthora");
+  const option = panel.querySelector(`.fthora-option[data-fthora="${fthoraId}"]`);
+  if (!option) throw new Error(`No fthora option "${fthoraId}" in the picker`);
+  fireClick(harness, option);
+}
+
 module.exports = {
   loadApp,
   fireInput,
@@ -292,6 +306,8 @@ module.exports = {
   buildRelativeScale,
   buildAbsoluteScale,
   pickColor,
+  openWell,
+  pickFthora,
   measureTextWidth,
   scriptPaths,
   ROOT,

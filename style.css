@@ -456,6 +456,68 @@ body {
 .martyria-well.is-empty::before { width: 14px; top: 12px; }
 .martyria-well.is-empty::after  { width:  8px; top: 19px; }
 
+/* --- Symbol pickers --- */
+
+.fthora-picker,
+.martyria-picker {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 10;
+  margin-top: 7px;
+  padding: 6px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 14px 38px -10px rgba(30, 20, 10, 0.38);
+}
+
+/* The panels are tall, so they scroll. They never flip up: a scrolling panel
+   cannot escape the editor. */
+.fthora-picker.open {
+  display: block;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+#editor .note-row.picker-open { z-index: 100; }
+
+.byz-option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.byz-option:hover:not(:disabled) { background: var(--paper-fade); }
+.byz-option:disabled { opacity: 0.35; cursor: default; }
+.byz-option.is-selected { background: var(--paper-fade); font-weight: 600; }
+
+.byz-glyph {
+  flex: 0 0 auto;
+  width: 2rem;
+  font-family: "Neanes", serif;
+  font-size: 26px;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.byz-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+}
+
 .note-row .cumulative-cents {
   flex: 0 0 auto;
   width: 9rem;
