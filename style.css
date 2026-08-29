@@ -1,5 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;600&family=Fraunces:opsz,wght,SOFT@9..144,400;500;600,30..100&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
+@font-face {
+  font-family: "Neanes";
+  src: url("fonts/Neanes.woff2") format("woff2");
+  font-display: block;
+}
+
 *,
 *::before,
 *::after {
@@ -92,6 +98,7 @@ body {
 
 /* --- Settings Panel --- */
 
+.notation-row,
 .base-note-row,
 .interval-type-row,
 .edo-settings-row {
@@ -111,6 +118,7 @@ body {
   min-width: 0;
 }
 
+.notation-row label,
 .base-note-row label,
 .interval-type-row label,
 .edo-settings-row label {
@@ -123,6 +131,7 @@ body {
   letter-spacing: 0.09em;
 }
 
+.notation-row select,
 .base-note-row select,
 .interval-type-row select,
 .edo-settings-row input {
@@ -139,12 +148,14 @@ body {
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
+.notation-row select:hover,
 .base-note-row select:hover,
 .interval-type-row select:hover,
 .edo-settings-row input:hover {
   border-color: var(--ink-soft);
 }
 
+.notation-row select:focus,
 .base-note-row select:focus,
 .interval-type-row select:focus,
 .edo-settings-row input:focus {
@@ -373,6 +384,77 @@ body {
   background: #fff;
   box-shadow: 0 0 0 3px var(--focus-glow);
 }
+
+/* --- Notation switch --- */
+
+/* Both sets of controls live on every note row; CSS decides which are visible,
+   so a switch discards nothing. */
+.note-row .fthora-well-wrapper,
+.note-row .martyria-well-wrapper { display: none; }
+
+#editor.notation-byzantine .note-row .note-name { display: none; }
+
+#editor.notation-byzantine .note-row .fthora-well-wrapper,
+#editor.notation-byzantine .note-row .martyria-well-wrapper {
+  display: block;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+/* .note-name carried the right-alignment; the first visible well takes it on. */
+#editor.notation-byzantine .note-row .fthora-well-wrapper { margin-left: auto; }
+
+/* --- Symbol wells --- */
+
+.fthora-well,
+.martyria-well {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--paper-fade);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: "Neanes", serif;
+  font-size: 22px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.fthora-well:hover,
+.martyria-well:hover { border-color: var(--ink); }
+
+/* An empty well says which sign it takes, in pure CSS, so it is legible
+   before the webfont arrives. */
+.fthora-well.is-empty,
+.martyria-well.is-empty {
+  border-style: dashed;
+  position: relative;
+}
+
+.fthora-well.is-empty::before {
+  content: "";
+  position: absolute;
+  width: 15px;
+  height: 2px;
+  background: var(--ink-faint);
+  transform: rotate(-45deg);
+}
+
+.martyria-well.is-empty::before,
+.martyria-well.is-empty::after {
+  content: "";
+  position: absolute;
+  height: 2px;
+  background: var(--ink-faint);
+}
+
+.martyria-well.is-empty::before { width: 14px; top: 12px; }
+.martyria-well.is-empty::after  { width:  8px; top: 19px; }
 
 .note-row .cumulative-cents {
   flex: 0 0 auto;

@@ -200,6 +200,11 @@ function selectOption(harness, selectId, value) {
   return select;
 }
 
+/** Switches the Notation setting and dispatches the `change` event. */
+function setNotation(harness, value) {
+  return selectOption(harness, "notation", value);
+}
+
 function noteRows(harness) {
   return harness.all("#editor .note-row");
 }
@@ -280,6 +285,7 @@ module.exports = {
   fireClick,
   typeInto,
   selectOption,
+  setNotation,
   noteRows,
   intervalRows,
   setNoteCount,

@@ -33,6 +33,7 @@ const edoCentsLabel = document.getElementById("edo-cents-label");
 const orientationSelect = document.getElementById("orientation");
 const styleSelect = document.getElementById("chart-style");
 const scaleModeSelect = document.getElementById("scale-mode");
+const notationSelect = document.getElementById("notation");
 
 const LINE_STYLE_WIDTH = 3;
 const TICK_LENGTH = 28;
@@ -53,6 +54,15 @@ function getBaseFrequency() {
 
 function getScaleMode() {
   return scaleModeSelect.value;
+}
+
+function getNotation() {
+  return notationSelect.value;
+}
+
+function onNotationChange() {
+  editor.classList.toggle("notation-byzantine", getNotation() === "byzantine");
+  render();
 }
 
 function getFrequencyForDegree(degree) {
@@ -190,9 +200,11 @@ function makeNoteRowHTML(degree, mode, absoluteValue) {
     const val = isFirst ? getUnisonValue() : (absoluteValue !== undefined ? absoluteValue : "");
     const absInput = '<input type="text" class="absolute-interval" placeholder="' +
       getIntervalPlaceholder() + '" value="' + val + '"' + (isFirst ? " disabled" : "") + ">";
-    return playBtn + labelHtml + absInput + '<span class="abs-cents-label"></span>' + nameInput;
+    return playBtn + labelHtml + absInput + '<span class="abs-cents-label"></span>' +
+      nameInput + makeSymbolWellsHTML();
   }
-  return playBtn + labelHtml + '<span class="cumulative-cents"></span>' + nameInput;
+  return playBtn + labelHtml + '<span class="cumulative-cents"></span>' +
+    nameInput + makeSymbolWellsHTML();
 }
 
 function makeIntervalRowHTML(value, mode) {
@@ -1230,6 +1242,7 @@ orientationSelect.addEventListener("change", render);
 styleSelect.addEventListener("change", onChartStyleChange);
 edoDivisionsInput.addEventListener("input", onEdoDivisionsChange);
 scaleModeSelect.addEventListener("change", onScaleModeChange);
+notationSelect.addEventListener("change", onNotationChange);
 
 updateRemoveBtn();
 updateZoom();
