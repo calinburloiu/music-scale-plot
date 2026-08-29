@@ -503,6 +503,46 @@ function drawnCall(h, text) {
   return call;
 }
 
+/**
+ * Every Byzantine sign the chart drew, as an ink rectangle in canvas
+ * coordinates. `drawGlyphs` draws at the alphabetic baseline with `textAlign`
+ * left, so the pen position plus the ink box *is* the ink's place on the
+ * canvas.
+ */
+function signInkBoxes(h) {
+  const font = byzFontOf(h);
+  return h.ctx
+    .callsOf("fillText")
+    .filter((c) => c.state.font === font)
+    .map((c) => {
+      const box = h.app.inkBox(h.ctx, c.args[0], font);
+      return {
+        text: c.args[0],
+        left: c.args[1] + box.left,
+        right: c.args[1] + box.right,
+        top: c.args[2] + box.top,
+        bottom: c.args[2] + box.bottom,
+      };
+    });
+}
+
+function assertSignsFitTheCanvas(h) {
+  const width = parseFloat(h.canvas().style.width);
+  const height = parseFloat(h.canvas().style.height);
+  const signs = signInkBoxes(h);
+  const EPS = 1e-9; // the extreme signs touch the edge exactly
+
+  assert.ok(signs.length > 0, "no Byzantine sign was drawn at all");
+  for (const sign of signs) {
+    assert.ok(
+      sign.left >= -EPS && sign.right <= width + EPS &&
+        sign.top >= -EPS && sign.bottom <= height + EPS,
+      `ink x [${sign.left}, ${sign.right}] y [${sign.top}, ${sign.bottom}] ` +
+        `falls outside the ${width}x${height} canvas`
+    );
+  }
+}
+
 test("Byzantine notation, vertical boxes", async (t) => {
   const PA = { note: "midPa", genus: "alpha" };
   const VOU = { note: "midVou", genus: "legetos" };
@@ -560,14 +600,15 @@ test("Byzantine notation, vertical boxes", async (t) => {
 
   await t.test("centres the martyria's ink on the separator, not its baseline", () => {
     const h = byzantineChart(t, [PA, VOU]);
-    const { CANVAS_PADDING } = h.app;
 
     const text = martyriaOf(h, PA);
     const call = drawnCall(h, text);
     const box = h.app.inkBox(h.ctx, text, byzFontOf(h));
-    const separatorY = CANVAS_PADDING + TONE; // degree 1 sits at the base of the stack
+    // Degree 1 sits at the base of the stack, i.e. the bottom edge of the
+    // lowest box — wherever the layout has put it.
+    const [, boxY, , boxH] = h.ctx.callsOf("fillRect")[0].args;
 
-    closeTo(call.args[2] + (box.top + box.bottom) / 2, separatorY, 1e-6, "ink vertical centre");
+    closeTo(call.args[2] + (box.top + box.bottom) / 2, boxY + boxH, 1e-6, "ink vertical centre");
   });
 
   await t.test("opens a left gutter for the fthora and shifts the boxes into it", () => {
@@ -644,6 +685,10 @@ test("Byzantine notation, vertical boxes", async (t) => {
     );
   });
 
+  await t.test("keeps every sign's ink inside the canvas", () => {
+    assertSignsFitTheCanvas(byzantineChart(t, [{ ...PA, fthora: "diatonicPa" }, VOU]));
+  });
+
   await t.test("leaves the box geometry, colours and interval labels untouched", () => {
     const h = byzantineChart(t, [PA, VOU], { intervals: ["9/8", "10/9"] });
 
@@ -699,6 +744,10 @@ test("Byzantine notation, vertical lines", async (t) => {
     const box = h.app.inkBox(h.ctx, text, byzFontOf(h));
 
     closeTo(call.args[1] + box.right, CANVAS_PADDING + inkWidth(h, text), 1e-6, "ink right edge");
+  });
+
+  await t.test("keeps every sign's ink inside the canvas", () => {
+    assertSignsFitTheCanvas(byzantineChart(t, [PA, VOU], { style: "lines" }));
   });
 
   await t.test("still draws one coloured segment per interval and a tick per note", () => {

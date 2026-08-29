@@ -532,7 +532,7 @@ function drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, m
   const tickRight = axisCenterX + TICK_LENGTH / 2;
   const noteTextX = tickRight + TEXT_MARGIN;
   const intervalTextRightX = tickLeft - TEXT_MARGIN;
-  const baseY = CANVAS_PADDING + stackLength;
+  const baseY = CANVAS_PADDING + byz.overhang + stackLength;
 
   let y = baseY;
   for (const iv of intervals) {
@@ -668,7 +668,7 @@ function render() {
       byzFont
     );
     maxNoteWidth = notes.width;
-    maxNoteHeight = notes.height;
+    maxNoteHeight = Math.max(maxNoteHeight, notes.height);
 
     const fthores = maxInkExtent(
       intervals.flatMap((iv) => [iv.fthoraBelow, iv.fthoraAbove]),
@@ -716,8 +716,20 @@ function render() {
   // The fthora's ink is right-aligned (vertical) or bottom-aligned
   // (horizontal) here, a text margin clear of whatever starts after the gutter.
   const fthoraAnchor = CANVAS_PADDING + fthoraGutter - TEXT_MARGIN;
+  // Both signs are ink-centred on a separator, and the extreme separators sit
+  // one CANVAS_PADDING from the edge: reserve whatever ink overflows that, at
+  // both ends of the stack, so the first and last sign are never clipped.
+  const signOverhang = isByzantine
+    ? Math.max(0, Math.max(maxNoteHeight, maxFthoraHeight) / 2 - CANVAS_PADDING)
+    : 0;
   const noteBandH = isByzantine ? maxNoteHeight : NOTE_TEXT_HEIGHT;
-  const byz = { on: isByzantine, font: byzFont, gutter: fthoraGutter, anchor: fthoraAnchor };
+  const byz = {
+    on: isByzantine,
+    font: byzFont,
+    gutter: fthoraGutter,
+    anchor: fthoraAnchor,
+    overhang: signOverhang,
+  };
 
   const hasBothIntervalLines = maxLabelWidth > 0 && maxRatioWidth > 0;
   const intervalTextBlockH = hasBothIntervalLines ? 56 : 28;
@@ -729,7 +741,7 @@ function render() {
     displayHeight = CANVAS_PADDING + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + NOTE_TEXT_HEIGHT + CANVAS_PADDING;
   } else if (isLines && !isHorizontal) {
     displayWidth = CANVAS_PADDING + fthoraGutter + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + maxNoteWidth + CANVAS_PADDING;
-    displayHeight = CANVAS_PADDING * 2 + stackLength;
+    displayHeight = CANVAS_PADDING * 2 + signOverhang * 2 + stackLength;
   } else if (isHorizontal) {
     const textAreaHeight = NOTE_TEXT_HEIGHT + TEXT_MARGIN * 2;
     displayWidth = CANVAS_PADDING * 2 + stackLength + maxTextWidth;
@@ -737,7 +749,7 @@ function render() {
   } else {
     const textAreaWidth = maxTextWidth + TEXT_MARGIN * 2;
     displayWidth = CANVAS_PADDING + fthoraGutter + RECT_WIDTH + TEXT_MARGIN + textAreaWidth + CANVAS_PADDING;
-    displayHeight = CANVAS_PADDING * 2 + stackLength;
+    displayHeight = CANVAS_PADDING * 2 + signOverhang * 2 + stackLength;
   }
 
   canvas.width = Math.round(displayWidth * DPR);
@@ -812,7 +824,7 @@ function render() {
     }
   } else {
     const baseX = CANVAS_PADDING + fthoraGutter;
-    const baseY = CANVAS_PADDING + stackLength;
+    const baseY = CANVAS_PADDING + signOverhang + stackLength;
     const noteSpec = {
       byzantine: isByzantine,
       font: font,
