@@ -43,6 +43,7 @@ const NOTE_TEXT_HEIGHT = 28;
 
 let displayZoom = 1;
 let audioCtx = null;
+let byzFontReady = false;
 
 function getAudioContext() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1156,6 +1157,31 @@ function onScaleModeChange() {
   render();
 }
 
+/**
+ * Asks for the Neanes face and redraws once it resolves.
+ *
+ * PUA codepoints have no fallback glyph, so a chart drawn before the face
+ * arrives shows blank boxes and measures with fallback metrics. Guarded,
+ * because jsdom (and old browsers) have no FontFaceSet.
+ */
+function loadByzantineFont() {
+  const fonts = document.fonts;
+  if (!fonts || typeof fonts.load !== "function") return null;
+  return fonts
+    .load(BYZ_FONT_SIZE + 'px "Neanes"')
+    .then(function () {
+      return fonts.ready;
+    })
+    .then(function () {
+      byzFontReady = true;
+      render();
+    })
+    .catch(function () {
+      // The face never arrived. The chart keeps drawing with fallback
+      // metrics rather than failing; nothing was cached from it.
+    });
+}
+
 function savePNG() {
   const link = document.createElement("a");
   link.download = "scale.png";
@@ -1396,3 +1422,4 @@ updateRemoveBtn();
 updateZoom();
 updateAllLabels();
 render();
+loadByzantineFont();

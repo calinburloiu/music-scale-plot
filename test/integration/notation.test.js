@@ -352,3 +352,52 @@ test("readScaleData and the note symbols", async (t) => {
     assert.deepEqual({ ...byzantine.martyria }, { ...generic.martyria });
   });
 });
+
+test("waiting for the Neanes face", async (t) => {
+  await t.test("asks the browser for Neanes at the chart's size on startup", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.fontLoads.length, 1, "the font was never requested");
+    assert.match(h.fontLoads[0], /^40px "Neanes"$/);
+  });
+
+  await t.test("redraws once the face has resolved", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const before = h.ctx.callsOf("fillRect").length;
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.ok(
+      h.ctx.callsOf("fillRect").length > before,
+      "the first paint used fallback metrics and was never replaced"
+    );
+    assert.equal(h.app.byzFontReady, true);
+  });
+
+  await t.test("boots without a FontFaceSet, because jsdom and old browsers have none", () => {
+    const h = loadApp({ fonts: false });
+    t.after(() => h.close());
+
+    assert.deepEqual(h.jsdomErrors, [], "app.js threw when document.fonts was missing");
+    assert.equal(h.app.loadByzantineFont(), null);
+  });
+
+  await t.test("re-measures on every render, so no pre-font measurement survives", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+    h.app.writeMartyria(noteRows(h)[0], "midPa", h.app.GENUS_NONE, 0);
+    h.app.render();
+    const narrow = parseFloat(h.canvas().style.width);
+
+    h.app.writeMartyria(noteRows(h)[0], "highKe", "softChromaticDi", 1);
+    h.app.render();
+
+    assert.ok(
+      parseFloat(h.canvas().style.width) > narrow,
+      "a cached measurement would have kept the canvas at its old width"
+    );
+  });
+});

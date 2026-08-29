@@ -59,6 +59,8 @@ function buildExportEpilogue(names) {
  *
  * @param {object} [options]
  * @param {number} [options.devicePixelRatio=2] value app.js reads into its DPR constant
+ * @param {boolean} [options.fonts=true] set to `false` to boot with no `document.fonts`
+ *   at all, as in jsdom's default state and in old browsers
  * @returns {object} harness
  */
 function loadApp(options = {}) {
@@ -107,6 +109,23 @@ function loadApp(options = {}) {
     }
   };
 
+  // --- fonts ---------------------------------------------------------------
+  // jsdom implements no FontFaceSet. app.js waits on one before its first real
+  // paint, because PUA codepoints have no fallback glyph.
+  const fontLoads = [];
+  if (options.fonts !== false) {
+    Object.defineProperty(document, "fonts", {
+      value: {
+        load(spec) {
+          fontLoads.push(spec);
+          return Promise.resolve([]);
+        },
+        ready: Promise.resolve(),
+      },
+      configurable: true,
+    });
+  }
+
   // --- downloads ---------------------------------------------------------
   // jsdom has no navigation, so record anchor activation instead of following it.
   const downloads = [];
@@ -150,6 +169,8 @@ function loadApp(options = {}) {
     downloads,
     /** Every `toDataURL()` call made on the chart canvas. */
     dataUrls,
+    /** Every font spec passed to `document.fonts.load()`. */
+    fontLoads,
     /** Every AudioContext the app constructed (it should only ever be one). */
     audioContexts,
     /** Errors jsdom itself reported (unimplemented APIs, uncaught throws). */
