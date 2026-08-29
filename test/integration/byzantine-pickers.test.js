@@ -488,6 +488,63 @@ test("the ladder", async (t) => {
 
     assert.deepEqual(martyriaNotes(h), [null, "midNi", "midPa"], "only that one well is cleared");
   });
+
+  await t.test("leaves a neighbour untouched when its target falls below the ladder", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 5);
+    const rows = noteRows(h);
+
+    // Pre-existing, deliberately mismatched martyria on the two rows whose
+    // propagated target would fall below position 0 (source at "lowZo" = 0,
+    // rows 0 and 1 sit two and one below it).
+    h.app.writeMartyria(rows[0], "midPa", "zo", 0);
+    h.app.writeMartyria(rows[1], "midVou", "alpha", 0);
+    h.app.writeMartyria(rows[2], "lowZo", h.app.GENUS_NONE, 0);
+
+    pickMartyria(h, rows[2], { done: true });
+
+    assert.deepEqual(
+      { ...h.app.readNoteSymbols(rows[0]).martyria },
+      { note: "midPa", genus: "zo", ticks: 0 },
+      "off-ladder below: row 0 must be left exactly as it was"
+    );
+    assert.deepEqual(
+      { ...h.app.readNoteSymbols(rows[1]).martyria },
+      { note: "midVou", genus: "alpha", ticks: 0 },
+      "off-ladder below: row 1 must be left exactly as it was"
+    );
+    // Rows within range still propagate, proving the loop actually ran.
+    assert.equal(h.app.readNoteSymbols(rows[3]).martyria.note, "lowNi");
+    assert.equal(h.app.readNoteSymbols(rows[4]).martyria.note, "lowPa");
+  });
+
+  await t.test("leaves a neighbour untouched when its target falls above the ladder", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 5);
+    const rows = noteRows(h);
+
+    // Source at "highKe" + tick = position 27, the top of the ladder. Rows 3
+    // and 4 sit one and two above it, so their targets fall past 27.
+    h.app.writeMartyria(rows[2], "highKe", h.app.GENUS_NONE, 1);
+    h.app.writeMartyria(rows[3], "lowGa", "delta", 0);
+    h.app.writeMartyria(rows[4], "lowDi", "legetos", 0);
+
+    pickMartyria(h, rows[2], { done: true });
+
+    assert.deepEqual(
+      { ...h.app.readNoteSymbols(rows[3]).martyria },
+      { note: "lowGa", genus: "delta", ticks: 0 },
+      "off-ladder above: row 3 must be left exactly as it was"
+    );
+    assert.deepEqual(
+      { ...h.app.readNoteSymbols(rows[4]).martyria },
+      { note: "lowDi", genus: "legetos", ticks: 0 },
+      "off-ladder above: row 4 must be left exactly as it was"
+    );
+    // Rows within range still propagate, proving the loop actually ran.
+    assert.equal(h.app.readNoteSymbols(rows[0]).martyria.note, "highGa");
+    assert.equal(h.app.readNoteSymbols(rows[1]).martyria.note, "highDi");
+  });
 });
 
 test("adding and removing notes in Byzantine notation", async (t) => {
