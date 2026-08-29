@@ -344,7 +344,9 @@ function handleByzantineClick(e) {
   const done = e.target.closest(".martyria-done");
   if (done) {
     e.stopPropagation();
+    const row = done.closest(".note-row");
     closeAllDropdowns();
+    propagateMartyriaLadder(row);
     render();
     return true;
   }
@@ -363,4 +365,40 @@ function handleByzantineClick(e) {
     return true;
   }
   return false;
+}
+
+// ---------------------------------------------------------------------------
+// The ladder, applied to the editor.
+// ---------------------------------------------------------------------------
+
+/**
+ * Runs every other degree through the consecutive letters around `sourceRow`.
+ * Each degree keeps whatever genus it had; a degree that had none gets the
+ * sentinel. Fthores are never touched.
+ */
+function propagateMartyriaLadder(sourceRow) {
+  if (!sourceRow) return;
+  const rows = Array.from(editor.querySelectorAll(".note-row"));
+  const sourceIndex = rows.indexOf(sourceRow);
+  const source = readNoteSymbols(sourceRow).martyria;
+  if (sourceIndex < 0 || !source) return;
+
+  const base = ladderPosition(source.note, source.ticks);
+  for (let j = 0; j < rows.length; j++) {
+    if (j === sourceIndex) continue;
+    const target = ladderNoteAt(base + (j - sourceIndex));
+    if (!target) continue; // off the ladder — leave that well as it is
+    const existing = readNoteSymbols(rows[j]).martyria;
+    writeMartyria(rows[j], target.noteId, existing ? existing.genus : GENUS_NONE, target.ticks);
+  }
+}
+
+/** A new degree continues the ladder: previous position + 1, no genus. */
+function continueLadderOnNewNote(prevRow, newRow) {
+  if (!prevRow || !newRow) return;
+  const previous = readNoteSymbols(prevRow).martyria;
+  if (!previous) return;
+  const next = ladderNoteAt(ladderPosition(previous.note, previous.ticks) + 1);
+  if (!next) return;
+  writeMartyria(newRow, next.noteId, GENUS_NONE, next.ticks);
 }

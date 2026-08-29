@@ -249,6 +249,7 @@ function addNote() {
   const mode = getScaleMode();
   const degree = getDegreeCount() + 1;
   const defaultVal = getDefaultIntervalValue();
+  const prevNoteRow = editor.querySelector(".note-row:last-of-type");
 
   const intervalRow = document.createElement("div");
   intervalRow.className = "row interval-row";
@@ -263,6 +264,8 @@ function addNote() {
 
   editor.appendChild(intervalRow);
   editor.appendChild(noteRow);
+
+  if (getNotation() === "byzantine") continueLadderOnNewNote(prevNoteRow, noteRow);
 
   const key = getIntervalRowKey(intervalRow);
   const existingColor = findColorForKey(key, intervalRow);

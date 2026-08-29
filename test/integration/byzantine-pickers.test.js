@@ -390,3 +390,158 @@ test("picking a martyria", async (t) => {
     assert.ok(panel.classList.contains("open"), "and the panel stays open");
   });
 });
+
+test("the ladder", async (t) => {
+  function martyriaNotes(h) {
+    return noteRows(h).map((row) => {
+      const m = h.app.readNoteSymbols(row).martyria;
+      return m ? m.note : null;
+    });
+  }
+
+  await t.test("runs the other degrees through the consecutive letters on Done", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 4);
+
+    pickMartyria(h, noteRows(h)[1], { note: "midNi", done: true });
+
+    assert.deepEqual(martyriaNotes(h), ["midZo", "midNi", "midPa", "midVou"]);
+  });
+
+  await t.test("propagates downward as well as upward", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 3);
+
+    pickMartyria(h, noteRows(h)[2], { note: "midPa", done: true });
+
+    // midZo=7, midNi=8, midPa=9 (see test/unit/byzantine-symbols.test.js);
+    // degree 3 fixed at 9 puts degree 2 at 8 and degree 1 at 7.
+    assert.deepEqual(martyriaNotes(h), ["midZo", "midNi", "midPa"]);
+  });
+
+  await t.test("does not propagate until Done is pressed", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 3);
+
+    pickMartyria(h, noteRows(h)[0], { note: "midZo" });
+
+    assert.deepEqual(martyriaNotes(h), ["midZo", null, null]);
+  });
+
+  await t.test("leaves each degree's own genus alone", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 3);
+    pickMartyria(h, noteRows(h)[0], { note: "midZo", genus: "zo" });
+    pickMartyria(h, noteRows(h)[2], { note: "midPa", genus: "alpha" });
+
+    pickMartyria(h, noteRows(h)[1], { note: "midNi", done: true });
+
+    assert.deepEqual(
+      noteRows(h).map((row) => h.app.readNoteSymbols(row).martyria.genus),
+      ["zo", "none", "alpha"],
+      "propagation moves letters, never genera"
+    );
+  });
+
+  await t.test("gives an empty neighbour the letter with no genus", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 3);
+
+    pickMartyria(h, noteRows(h)[0], { note: "midZo", genus: "zo", done: true });
+
+    assert.deepEqual(
+      noteRows(h).map((row) => h.app.readNoteSymbols(row).martyria.genus),
+      ["zo", "none", "none"]
+    );
+  });
+
+  await t.test("never touches the fthores", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 3);
+    pickFthora(h, noteRows(h)[2], "diatonicPa");
+
+    pickMartyria(h, noteRows(h)[0], { note: "midZo", done: true });
+
+    assert.equal(h.app.readNoteSymbols(noteRows(h)[2]).fthora, "diatonicPa");
+  });
+
+  await t.test("carries the octave tick into the top register", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 3);
+
+    pickMartyria(h, noteRows(h)[0], { note: "highKe", done: true });
+
+    assert.deepEqual(martyriaNotes(h), ["highKe", "highZo", "highNi"]);
+    assert.deepEqual(
+      noteRows(h).map((row) => h.app.readNoteSymbols(row).martyria.ticks),
+      [0, 1, 1],
+      "above high Κε the tick marks the extra octave"
+    );
+  });
+
+  await t.test("does not propagate when the well is cleared", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 3);
+    pickMartyria(h, noteRows(h)[0], { note: "midZo", done: true });
+
+    pickMartyria(h, noteRows(h)[0], { note: "", done: true });
+
+    assert.deepEqual(martyriaNotes(h), [null, "midNi", "midPa"], "only that one well is cleared");
+  });
+});
+
+test("adding and removing notes in Byzantine notation", async (t) => {
+  await t.test("continues the ladder onto the new degree, with no genus", () => {
+    const h = byzantineApp(t);
+    pickMartyria(h, noteRows(h)[0], { note: "midZo", genus: "zo", done: true });
+
+    fireClick(h, h.document.getElementById("add-note"));
+
+    const added = h.app.readNoteSymbols(noteRows(h).at(-1)).martyria;
+    assert.deepEqual({ ...added }, { note: "midPa", genus: "none", ticks: 0 });
+  });
+
+  await t.test("leaves the new well empty when the previous degree has no martyria", () => {
+    const h = byzantineApp(t);
+
+    fireClick(h, h.document.getElementById("add-note"));
+
+    assert.equal(h.app.readNoteSymbols(noteRows(h).at(-1)).martyria, null);
+  });
+
+  await t.test("leaves the new well empty when the ladder is exhausted", () => {
+    const h = byzantineApp(t);
+    h.app.writeMartyria(noteRows(h).at(-1), "highKe", h.app.GENUS_NONE, 1);
+
+    fireClick(h, h.document.getElementById("add-note"));
+
+    assert.equal(
+      h.app.readNoteSymbols(noteRows(h).at(-1)).martyria,
+      null,
+      "there is nothing above high Κε plus a tick"
+    );
+  });
+
+  await t.test("does not continue the ladder in Generic notation", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    h.app.writeMartyria(noteRows(h).at(-1), "midZo", h.app.GENUS_NONE, 0);
+
+    fireClick(h, h.document.getElementById("add-note"));
+
+    assert.equal(h.app.readNoteSymbols(noteRows(h).at(-1)).martyria, null);
+  });
+
+  await t.test("leaves the remaining degrees alone when the last note is removed", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 4);
+    pickMartyria(h, noteRows(h)[0], { note: "midZo", done: true });
+
+    fireClick(h, h.document.getElementById("remove-note"));
+
+    assert.deepEqual(
+      noteRows(h).map((row) => h.app.readNoteSymbols(row).martyria.note),
+      ["midZo", "midNi", "midPa"]
+    );
+  });
+});
