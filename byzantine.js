@@ -182,3 +182,37 @@ function resolveFthoraGlyph(fthoraId) {
   const fthora = byzFthoraById(fthoraId);
   return fthora ? String.fromCharCode(BYZ_FTHORA_BASE + fthora.index) : "";
 }
+
+// ---------------------------------------------------------------------------
+// The note ladder.
+//
+// Positions 0–20 are the 21 letters. Above high Κε there is no higher SBMuFL
+// block, so a trailing martyriaTick marks one extra octave: positions 21–27
+// are the high letters again, ticked. Below low Ζω there is no equivalent, so
+// the ladder simply stops.
+// ---------------------------------------------------------------------------
+
+const LADDER_MAX = 27;
+
+function ladderPosition(noteId, ticks) {
+  const index = BYZ_NOTES.findIndex((note) => note.id === noteId);
+  if (index < 0) return -1;
+  return index + BYZ_LETTERS.length * (ticks || 0);
+}
+
+function ladderNoteAt(position) {
+  if (!Number.isInteger(position) || position < 0 || position > LADDER_MAX) return null;
+  const ticks = position < BYZ_NOTES.length ? 0 : 1;
+  const index = position - BYZ_LETTERS.length * ticks;
+  return { noteId: BYZ_NOTES[index].id, ticks: ticks };
+}
+
+/**
+ * True when putting `degree` (1-based, of `degreeCount`) at `position` leaves
+ * room on the ladder for every other degree of the scale.
+ */
+function isLadderPositionLegal(position, degree, degreeCount) {
+  if (!Number.isInteger(position) || position < 0 || position > LADDER_MAX) return false;
+  if (position < degree - 1) return false;
+  return position + (degreeCount - degree) <= LADDER_MAX;
+}

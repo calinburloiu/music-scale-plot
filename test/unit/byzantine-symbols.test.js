@@ -268,3 +268,82 @@ test("resolving a fthora to a glyph", async (t) => {
     assert.equal(h.app.resolveFthoraGlyph(""), "");
   });
 });
+
+test("the note ladder", async (t) => {
+  await t.test("numbers the 21 letters 0 to 20 in pitch order", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.ladderPosition("lowZo", 0), 0);
+    assert.equal(h.app.ladderPosition("midZo", 0), 7);
+    assert.equal(h.app.ladderPosition("highKe", 0), 20);
+    assert.equal(h.app.ladderPosition("nonesuch", 0), -1);
+  });
+
+  await t.test("extends upward by an octave tick, to 27", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.ladderPosition("highZo", 1), 21);
+    assert.equal(h.app.ladderPosition("highKe", 1), 27);
+    assert.equal(h.app.LADDER_MAX, 27);
+  });
+
+  await t.test("maps a position back to a letter and a tick count", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.deepEqual({ ...h.app.ladderNoteAt(0) }, { noteId: "lowZo", ticks: 0 });
+    assert.deepEqual({ ...h.app.ladderNoteAt(20) }, { noteId: "highKe", ticks: 0 });
+    assert.deepEqual({ ...h.app.ladderNoteAt(21) }, { noteId: "highZo", ticks: 1 });
+    assert.deepEqual({ ...h.app.ladderNoteAt(27) }, { noteId: "highKe", ticks: 1 });
+  });
+
+  await t.test("has nothing below the bottom or above the top", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.ladderNoteAt(-1), null, "there is no register below low Ζω");
+    assert.equal(h.app.ladderNoteAt(28), null, "there is no second tick");
+  });
+
+  await t.test("round-trips every legal position", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    for (let p = 0; p <= h.app.LADDER_MAX; p++) {
+      const at = h.app.ladderNoteAt(p);
+      assert.ok(at, `position ${p} has no note`);
+      assert.equal(h.app.ladderPosition(at.noteId, at.ticks), p, `position ${p} did not round-trip`);
+    }
+  });
+});
+
+test("which ladder positions a degree may take", async (t) => {
+  await t.test("refuses a position that would push a predecessor below the bottom", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // Degree 3 of 5: two degrees sit below it, so it cannot start below 2.
+    assert.equal(h.app.isLadderPositionLegal(1, 3, 5), false);
+    assert.equal(h.app.isLadderPositionLegal(2, 3, 5), true);
+  });
+
+  await t.test("refuses a position that would push a successor above the top", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // Degree 3 of 5: two degrees sit above it, so it cannot start above 25.
+    assert.equal(h.app.isLadderPositionLegal(25, 3, 5), true);
+    assert.equal(h.app.isLadderPositionLegal(26, 3, 5), false);
+  });
+
+  await t.test("lets the only degree of a one-note scale sit anywhere", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.isLadderPositionLegal(0, 1, 1), true);
+    assert.equal(h.app.isLadderPositionLegal(27, 1, 1), true);
+    assert.equal(h.app.isLadderPositionLegal(28, 1, 1), false, "still off the ladder");
+  });
+});
