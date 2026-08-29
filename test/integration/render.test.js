@@ -10,6 +10,10 @@ const {
   buildRelativeScale,
   intervalRows,
   measureTextWidth,
+  setNotation,
+  noteRows,
+  pickFthora,
+  pickMartyria,
 } = require("../helpers/harness.js");
 const { closeTo } = require("../helpers/assertions.js");
 
@@ -448,4 +452,261 @@ test("line chart text", async (t) => {
       );
     });
   }
+});
+
+// --- Byzantine notation -----------------------------------------------------
+
+function byzantineChart(t, symbols, options = {}) {
+  const h = loadApp();
+  t.after(() => h.close());
+  setNotation(h, "byzantine");
+  buildRelativeScale(h, options.intervals || ["9/8"]);
+
+  noteRows(h).forEach((row, i) => {
+    const spec = symbols[i];
+    if (!spec) return;
+    if (spec.note) {
+      pickMartyria(h, row, {
+        note: spec.note,
+        genus: spec.genus,
+        ticks: spec.ticks || 0,
+        done: spec.done || false,
+      });
+    }
+    if (spec.fthora) pickFthora(h, row, spec.fthora);
+  });
+
+  if (options.style) selectOption(h, "chart-style", options.style);
+  if (options.orientation) selectOption(h, "orientation", options.orientation);
+  h.ctx.reset();
+  h.app.render();
+  return h;
+}
+
+/** The martyria glyph string the chart should be drawing for one degree. */
+function martyriaOf(h, spec) {
+  return h.app.resolveMartyriaGlyphs(spec.note, spec.genus || h.app.GENUS_NONE, spec.ticks || 0);
+}
+
+function byzFontOf(h) {
+  return h.app.byzantineFont(h.app.BYZ_FONT_SIZE);
+}
+
+function inkWidth(h, text) {
+  const box = h.app.inkBox(h.ctx, text, byzFontOf(h));
+  return box.right - box.left;
+}
+
+function drawnCall(h, text) {
+  const call = h.ctx.callsOf("fillText").find((c) => c.args[0] === text);
+  assert.ok(call, `"${text}" was never drawn; drawn: ${JSON.stringify(h.ctx.drawnText())}`);
+  return call;
+}
+
+test("Byzantine notation, vertical boxes", async (t) => {
+  const PA = { note: "midPa", genus: "alpha" };
+  const VOU = { note: "midVou", genus: "legetos" };
+
+  await t.test("draws a martyria for each degree instead of a note name", () => {
+    const h = byzantineChart(t, [PA, VOU]);
+
+    const text = h.ctx.drawnText();
+    assert.ok(text.includes(martyriaOf(h, PA)), "the first martyria is missing");
+    assert.ok(text.includes(martyriaOf(h, VOU)), "the second martyria is missing");
+  });
+
+  await t.test("draws nothing for a degree whose wells are empty", () => {
+    const h = byzantineChart(t, [PA, {}]);
+
+    assert.deepEqual(
+      h.ctx.drawnText().filter((s) => s.charCodeAt(0) >= 0xe000),
+      [martyriaOf(h, PA)],
+      "an empty well draws nothing, exactly as an empty name does"
+    );
+  });
+
+  await t.test("ignores the typed note names, which belong to Generic notation", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    typeInto(h, h.el(".note-name"), "Pa");
+    setNotation(h, "byzantine");
+    h.ctx.reset();
+    h.app.render();
+
+    assert.ok(!h.ctx.drawnText().includes("Pa"), "the name must not be drawn in Byzantine notation");
+  });
+
+  await t.test("draws the martyria in Neanes at the Byzantine size", () => {
+    const h = byzantineChart(t, [PA, VOU]);
+
+    assert.equal(drawnCall(h, martyriaOf(h, PA)).state.font, byzFontOf(h));
+  });
+
+  await t.test("puts the martyria's ink left edge where the note name starts", () => {
+    const h = byzantineChart(t, [PA, VOU]);
+    const { CANVAS_PADDING, RECT_WIDTH, TEXT_MARGIN } = h.app;
+
+    const text = martyriaOf(h, PA);
+    const call = drawnCall(h, text);
+    const box = h.app.inkBox(h.ctx, text, byzFontOf(h));
+
+    closeTo(
+      call.args[1] + box.left,
+      CANVAS_PADDING + RECT_WIDTH + TEXT_MARGIN,
+      1e-6,
+      "ink left edge, no fthora so no gutter"
+    );
+  });
+
+  await t.test("centres the martyria's ink on the separator, not its baseline", () => {
+    const h = byzantineChart(t, [PA, VOU]);
+    const { CANVAS_PADDING } = h.app;
+
+    const text = martyriaOf(h, PA);
+    const call = drawnCall(h, text);
+    const box = h.app.inkBox(h.ctx, text, byzFontOf(h));
+    const separatorY = CANVAS_PADDING + TONE; // degree 1 sits at the base of the stack
+
+    closeTo(call.args[2] + (box.top + box.bottom) / 2, separatorY, 1e-6, "ink vertical centre");
+  });
+
+  await t.test("opens a left gutter for the fthora and shifts the boxes into it", () => {
+    const withFthora = byzantineChart(t, [{ ...PA, fthora: "diatonicPa" }, VOU]);
+    const without = byzantineChart(t, [PA, VOU]);
+    const { CANVAS_PADDING, TEXT_MARGIN } = withFthora.app;
+
+    const gutter = inkWidth(withFthora, withFthora.app.resolveFthoraGlyph("diatonicPa")) + TEXT_MARGIN;
+
+    closeTo(
+      withFthora.ctx.callsOf("fillRect")[0].args[0],
+      CANVAS_PADDING + gutter,
+      1e-6,
+      "the boxes start clear of the gutter"
+    );
+    closeTo(
+      parseFloat(withFthora.canvas().style.width) - parseFloat(without.canvas().style.width),
+      gutter,
+      1e-6,
+      "the canvas grew by exactly the gutter"
+    );
+  });
+
+  await t.test("right-aligns the fthora's ink a text margin clear of the boxes", () => {
+    const h = byzantineChart(t, [{ ...PA, fthora: "diatonicPa" }, VOU]);
+    const { CANVAS_PADDING, TEXT_MARGIN } = h.app;
+
+    const text = h.app.resolveFthoraGlyph("diatonicPa");
+    const call = drawnCall(h, text);
+    const box = h.app.inkBox(h.ctx, text, byzFontOf(h));
+    const gutter = inkWidth(h, text) + TEXT_MARGIN;
+
+    closeTo(
+      call.args[1] + box.right,
+      CANVAS_PADDING + gutter - TEXT_MARGIN,
+      1e-6,
+      "ink right edge"
+    );
+  });
+
+  await t.test("centres the fthora's ink on the same separator as its martyria", () => {
+    const h = byzantineChart(t, [{ ...PA, fthora: "diatonicPa" }, VOU]);
+
+    const martyria = drawnCall(h, martyriaOf(h, PA));
+    const martyriaBox = h.app.inkBox(h.ctx, martyriaOf(h, PA), byzFontOf(h));
+    const fthoraText = h.app.resolveFthoraGlyph("diatonicPa");
+    const fthora = drawnCall(h, fthoraText);
+    const fthoraBox = h.app.inkBox(h.ctx, fthoraText, byzFontOf(h));
+
+    closeTo(
+      fthora.args[2] + (fthoraBox.top + fthoraBox.bottom) / 2,
+      martyria.args[2] + (martyriaBox.top + martyriaBox.bottom) / 2,
+      1e-6,
+      "the two signs sit on the same line"
+    );
+  });
+
+  await t.test("opens no gutter when no degree carries a fthora", () => {
+    const h = byzantineChart(t, [PA, VOU]);
+    const { CANVAS_PADDING } = h.app;
+
+    closeTo(h.ctx.callsOf("fillRect")[0].args[0], CANVAS_PADDING, 1e-9);
+  });
+
+  await t.test("sizes the canvas from the widest martyria", () => {
+    const narrow = byzantineChart(t, [{ note: "midPa" }, { note: "midVou" }]);
+    // Pressing Done at the top of the ladder propagates the degree above it
+    // into the ticked octave, whose martyria carries a second, advancing glyph.
+    const wide = byzantineChart(t, [{ note: "highKe", done: true }]);
+
+    assert.ok(
+      parseFloat(wide.canvas().style.width) > parseFloat(narrow.canvas().style.width),
+      "the ticked martyria is wider, so the canvas must grow"
+    );
+  });
+
+  await t.test("leaves the box geometry, colours and interval labels untouched", () => {
+    const h = byzantineChart(t, [PA, VOU], { intervals: ["9/8", "10/9"] });
+
+    const heights = h.ctx.callsOf("fillRect").map((c) => c.args[3]);
+    closeTo(heights[0], TONE * h.app.PX_PER_CENT, 1e-9);
+    closeTo(heights[1], MINOR_TONE * h.app.PX_PER_CENT, 1e-9);
+    assert.ok(h.ctx.drawnText().includes("9/8"), "the interval value is still drawn");
+  });
+});
+
+test("Byzantine notation, vertical lines", async (t) => {
+  const PA = { note: "midPa", genus: "alpha", fthora: "diatonicPa" };
+  const VOU = { note: "midVou", genus: "legetos" };
+
+  await t.test("draws the martyria where the note name goes, right of the axis", () => {
+    const h = byzantineChart(t, [PA, VOU], { style: "lines" });
+    const { CANVAS_PADDING, TEXT_MARGIN, TICK_LENGTH } = h.app;
+
+    const text = martyriaOf(h, PA);
+    const call = drawnCall(h, text);
+    const box = h.app.inkBox(h.ctx, text, byzFontOf(h));
+
+    const gutter = inkWidth(h, h.app.resolveFthoraGlyph("diatonicPa")) + TEXT_MARGIN;
+    const maxIntervalTextWidth = measureTextWidth("9/8", '21px "SF Mono", monospace');
+    const axisCenterX = CANVAS_PADDING + gutter + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH / 2;
+
+    closeTo(
+      call.args[1] + box.left,
+      axisCenterX + TICK_LENGTH / 2 + TEXT_MARGIN,
+      1e-6,
+      "ink left edge, clear of the tick"
+    );
+  });
+
+  await t.test("shifts the axis right by the fthora gutter", () => {
+    const withFthora = byzantineChart(t, [PA, VOU], { style: "lines" });
+    const without = byzantineChart(t, [{ note: "midPa", genus: "alpha" }, VOU], { style: "lines" });
+    const gutter =
+      inkWidth(withFthora, withFthora.app.resolveFthoraGlyph("diatonicPa")) + withFthora.app.TEXT_MARGIN;
+
+    const axisOf = (h) =>
+      h.ctx.calls.find((c) => c.method === "moveTo" && c.state.lineWidth === h.app.LINE_STYLE_WIDTH).args[0];
+
+    closeTo(axisOf(withFthora) - axisOf(without), gutter, 1e-6);
+  });
+
+  await t.test("right-aligns the fthora's ink at the edge of the gutter", () => {
+    const h = byzantineChart(t, [PA, VOU], { style: "lines" });
+    const { CANVAS_PADDING, TEXT_MARGIN } = h.app;
+
+    const text = h.app.resolveFthoraGlyph("diatonicPa");
+    const call = drawnCall(h, text);
+    const box = h.app.inkBox(h.ctx, text, byzFontOf(h));
+
+    closeTo(call.args[1] + box.right, CANVAS_PADDING + inkWidth(h, text), 1e-6, "ink right edge");
+  });
+
+  await t.test("still draws one coloured segment per interval and a tick per note", () => {
+    const h = byzantineChart(t, [PA, VOU], { style: "lines", intervals: ["9/8", "10/9"] });
+
+    const segments = h.ctx.callsOf("stroke").filter((c) => c.state.lineWidth === h.app.LINE_STYLE_WIDTH);
+    const ticks = h.ctx.callsOf("stroke").filter((c) => c.state.lineWidth === h.app.TICK_WIDTH);
+    assert.equal(segments.length, 2);
+    assert.equal(ticks.length, 3);
+  });
 });

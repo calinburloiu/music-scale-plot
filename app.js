@@ -38,6 +38,8 @@ const notationSelect = document.getElementById("notation");
 const LINE_STYLE_WIDTH = 3;
 const TICK_LENGTH = 28;
 const TICK_WIDTH = 2;
+// The band the horizontal charts reserve for the note text.
+const NOTE_TEXT_HEIGHT = 28;
 
 let displayZoom = 1;
 let audioCtx = null;
@@ -407,6 +409,52 @@ function intervalToDisplayString(str) {
   return trimmed + "￠";
 }
 
+function martyriaTextOf(noteItem) {
+  const m = noteItem.martyria;
+  return m ? resolveMartyriaGlyphs(m.note, m.genus, m.ticks) : "";
+}
+
+function fthoraTextOf(noteItem) {
+  return noteItem.fthora ? resolveFthoraGlyph(noteItem.fthora) : "";
+}
+
+/** The widest and tallest ink among `texts`, ignoring the empty ones. */
+function maxInkExtent(texts, font) {
+  let width = 0;
+  let height = 0;
+  for (const text of texts) {
+    if (!text) continue;
+    const box = inkBox(ctx, text, font);
+    width = Math.max(width, box.right - box.left);
+    height = Math.max(height, box.bottom - box.top);
+  }
+  return { width: width, height: height };
+}
+
+function drawByzantineMark(text, x, y, align, vAlign) {
+  if (!text) return;
+  ctx.font = byzantineFont(BYZ_FONT_SIZE);
+  ctx.fillStyle = "#000";
+  drawGlyphs(ctx, text, x, y, { align: align, vAlign: vAlign });
+}
+
+/**
+ * Draws a note's label: a typed name in Generic notation, a martyria in
+ * Byzantine. `spec` carries both anchorings so each chart path states its own.
+ */
+function drawNoteLabel(text, x, y, spec) {
+  if (!text) return;
+  if (spec.byzantine) {
+    drawByzantineMark(text, x, y, spec.align, spec.vAlign);
+    return;
+  }
+  ctx.font = spec.font;
+  ctx.fillStyle = "#000";
+  ctx.textAlign = spec.textAlign;
+  ctx.textBaseline = spec.textBaseline;
+  ctx.fillText(text, x, y);
+}
+
 function drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextBlockH, font, monoFont) {
   const halfNote = maxNoteWidth / 2;
   const axisCenterY = CANVAS_PADDING + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH / 2;
@@ -478,8 +526,8 @@ function drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextB
   }
 }
 
-function drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont) {
-  const axisCenterX = CANVAS_PADDING + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH / 2;
+function drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont, byz) {
+  const axisCenterX = CANVAS_PADDING + byz.gutter + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH / 2;
   const tickLeft = axisCenterX - TICK_LENGTH / 2;
   const tickRight = axisCenterX + TICK_LENGTH / 2;
   const noteTextX = tickRight + TEXT_MARGIN;
@@ -510,6 +558,15 @@ function drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, m
     if (j < intervals.length) ty -= intervals[j].cents * PX_PER_CENT;
   }
 
+  const noteSpec = {
+    byzantine: byz.on,
+    font: font,
+    align: "left",
+    vAlign: "middle",
+    textAlign: "left",
+    textBaseline: "middle",
+  };
+
   let ly = baseY;
   for (let j = 0; j < intervals.length; j++) {
     const iv = intervals[j];
@@ -536,22 +593,22 @@ function drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, m
       ctx.fillText(iv.displayInterval, intervalTextRightX, midY);
     }
 
-    ctx.font = font;
-    ctx.fillStyle = "#000";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "middle";
-    if (j === 0 && iv.noteBelow) {
-      ctx.fillText(iv.noteBelow, noteTextX, ly);
+    if (j === 0) {
+      drawNoteLabel(iv.noteBelow, noteTextX, ly, noteSpec);
+      if (byz.on) drawByzantineMark(iv.fthoraBelow, byz.anchor, ly, "right", "middle");
     }
-    if (iv.noteAbove) {
-      ctx.fillText(iv.noteAbove, noteTextX, segTopY);
-    }
+    drawNoteLabel(iv.noteAbove, noteTextX, segTopY, noteSpec);
+    if (byz.on) drawByzantineMark(iv.fthoraAbove, byz.anchor, segTopY, "right", "middle");
     ly = segTopY;
   }
 }
 
 function render() {
   const data = readScaleData();
+
+  const notation = getNotation();
+  const isByzantine = notation === "byzantine";
+  const byzFont = byzantineFont(BYZ_FONT_SIZE);
 
   const intervals = [];
 
@@ -572,8 +629,10 @@ function render() {
         cents: cents,
         label: interval.label,
         displayInterval: interval.displayInterval,
-        noteBelow: note.name,
-        noteAbove: nextNote ? nextNote.name : "",
+        noteBelow: isByzantine ? martyriaTextOf(note) : note.name,
+        noteAbove: nextNote ? (isByzantine ? martyriaTextOf(nextNote) : nextNote.name) : "",
+        fthoraBelow: isByzantine ? fthoraTextOf(note) : "",
+        fthoraAbove: nextNote && isByzantine ? fthoraTextOf(nextNote) : "",
         color: interval.color || "#FFFFFF",
       });
       i += 2;
@@ -596,18 +655,38 @@ function render() {
   const font = "24px -apple-system, BlinkMacSystemFont, sans-serif";
   const monoFont = '21px "SF Mono", "Fira Code", Consolas, monospace';
 
-  ctx.font = font;
   let maxNoteWidth = 0;
+  let maxNoteHeight = NOTE_TEXT_HEIGHT;
+  let maxFthoraWidth = 0;
+  let maxFthoraHeight = 0;
+
+  if (isByzantine) {
+    // Measured every render: no measurement taken before the Neanes face
+    // resolves is ever cached.
+    const notes = maxInkExtent(
+      intervals.flatMap((iv) => [iv.noteBelow, iv.noteAbove]),
+      byzFont
+    );
+    maxNoteWidth = notes.width;
+    maxNoteHeight = notes.height;
+
+    const fthores = maxInkExtent(
+      intervals.flatMap((iv) => [iv.fthoraBelow, iv.fthoraAbove]),
+      byzFont
+    );
+    maxFthoraWidth = fthores.width;
+    maxFthoraHeight = fthores.height;
+  } else {
+    ctx.font = font;
+    for (const iv of intervals) {
+      if (iv.noteBelow) maxNoteWidth = Math.max(maxNoteWidth, ctx.measureText(iv.noteBelow).width);
+      if (iv.noteAbove) maxNoteWidth = Math.max(maxNoteWidth, ctx.measureText(iv.noteAbove).width);
+    }
+  }
+
+  ctx.font = font;
   let maxLabelWidth = 0;
   for (const iv of intervals) {
-    if (iv.noteBelow) {
-      const w = ctx.measureText(iv.noteBelow).width;
-      if (w > maxNoteWidth) maxNoteWidth = w;
-    }
-    if (iv.noteAbove) {
-      const w = ctx.measureText(iv.noteAbove).width;
-      if (w > maxNoteWidth) maxNoteWidth = w;
-    }
     if (iv.label) {
       const w = ctx.measureText(iv.label).width;
       if (w > maxLabelWidth) maxLabelWidth = w;
@@ -629,6 +708,17 @@ function render() {
   const chartStyle = styleSelect.value;
   const isLines = chartStyle === "lines";
 
+  const fthoraGutter = !isByzantine
+    ? 0
+    : isHorizontal
+      ? (maxFthoraHeight > 0 ? maxFthoraHeight + TEXT_MARGIN : 0)
+      : (maxFthoraWidth > 0 ? maxFthoraWidth + TEXT_MARGIN : 0);
+  // The fthora's ink is right-aligned (vertical) or bottom-aligned
+  // (horizontal) here, a text margin clear of whatever starts after the gutter.
+  const fthoraAnchor = CANVAS_PADDING + fthoraGutter - TEXT_MARGIN;
+  const noteBandH = isByzantine ? maxNoteHeight : NOTE_TEXT_HEIGHT;
+  const byz = { on: isByzantine, font: byzFont, gutter: fthoraGutter, anchor: fthoraAnchor };
+
   const hasBothIntervalLines = maxLabelWidth > 0 && maxRatioWidth > 0;
   const intervalTextBlockH = hasBothIntervalLines ? 56 : 28;
 
@@ -636,17 +726,17 @@ function render() {
   if (isLines && isHorizontal) {
     const halfNote = maxNoteWidth / 2;
     displayWidth = CANVAS_PADDING + halfNote + stackLength + halfNote + CANVAS_PADDING;
-    displayHeight = CANVAS_PADDING + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + 28 + CANVAS_PADDING;
+    displayHeight = CANVAS_PADDING + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + NOTE_TEXT_HEIGHT + CANVAS_PADDING;
   } else if (isLines && !isHorizontal) {
-    displayWidth = CANVAS_PADDING + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + maxNoteWidth + CANVAS_PADDING;
+    displayWidth = CANVAS_PADDING + fthoraGutter + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + maxNoteWidth + CANVAS_PADDING;
     displayHeight = CANVAS_PADDING * 2 + stackLength;
   } else if (isHorizontal) {
-    const textAreaHeight = 28 + TEXT_MARGIN * 2;
+    const textAreaHeight = NOTE_TEXT_HEIGHT + TEXT_MARGIN * 2;
     displayWidth = CANVAS_PADDING * 2 + stackLength + maxTextWidth;
     displayHeight = CANVAS_PADDING + RECT_WIDTH + TEXT_MARGIN + textAreaHeight + CANVAS_PADDING;
   } else {
     const textAreaWidth = maxTextWidth + TEXT_MARGIN * 2;
-    displayWidth = CANVAS_PADDING + RECT_WIDTH + TEXT_MARGIN + textAreaWidth + CANVAS_PADDING;
+    displayWidth = CANVAS_PADDING + fthoraGutter + RECT_WIDTH + TEXT_MARGIN + textAreaWidth + CANVAS_PADDING;
     displayHeight = CANVAS_PADDING * 2 + stackLength;
   }
 
@@ -661,7 +751,7 @@ function render() {
   if (isLines && isHorizontal) {
     drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextBlockH, font, monoFont);
   } else if (isLines && !isHorizontal) {
-    drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont);
+    drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont, byz);
   } else if (isHorizontal) {
     const baseX = CANVAS_PADDING;
     const baseY = CANVAS_PADDING;
@@ -721,8 +811,16 @@ function render() {
       x += w;
     }
   } else {
-    const baseX = CANVAS_PADDING;
+    const baseX = CANVAS_PADDING + fthoraGutter;
     const baseY = CANVAS_PADDING + stackLength;
+    const noteSpec = {
+      byzantine: isByzantine,
+      font: font,
+      align: "left",
+      vAlign: "middle",
+      textAlign: "left",
+      textBaseline: "middle",
+    };
 
     let y = baseY;
 
@@ -767,17 +865,13 @@ function render() {
         ctx.textAlign = "left";
       }
 
-      if (j === 0 && iv.noteBelow) {
-        ctx.font = font;
-        ctx.textBaseline = "middle";
-        ctx.fillText(iv.noteBelow, textX, y);
+      if (j === 0) {
+        drawNoteLabel(iv.noteBelow, textX, y, noteSpec);
+        if (isByzantine) drawByzantineMark(iv.fthoraBelow, fthoraAnchor, y, "right", "middle");
       }
 
-      if (iv.noteAbove) {
-        ctx.font = font;
-        ctx.textBaseline = "middle";
-        ctx.fillText(iv.noteAbove, textX, rectY);
-      }
+      drawNoteLabel(iv.noteAbove, textX, rectY, noteSpec);
+      if (isByzantine) drawByzantineMark(iv.fthoraAbove, fthoraAnchor, rectY, "right", "middle");
 
       y = rectY;
     }
