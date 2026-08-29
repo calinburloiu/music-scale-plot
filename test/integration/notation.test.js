@@ -303,3 +303,52 @@ test("symbols across an editor rebuild", async (t) => {
     );
   });
 });
+
+test("readScaleData and the note symbols", async (t) => {
+  await t.test("reports no symbols for a row that has none", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const notes = h.app.readScaleData().filter((item) => item.type === "note");
+    assert.equal(notes[0].fthora, "");
+    assert.equal(notes[0].martyria, null);
+  });
+
+  await t.test("reports the symbols each note row holds", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+    h.app.writeMartyria(noteRows(h)[0], "midPa", "alpha", 0);
+    h.app.writeFthora(noteRows(h)[0], "diatonicPa");
+    h.app.writeMartyria(noteRows(h)[1], "midVou", h.app.GENUS_NONE, 0);
+
+    const notes = h.app.readScaleData().filter((item) => item.type === "note");
+    assert.equal(notes[0].fthora, "diatonicPa");
+    assert.deepEqual({ ...notes[0].martyria }, { note: "midPa", genus: "alpha", ticks: 0 });
+    assert.equal(notes[1].fthora, "");
+    assert.deepEqual({ ...notes[1].martyria }, { note: "midVou", genus: "none", ticks: 0 });
+  });
+
+  await t.test("keeps reporting the name alongside the symbols", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    typeInto(h, noteRows(h)[0].querySelector(".note-name"), "Pa");
+    h.app.writeMartyria(noteRows(h)[0], "midPa", "alpha", 0);
+
+    const notes = h.app.readScaleData().filter((item) => item.type === "note");
+    assert.equal(notes[0].name, "Pa", "the name is still part of the reading");
+    assert.equal(notes[0].martyria.note, "midPa");
+  });
+
+  await t.test("reports the same symbols in either notation", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    h.app.writeMartyria(noteRows(h)[0], "midPa", "alpha", 0);
+
+    const generic = h.app.readScaleData().filter((item) => item.type === "note")[0];
+    setNotation(h, "byzantine");
+    const byzantine = h.app.readScaleData().filter((item) => item.type === "note")[0];
+
+    assert.deepEqual({ ...byzantine.martyria }, { ...generic.martyria });
+  });
+});

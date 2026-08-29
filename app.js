@@ -303,6 +303,7 @@ function readScaleData() {
       degree++;
       const absInp = row.querySelector(".absolute-interval");
       const nameEl = row.querySelector(".note-name");
+      const symbols = readNoteSymbols(row);
       raw.push({
         type: "note",
         absVal: absInp ? absInp.value.trim() : "",
@@ -311,6 +312,8 @@ function readScaleData() {
         type: "note",
         degree: degree,
         name: nameEl ? nameEl.value.trim() : "",
+        fthora: symbols.fthora,
+        martyria: symbols.martyria,
       });
     } else {
       const intInp = row.querySelector(".interval");
