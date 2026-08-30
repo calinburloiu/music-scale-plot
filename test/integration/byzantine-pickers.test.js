@@ -419,13 +419,56 @@ test("the ladder", async (t) => {
     assert.deepEqual(martyriaNotes(h), ["midZo", "midNi", "midPa"]);
   });
 
-  await t.test("does not propagate until Done is pressed", () => {
+  // Done is not the only way out of the panel, and every way out means the
+  // same thing: the letter the user chose is now this degree's letter, so the
+  // rest of the scale follows it. Dismissing the panel is not a cancel.
+  await t.test("propagates when the panel is closed by clicking the well again", () => {
     const h = byzantineApp(t);
     setNoteCount(h, 3);
 
     pickMartyria(h, noteRows(h)[0], { note: "midZo" });
 
-    assert.deepEqual(martyriaNotes(h), ["midZo", null, null]);
+    assert.deepEqual(martyriaNotes(h), ["midZo", "midNi", "midPa"]);
+  });
+
+  await t.test("propagates when the user clicks outside the editor", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 3);
+    const row = noteRows(h)[0];
+    openWell(h, row, "martyria");
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midZo"]'));
+
+    fireClick(h, h.document.body);
+
+    assert.deepEqual(martyriaNotes(h), ["midZo", "midNi", "midPa"]);
+  });
+
+  await t.test("propagates when another degree's picker takes its place", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 3);
+    const rows = noteRows(h);
+    openWell(h, rows[0], "martyria");
+    fireClick(h, rows[0].querySelector('.martyria-note-option[data-note="midZo"]'));
+
+    openWell(h, rows[2], "martyria");
+
+    assert.deepEqual(martyriaNotes(h), ["midZo", "midNi", "midPa"]);
+  });
+
+  await t.test("redraws the chart when a dismissal propagates", () => {
+    const h = byzantineApp(t);
+    setNoteCount(h, 3);
+    const row = noteRows(h)[0];
+    openWell(h, row, "martyria");
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midZo"]'));
+    h.ctx.reset();
+
+    fireClick(h, h.document.body);
+
+    assert.ok(
+      h.ctx.callsOf("fillRect").length > 0,
+      "the letters the dismissal wrote must reach the chart"
+    );
   });
 
   await t.test("leaves each degree's own genus alone", () => {

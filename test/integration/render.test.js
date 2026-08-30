@@ -13,7 +13,6 @@ const {
   setNotation,
   noteRows,
   pickFthora,
-  pickMartyria,
 } = require("../helpers/harness.js");
 const { closeTo } = require("../helpers/assertions.js");
 
@@ -462,16 +461,15 @@ function byzantineChart(t, symbols, options = {}) {
   setNotation(h, "byzantine");
   buildRelativeScale(h, options.intervals || ["9/8"]);
 
+  // Symbols are written straight onto the rows rather than picked. These are
+  // chart-geometry tests, and each one names the exact arrangement it wants;
+  // driving the martyria picker would propagate the ladder over the rest of
+  // the scale and overwrite that arrangement. The picker has its own suite.
   noteRows(h).forEach((row, i) => {
     const spec = symbols[i];
     if (!spec) return;
     if (spec.note) {
-      pickMartyria(h, row, {
-        note: spec.note,
-        genus: spec.genus,
-        ticks: spec.ticks || 0,
-        done: spec.done || false,
-      });
+      h.app.writeMartyria(row, spec.note, spec.genus || h.app.GENUS_NONE, spec.ticks || 0);
     }
     if (spec.fthora) pickFthora(h, row, spec.fthora);
   });
@@ -736,9 +734,9 @@ test("Byzantine notation, vertical boxes", async (t) => {
 
   await t.test("sizes the canvas from the widest martyria", () => {
     const narrow = byzantineChart(t, [{ note: "midPa" }, { note: "midVou" }]);
-    // Pressing Done at the top of the ladder propagates the degree above it
-    // into the ticked octave, whose martyria carries a second, advancing glyph.
-    const wide = byzantineChart(t, [{ note: "highKe", done: true }]);
+    // Above high Κε the ladder marks the extra octave with a tick, and that
+    // tick is a second, advancing glyph — so this martyria is the wider one.
+    const wide = byzantineChart(t, [{ note: "highKe" }, { note: "highZo", ticks: 1 }]);
 
     assert.ok(
       parseFloat(wide.canvas().style.width) > parseFloat(narrow.canvas().style.width),

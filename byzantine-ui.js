@@ -291,12 +291,26 @@ function toggleWellPicker(well) {
   row.classList.add("picker-open");
 }
 
+/**
+ * Closes whatever picker is open. Dismissing a martyria panel — by clicking
+ * outside, by re-clicking the well, or by opening another picker — means
+ * exactly what pressing Done means: the letter now in the well anchors the
+ * ladder, so the rest of the scale follows it. There is no cancel.
+ */
 function closeByzantinePickers() {
+  let propagated = false;
   for (const panel of editor.querySelectorAll(".fthora-picker.open, .martyria-picker.open")) {
     panel.classList.remove("open");
     const row = panel.closest(".note-row");
     if (row) row.classList.remove("picker-open");
+    if (row && panel.classList.contains("martyria-picker")) {
+      propagateMartyriaLadder(row);
+      propagated = true;
+    }
   }
+  // The dismissal paths have no render of their own — the document-level
+  // listener just closes things — so the letters written above need one here.
+  if (propagated) render();
 }
 
 function applyByzantineOption(option) {
@@ -346,10 +360,8 @@ function handleByzantineClick(e) {
   const done = e.target.closest(".martyria-done");
   if (done) {
     e.stopPropagation();
-    const row = done.closest(".note-row");
+    // Done is just an explicit dismissal; closing does the propagating.
     closeAllDropdowns();
-    propagateMartyriaLadder(row);
-    render();
     return true;
   }
 

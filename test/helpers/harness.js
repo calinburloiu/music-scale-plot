@@ -315,8 +315,9 @@ function pickFthora(harness, noteRow, fthoraId) {
 
 /**
  * Drives the martyria picker: opens it, picks a note and/or a genus, then
- * either presses Done (which propagates the ladder) or closes the panel by
- * clicking the well again (which does not).
+ * dismisses the panel — with Done when `done` is set, otherwise by clicking
+ * the well again. Both gestures propagate the ladder; `done` chooses which
+ * path a test exercises, not what it does.
  */
 function pickMartyria(harness, noteRow, { note, genus, ticks = 0, done = false } = {}) {
   openWell(harness, noteRow, "martyria");

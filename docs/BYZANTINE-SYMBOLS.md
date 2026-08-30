@@ -126,6 +126,12 @@ of per-note lookups.
   a row's *note*; each row keeps whatever genus it already had (or the
   `GENUS_NONE` sentinel if it had none), and fthores are never touched by the
   ladder at all.
+- **Every dismissal confirms; there is no cancel.** Propagation hangs off
+  `closeByzantinePickers`, not off the Done button, so closing the martyria
+  panel by clicking outside it, by re-clicking the well, or by opening another
+  picker all do exactly what Done does. Done is only the explicit way to say
+  it. A picker that closed without propagating used to be the one way to leave
+  the scale's letters inconsistent with the well the user had just set.
 
 ---
 

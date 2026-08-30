@@ -303,7 +303,7 @@ number.
 | `setNotation(h, value)` | Switch `#notation` (`"generic"` or `"byzantine"`) and dispatch `change`. |
 | `openWell(h, row, kind)` | Click a note row's `"fthora"` or `"martyria"` well; returns its picker panel. |
 | `pickFthora(h, row, fthoraId)` | Open the fthora picker and click one option (`""` picks None). |
-| `pickMartyria(h, row, { note, genus, ticks, done })` | Open the martyria picker and click a note and/or genus option; `done: true` presses Done (propagating the ladder) instead of closing the panel by re-clicking the well. |
+| `pickMartyria(h, row, { note, genus, ticks, done })` | Open the martyria picker and click a note and/or genus option, then dismiss the panel: `done: true` presses Done, otherwise it re-clicks the well. Either way the ladder propagates — `done` picks which gesture is exercised. |
 
 Everything goes through real DOM events. Do not call the app's internal
 functions to *set up* state when a helper can drive the UI — a test that
