@@ -321,29 +321,57 @@ function restorePickerScroll(panel, state) {
 }
 
 /**
- * Where a scroller has to sit for `option` to be in view — centred when the
- * list is long enough, clamped to either end when it is not, and left alone
- * when there is nothing to scroll.
+ * Where a scroller has to sit for `option` to be in view — clamped to either
+ * end of the list, and left alone when there is nothing to scroll.
+ *
+ * `align` is `"center"` by default, which is how a single row reads best.
+ * `"start"` puts the row at the top of the view instead: a section heading
+ * marks where a run of rows *begins*, so centring it would bury half that run
+ * above the fold.
  *
  * Pure arithmetic on purpose: the caller reads the layout, which jsdom does
  * not have, so this is the half that can be tested.
  */
-function scrollTopToReveal(optionTop, optionHeight, viewHeight, scrollHeight) {
+function scrollTopToReveal(optionTop, optionHeight, viewHeight, scrollHeight, align) {
   if (viewHeight <= 0 || scrollHeight <= viewHeight) return 0;
-  const centred = optionTop - (viewHeight - optionHeight) / 2;
-  return Math.max(0, Math.min(centred, scrollHeight - viewHeight));
+  const wanted =
+    align === "start" ? optionTop : optionTop - (viewHeight - optionHeight) / 2;
+  return Math.max(0, Math.min(wanted, scrollHeight - viewHeight));
+}
+
+/**
+ * What one scroller should bring into view when its picker opens, as
+ * `{ element, align }`, or null when the top of the list is already right.
+ *
+ * The committed choice, when there is one — a picker opening on row 1 of
+ * twenty-one otherwise hides the very letter the row holds. When there is
+ * none, the notes list falls back to its middle octave: that is the register a
+ * scale is written in unless it says otherwise, and it is a far better place to
+ * start reading than "None" at the top. The fthora list has no octaves and
+ * offers None as its first row, so it has nothing to fall back to and stays put.
+ */
+function pickerRevealTarget(scroller) {
+  const selected = scroller.querySelector(".is-selected");
+  if (selected) return { element: selected, align: "center" };
+  const middle = scroller.querySelector('[data-group="mid"]');
+  return middle ? { element: middle, align: "start" } : null;
 }
 
 /** Brings the committed choice into view when a picker first opens. */
 function revealPickerSelection(panel) {
   for (const el of panel.querySelectorAll("[data-scroller]")) {
-    const selected = el.querySelector(".is-selected");
-    if (!selected) continue;
+    const target = pickerRevealTarget(el);
+    if (!target) continue;
+    // The column's own title is sticky, so the top of the *view* is not the top
+    // of the visible list: scrolling a heading to 0 parks it underneath. Start
+    // the run below the title instead.
+    const title = target.align === "start" ? el.querySelector(".byz-column-title") : null;
     el.scrollTop = scrollTopToReveal(
-      selected.offsetTop,
-      selected.offsetHeight,
+      target.element.offsetTop - (title ? title.offsetHeight : 0),
+      target.element.offsetHeight,
       el.clientHeight,
-      el.scrollHeight
+      el.scrollHeight,
+      target.align
     );
   }
 }
@@ -407,9 +435,11 @@ function byzColumnTitle(text) {
   return el;
 }
 
-function byzGroupTitle(text) {
+/** `group` names the run of rows the heading opens, for `pickerRevealTarget`. */
+function byzGroupTitle(text, group) {
   const el = document.createElement("div");
   el.className = "byz-group-title";
+  if (group) el.dataset.group = group;
   el.textContent = text;
   return el;
 }
@@ -482,16 +512,18 @@ function buildNotesColumn(degree, degreeCount, draft, showTicks) {
   );
 
   const groups = [
-    { title: "Low", octave: "low", ticks: 0 },
-    { title: "Middle", octave: "mid", ticks: 0 },
-    { title: "High", octave: "high", ticks: 0 },
+    { key: "low", title: "Low", octave: "low", ticks: 0 },
+    { key: "mid", title: "Middle", octave: "mid", ticks: 0 },
+    { key: "high", title: "High", octave: "high", ticks: 0 },
   ];
   // The tick octave is a consequence of a pick, not an ordinary choice, so it
   // is only offered once propagation has actually reached into it.
-  if (showTicks) groups.push({ title: "High + octave tick", octave: "high", ticks: 1 });
+  if (showTicks) {
+    groups.push({ key: "highTick", title: "High + octave tick", octave: "high", ticks: 1 });
+  }
 
   for (const group of groups) {
-    column.appendChild(byzGroupTitle(group.title));
+    column.appendChild(byzGroupTitle(group.title, group.key));
     for (const note of BYZ_NOTES) {
       if (note.octave !== group.octave) continue;
       const position = ladderPosition(note.id, group.ticks);

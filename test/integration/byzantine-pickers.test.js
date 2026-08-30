@@ -1189,4 +1189,95 @@ test("scrolling a picker to its selection", async (t) => {
     assert.equal(h.app.scrollTopToReveal(120, 40, 300, 300), 0);
     assert.equal(h.app.scrollTopToReveal(120, 40, 0, 0), 0, "an unlaid-out list has nowhere to go");
   });
+
+  await t.test("can put a row at the top of the view instead of its middle", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(
+      h.app.scrollTopToReveal(500, 40, 300, 1000, "start"),
+      500,
+      "a section heading marks where a run of rows begins, so it belongs at the top"
+    );
+    assert.equal(
+      h.app.scrollTopToReveal(980, 40, 300, 1000, "start"),
+      700,
+      "and it is still clamped to the end of the list"
+    );
+  });
+});
+
+test("what a picker scrolls to when it opens", async (t) => {
+  // Opening a picker on a 21-row list at row 1 hides whatever the row already
+  // holds. The committed choice is therefore scrolled into view — and when
+  // there is none, the middle octave is, because that is the register a scale
+  // is written in unless it says otherwise. The top of the list is the one
+  // answer that helps nobody.
+
+  await t.test("reveals the committed martyria", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    pickMartyria(h, row, { note: "highGa" });
+    const panel = openWell(h, row, "martyria");
+
+    const target = h.app.pickerRevealTarget(panel.querySelector('[data-scroller="notes"]'));
+
+    assert.equal(
+      target.element,
+      panel.querySelector('.martyria-note-option[data-note="highGa"]'),
+      "the letter the row holds is the one the reader is looking for"
+    );
+    assert.equal(target.align, "center", "a single row reads best in the middle of the view");
+  });
+
+  await t.test("reveals the middle octave when no martyria is set", () => {
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "martyria");
+    const notes = panel.querySelector('[data-scroller="notes"]');
+
+    assert.equal(notes.querySelector(".is-selected"), null, "nothing is committed yet");
+
+    const target = h.app.pickerRevealTarget(notes);
+
+    assert.equal(
+      target.element,
+      notes.querySelector('[data-group="mid"]'),
+      "with nothing to return to, the list should open on the middle octave"
+    );
+    assert.equal(
+      target.align, "start",
+      "a heading marks where its octave begins, so it belongs at the top of the view"
+    );
+  });
+
+  await t.test("reveals the committed genus", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    pickMartyria(h, row, { note: "midDi", genus: "zygos" });
+    const panel = openWell(h, row, "martyria");
+
+    const target = h.app.pickerRevealTarget(panel.querySelector('[data-scroller="genus"]'));
+
+    assert.equal(target.element, panel.querySelector('.martyria-genus-option[data-genus="zygos"]'));
+  });
+
+  await t.test("leaves a fthora list alone when nothing is committed", () => {
+    // The fthores are one flat list with no octaves to fall back to, and None
+    // is its first row — the top of the list is already the right answer.
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "fthora");
+
+    assert.equal(h.app.pickerRevealTarget(panel.querySelector('[data-scroller="fthora"]')), null);
+  });
+
+  await t.test("reveals the committed fthora", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    pickFthora(h, row, "chroaSpathi");
+    const panel = openWell(h, row, "fthora");
+
+    const target = h.app.pickerRevealTarget(panel.querySelector('[data-scroller="fthora"]'));
+
+    assert.equal(target.element, panel.querySelector('.fthora-option[data-fthora="chroaSpathi"]'));
+  });
 });
