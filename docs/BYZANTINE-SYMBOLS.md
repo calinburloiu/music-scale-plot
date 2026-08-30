@@ -136,11 +136,17 @@ is small and localized. What changes:
 
 - A second `@font-face` (in `style.css`) for the new font.
 - A second pair of resolvers — the equivalents of `resolveMartyriaGlyphs` and
-  `resolveFthoraGlyph` — encoding that font's own codepoint layout. This is
-  the *only* place a new codepoint is ever written.
-- The font family string `byzantineFont()` builds (the `BYZ_*_BASE`
-  constants and the family name it passes to the `"…px "Neanes", serif"`
-  template).
+  `resolveFthoraGlyph` — encoding that font's own codepoint layout, and the
+  `BYZ_*_BASE` constants they add to. This is the *only* place a new codepoint
+  is ever written.
+- `BYZ_FONT_FAMILY` (`byzantine.js`) — the family name, written once. Every
+  font string the JavaScript uses is built from it by `byzantineFont()`: the
+  chart's drawing and measuring font, and the face `loadByzantineFont()`
+  preloads (§7). Nothing else in the JavaScript names a family.
+- **Both CSS rules that name the family**, because CSS cannot read a JS
+  constant: `.fthora-well, .martyria-well` (the two wells in the editor) and
+  `.byz-glyph` (the previews inside both picker panels). Miss these and the
+  chart changes font while the editor keeps drawing the old one.
 
 Everything else is untouched: the four tables (§2), `MARTYRIA_COMPATIBILITY`
 (§3), the ladder (§5), the pickers (`byzantine-ui.js`), `readScaleData`, and
@@ -170,7 +176,9 @@ against whatever fallback font the browser substituted. `loadByzantineFont()`
 in `app.js` asks `document.fonts` to load the face and, once it resolves,
 calls `render()` again — that second `render()` is what fixes the blank-box
 problem, because it is the first render that measures and draws against the
-real Neanes metrics.
+real Neanes metrics. The spec it hands `document.fonts.load()` is
+`byzantineFont(BYZ_FONT_SIZE)`, the very string the chart draws with, so the
+preloaded face cannot drift from the drawn one when the font changes (§6).
 
 `app.js` also sets a module-level flag, `byzFontReady = true`, in that same
 callback. **It is a deliberate readiness observable with no production

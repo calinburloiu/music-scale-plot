@@ -1167,14 +1167,16 @@ function onScaleModeChange() {
  * Asks for the Neanes face and redraws once it resolves.
  *
  * PUA codepoints have no fallback glyph, so a chart drawn before the face
- * arrives shows blank boxes and measures with fallback metrics. Guarded,
- * because jsdom (and old browsers) have no FontFaceSet.
+ * arrives shows blank boxes and measures with fallback metrics. The spec is
+ * the one the chart itself draws with — `byzantineFont()` is the only place
+ * the family name is written — so a font swap cannot preload the wrong face.
+ * Guarded, because jsdom (and old browsers) have no FontFaceSet.
  */
 function loadByzantineFont() {
   const fonts = document.fonts;
   if (!fonts || typeof fonts.load !== "function") return null;
   return fonts
-    .load(BYZ_FONT_SIZE + 'px "Neanes"')
+    .load(byzantineFont(BYZ_FONT_SIZE))
     .then(function () {
       return fonts.ready;
     })

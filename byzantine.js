@@ -228,8 +228,15 @@ function isLadderPositionLegal(position, degree, degreeCount) {
 
 const BYZ_FONT_SIZE = 40;
 
+// The family name lives here and nowhere else in the JavaScript: every font
+// string the app uses — the chart's, and the one `loadByzantineFont` preloads
+// — is built by `byzantineFont()` from this constant. CSS cannot read it, so
+// `style.css` repeats the name; see docs/BYZANTINE-SYMBOLS.md §6 for the full
+// list of what a font swap touches.
+const BYZ_FONT_FAMILY = '"Neanes"';
+
 function byzantineFont(size) {
-  return (size || BYZ_FONT_SIZE) + 'px "Neanes", serif';
+  return (size || BYZ_FONT_SIZE) + "px " + BYZ_FONT_FAMILY + ", serif";
 }
 
 /**

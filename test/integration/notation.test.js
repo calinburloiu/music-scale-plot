@@ -359,7 +359,12 @@ test("waiting for the Neanes face", async (t) => {
     t.after(() => h.close());
 
     assert.equal(h.fontLoads.length, 1, "the font was never requested");
-    assert.match(h.fontLoads[0], /^40px "Neanes"$/);
+    assert.equal(
+      h.fontLoads[0],
+      h.app.byzantineFont(h.app.BYZ_FONT_SIZE),
+      "the face that is preloaded must be the one the chart draws with, " +
+        "or a font swap preloads the wrong family and the first paint is blank boxes"
+    );
   });
 
   await t.test("redraws once the face has resolved", async () => {
