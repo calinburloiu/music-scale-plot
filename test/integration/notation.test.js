@@ -58,6 +58,26 @@ test("the Notation setting", async (t) => {
     setNotation(h, "byzantine");
     assert.ok(h.ctx.callsOf("fillRect").length > 0, "the chart was never redrawn");
   });
+
+  // A browser restores a <select>'s value across a soft reload, so the control
+  // can already say "byzantine" before a single listener has run. The editor
+  // must follow the control, not the markup's default.
+  await t.test("marks the editor at startup when the control already says Byzantine", () => {
+    const h = loadApp({ notation: "byzantine" });
+    t.after(() => h.close());
+
+    assert.ok(
+      h.editor().classList.contains("notation-byzantine"),
+      "a restored Byzantine setting drew a Byzantine chart beside a Generic editor"
+    );
+  });
+
+  await t.test("leaves the editor unmarked at startup for the default notation", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.ok(!h.editor().classList.contains("notation-byzantine"));
+  });
 });
 
 test("the symbol wells on a note row", async (t) => {
@@ -412,6 +432,31 @@ test("waiting for the Neanes face", async (t) => {
 
     assert.deepEqual(h.jsdomErrors, [], "app.js threw when document.fonts was missing");
     assert.equal(h.app.loadByzantineFont(), null);
+  });
+
+  // A vendored font file can go missing or arrive corrupt. The chart then
+  // measures and draws with fallback metrics, which is wrong in both content
+  // and layout — so it must at least keep working, and it must say so.
+  await t.test("keeps drawing when the face fails to load", async () => {
+    const h = loadApp({ fonts: "reject" });
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.deepEqual(h.jsdomErrors, [], "the rejection escaped as an unhandled error");
+    assert.equal(h.app.byzFontReady, false, "a face that never arrived is not ready");
+    assert.ok(h.ctx.callsOf("fillRect").length > 0, "the chart must still be drawn");
+  });
+
+  await t.test("warns when the face fails to load, so a broken font is diagnosable", async () => {
+    const h = loadApp({ fonts: "reject" });
+    t.after(() => h.close());
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(h.consoleWarnings.length, 1, "a silent failure leaves no way to find the cause");
+    assert.match(h.consoleWarnings[0], /Neanes/, "the warning must name the font that failed");
   });
 
   await t.test("re-measures on every render, so no pre-font measurement survives", () => {

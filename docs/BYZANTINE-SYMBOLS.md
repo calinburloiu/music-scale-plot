@@ -120,6 +120,16 @@ of per-note lookups.
     for the degrees under it.
   - `position + (degreeCount - degree) <= LADDER_MAX` — there must be enough
     ladder above `position` for the degrees over it.
+- **The anchor is clamped before propagation walks**, in
+  `clampLadderPosition(position, degree, degreeCount)`, which slides an
+  illegal anchor to the nearest end of the window the two inequalities above
+  describe. The legal window depends on how long the scale is, and a scale
+  grows *after* its martyries are set: letters that fitted two degrees need
+  not fit nine. Without the clamp, adding degrees strands them off the top of
+  the ladder with empty wells and no gesture that repairs it. A scale longer
+  than the ladder (more than 28 degrees) has no legal window at all — it
+  anchors at the bottom and the degrees past the top rung stay empty, which is
+  the only case where propagation still skips a row.
 - **Propagation moves letters only.** `propagateMartyriaLadder` (in
   `byzantine-ui.js`) walks every other note row to `ladderNoteAt(base + Δ)`
   from whichever row's martyria the user just confirmed. It only ever changes

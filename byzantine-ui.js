@@ -386,9 +386,14 @@ function handleByzantineClick(e) {
 // ---------------------------------------------------------------------------
 
 /**
- * Runs every other degree through the consecutive letters around `sourceRow`.
+ * Runs every degree through the consecutive letters around `sourceRow`.
  * Each degree keeps whatever genus it had; a degree that had none gets the
  * sentinel. Fthores are never touched.
+ *
+ * The anchor is clamped into `sourceRow`'s legal window first, so a scale that
+ * outgrew its letters — added degrees push the top of the ladder out of reach —
+ * is re-anchored rather than left with stranded, empty wells. That is also why
+ * the source row itself is walked: clamping can move it too.
  */
 function propagateMartyriaLadder(sourceRow) {
   if (!sourceRow) return;
@@ -397,11 +402,14 @@ function propagateMartyriaLadder(sourceRow) {
   const source = readNoteSymbols(sourceRow).martyria;
   if (sourceIndex < 0 || !source) return;
 
-  const base = ladderPosition(source.note, source.ticks);
+  const base = clampLadderPosition(
+    ladderPosition(source.note, source.ticks),
+    sourceIndex + 1,
+    rows.length
+  );
   for (let j = 0; j < rows.length; j++) {
-    if (j === sourceIndex) continue;
     const target = ladderNoteAt(base + (j - sourceIndex));
-    if (!target) continue; // off the ladder — leave that well as it is
+    if (!target) continue; // the scale outruns the ladder — leave that well as it is
     const existing = readNoteSymbols(rows[j]).martyria;
     writeMartyria(rows[j], target.noteId, existing ? existing.genus : GENUS_NONE, target.ticks);
   }

@@ -378,6 +378,28 @@ test("picking a martyria", async (t) => {
     assert.ok(!row.querySelector(".martyria-picker").classList.contains("open"));
   });
 
+  // The panel is a tall scroller, so clicks land on its own chrome constantly.
+  // Those must not reach the document listener that closes everything.
+  await t.test("stays open when its column title is clicked", () => {
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "martyria");
+
+    fireClick(h, panel.querySelector(".byz-column-title"));
+
+    assert.ok(panel.classList.contains("open"));
+  });
+
+  await t.test("stays open when the genus separator is clicked", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    const panel = openWell(h, row, "martyria");
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midPa"]'));
+
+    fireClick(h, panel.querySelector(".byz-separator"));
+
+    assert.ok(panel.classList.contains("open"));
+  });
+
   await t.test("does nothing when a disabled row is clicked", () => {
     const h = byzantineApp(t);
     setNoteCount(h, 3);
@@ -532,61 +554,55 @@ test("the ladder", async (t) => {
     assert.deepEqual(martyriaNotes(h), [null, "midNi", "midPa"], "only that one well is cleared");
   });
 
-  await t.test("leaves a neighbour untouched when its target falls below the ladder", () => {
+  // Growing a scale can push its anchor off the top of the ladder: the letters
+  // were legal for two degrees and are not for nine. Confirming re-anchors the
+  // scale so the whole of it fits again — the ladder is never left stranded.
+  await t.test("re-anchors a scale that outgrew the top of the ladder", () => {
     const h = byzantineApp(t);
-    setNoteCount(h, 5);
-    const rows = noteRows(h);
+    pickMartyria(h, noteRows(h)[0], { note: "highKe", done: true });
+    setNoteCount(h, 9);
 
-    // Pre-existing, deliberately mismatched martyria on the two rows whose
-    // propagated target would fall below position 0 (source at "lowZo" = 0,
-    // rows 0 and 1 sit two and one below it).
-    h.app.writeMartyria(rows[0], "midPa", "zo", 0);
-    h.app.writeMartyria(rows[1], "midVou", "alpha", 0);
-    h.app.writeMartyria(rows[2], "lowZo", h.app.GENUS_NONE, 0);
+    pickMartyria(h, noteRows(h)[0], { done: true });
 
-    pickMartyria(h, rows[2], { done: true });
-
-    assert.deepEqual(
-      { ...h.app.readNoteSymbols(rows[0]).martyria },
-      { note: "midPa", genus: "zo", ticks: 0 },
-      "off-ladder below: row 0 must be left exactly as it was"
-    );
-    assert.deepEqual(
-      { ...h.app.readNoteSymbols(rows[1]).martyria },
-      { note: "midVou", genus: "alpha", ticks: 0 },
-      "off-ladder below: row 1 must be left exactly as it was"
-    );
-    // Rows within range still propagate, proving the loop actually ran.
-    assert.equal(h.app.readNoteSymbols(rows[3]).martyria.note, "lowNi");
-    assert.equal(h.app.readNoteSymbols(rows[4]).martyria.note, "lowPa");
+    // Nine degrees ending at the ladder's last rung (27) must start at 19.
+    assert.deepEqual(martyriaNotes(h), [
+      "highDi",
+      "highKe",
+      "highZo",
+      "highNi",
+      "highPa",
+      "highVou",
+      "highGa",
+      "highDi",
+      "highKe",
+    ]);
   });
 
-  await t.test("leaves a neighbour untouched when its target falls above the ladder", () => {
+  await t.test("keeps every degree's genus when the anchor is re-anchored", () => {
     const h = byzantineApp(t);
-    setNoteCount(h, 5);
-    const rows = noteRows(h);
+    pickMartyria(h, noteRows(h)[0], { note: "highKe", genus: "nana", done: true });
+    setNoteCount(h, 9);
 
-    // Source at "highKe" + tick = position 27, the top of the ladder. Rows 3
-    // and 4 sit one and two above it, so their targets fall past 27.
-    h.app.writeMartyria(rows[2], "highKe", h.app.GENUS_NONE, 1);
-    h.app.writeMartyria(rows[3], "lowGa", "delta", 0);
-    h.app.writeMartyria(rows[4], "lowDi", "legetos", 0);
+    pickMartyria(h, noteRows(h)[0], { done: true });
 
-    pickMartyria(h, rows[2], { done: true });
-
-    assert.deepEqual(
-      { ...h.app.readNoteSymbols(rows[3]).martyria },
-      { note: "lowGa", genus: "delta", ticks: 0 },
-      "off-ladder above: row 3 must be left exactly as it was"
+    assert.equal(
+      h.app.readNoteSymbols(noteRows(h)[0]).martyria.genus,
+      "nana",
+      "moving a degree down the ladder must not drop its genus"
     );
-    assert.deepEqual(
-      { ...h.app.readNoteSymbols(rows[4]).martyria },
-      { note: "lowDi", genus: "legetos", ticks: 0 },
-      "off-ladder above: row 4 must be left exactly as it was"
-    );
-    // Rows within range still propagate, proving the loop actually ran.
-    assert.equal(h.app.readNoteSymbols(rows[0]).martyria.note, "highGa");
-    assert.equal(h.app.readNoteSymbols(rows[1]).martyria.note, "highDi");
+  });
+
+  await t.test("leaves the degrees past the ladder's end empty when the scale outruns it", () => {
+    const h = byzantineApp(t);
+    pickMartyria(h, noteRows(h)[0], { note: "lowZo", done: true });
+    setNoteCount(h, 29); // one more degree than the ladder has rungs
+
+    pickMartyria(h, noteRows(h)[0], { done: true });
+
+    const notes = martyriaNotes(h);
+    assert.equal(notes[0], "lowZo", "the scale still starts on the bottom rung");
+    assert.equal(notes[27], "highKe", "and runs up to the top one");
+    assert.equal(notes[28], null, "there is no rung above it, so that degree stays empty");
   });
 });
 

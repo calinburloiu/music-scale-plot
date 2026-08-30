@@ -217,6 +217,25 @@ function isLadderPositionLegal(position, degree, degreeCount) {
   return position + (degreeCount - degree) <= LADDER_MAX;
 }
 
+/**
+ * Slides `position` to the nearest one that is legal for `degree` (1-based, of
+ * `degreeCount`).
+ *
+ * A degree's legal window depends on how long the scale is, and the scale can
+ * grow after its martyries are set — the anchor that fitted two degrees need
+ * not fit nine. Propagation therefore clamps before it walks, which is what
+ * guarantees it never strands a degree off the end of the ladder.
+ *
+ * A scale longer than the ladder has no legal window at all; it anchors at the
+ * bottom, filling as far up as the rungs reach.
+ */
+function clampLadderPosition(position, degree, degreeCount) {
+  const lowest = degree - 1;
+  const highest = LADDER_MAX - (degreeCount - degree);
+  if (highest < lowest) return lowest;
+  return Math.min(Math.max(position, lowest), highest);
+}
+
 // ---------------------------------------------------------------------------
 // Ink-anchored text.
 //

@@ -348,6 +348,44 @@ test("which ladder positions a degree may take", async (t) => {
   });
 });
 
+// A scale grows and shrinks after its martyries are set, so an anchor that was
+// legal can stop being so. clampLadderPosition is what propagation anchors
+// from: it slides an illegal anchor to the nearest position that still leaves
+// room for the whole scale, which is why propagation can never strand a degree.
+test("clamping a ladder anchor into its legal window", async (t) => {
+  await t.test("leaves a position that is already legal alone", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.clampLadderPosition(10, 3, 5), 10);
+  });
+
+  await t.test("raises an anchor that leaves too little ladder below it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // Degree 3 of 5 needs two rungs beneath it, so 0 becomes 2.
+    assert.equal(h.app.clampLadderPosition(0, 3, 5), 2);
+  });
+
+  await t.test("lowers an anchor that leaves too little ladder above it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // Degree 3 of 5 needs two rungs above it, so 27 becomes 25.
+    assert.equal(h.app.clampLadderPosition(27, 3, 5), 25);
+  });
+
+  await t.test("anchors to the bottom when the scale is longer than the ladder", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // 29 degrees cannot fit 28 rungs at all. Anchoring the first degree at the
+    // bottom fills as much of the scale as the ladder can reach.
+    assert.equal(h.app.clampLadderPosition(10, 1, 29), 0);
+  });
+});
+
 test("the ink model in the canvas stub", async (t) => {
   await t.test("gives a genus mark no advance, so it lands on the letter", () => {
     const h = loadApp();

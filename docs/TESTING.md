@@ -1,9 +1,10 @@
 # Testing Guide
 
 This project was built without tests. That is now the main risk to its
-maintenance: `app.js` is a single 1200-line script whose behaviour lives in DOM
-side effects, and nothing catches a regression except a human clicking around.
-This document defines how the project is tested and how new work must be done.
+maintenance: the app is three classic scripts, over two thousand lines in all,
+whose behaviour lives in DOM side effects, and nothing catches a regression
+except a human clicking around. This document defines how the project is tested
+and how new work must be done.
 
 **The rule, in one line: no production code is written before a failing test
 demands it.** The rest of this document explains what that means here.
@@ -33,9 +34,10 @@ step.
 
 `CLAUDE.md` says the app has no dependencies and no build step. That still
 holds: `index.html` opens in a browser and loads nothing but `style.css` and
-`app.js`. `jsdom` is a **dev**-only dependency used by the test runner, and the
-test runner itself is the one built into Node (`node --test`). Nothing under
-`node_modules/` is ever shipped or referenced by the app.
+its own three scripts (`byzantine.js`, `byzantine-ui.js`, `app.js`). `jsdom` is
+a **dev**-only dependency used by the test runner, and the test runner itself is
+the one built into Node (`node --test`). Nothing under `node_modules/` is ever
+shipped or referenced by the app.
 
 Do not add further dependencies — not to the app, and not to the tests —
 without a concrete reason that cannot be met by the standard library.
@@ -281,7 +283,7 @@ Two consequences worth knowing:
 | `AudioContext` | `FakeAudioContext` | Records oscillators, gains and every scheduled parameter change. |
 | `HTMLAnchorElement.click` | records `{download, href}` | jsdom cannot navigate or download. |
 | `window.devicePixelRatio` | `2` by default | `loadApp({ devicePixelRatio: 3 })` to vary it. |
-| `document.fonts` | `load()` and `ready` both resolve immediately | jsdom implements no `FontFaceSet`, and `app.js` waits on one before its first real paint. `loadApp({ fonts: false })` removes `document.fonts` entirely, to exercise the codepath that guards against browsers (and jsdom's own default state) with no `FontFaceSet` at all. |
+| `document.fonts` | `load()` and `ready` both resolve immediately | jsdom implements no `FontFaceSet`, and `app.js` waits on one before its first real paint. `loadApp({ fonts: false })` removes `document.fonts` entirely, to exercise the codepath that guards against browsers (and jsdom's own default state) with no `FontFaceSet` at all; `loadApp({ fonts: "reject" })` makes the face fail to load, as a missing or corrupt font file would. |
 
 Because `measureText` is a model rather than real metrics, a test that needs an
 expected canvas size or ink box computes it with the exported
@@ -292,7 +294,7 @@ number.
 
 | Helper | Purpose |
 |---|---|
-| `loadApp(options)` | Fresh window. One per test — never share. |
+| `loadApp(options)` | Fresh window. One per test — never share. `notation: "byzantine"` presets `#notation` *before* the scripts run, the way a browser restores a `<select>` across a soft reload. |
 | `buildRelativeScale(h, intervals, extra)` | Build a scale in relative mode; `extra` takes `names`, `labels`, `colors`. |
 | `buildAbsoluteScale(h, absolutes, extra)` | Same for absolute mode. |
 | `setNoteCount(h, n)` | Click add/remove until the editor holds `n` notes. |
@@ -370,8 +372,8 @@ Conventions:
    model, or the chart's geometry. That tells you which test file to open.
 3. **Write the failing test.** Run it. Watch it fail for the right reason.
 4. Implement the minimum that makes it pass, as a **named top-level function**
-   in `app.js` where practical (top-level functions are auto-exported to
-   tests; logic buried inside an event listener is not).
+   in whichever of the three scripts it belongs to (top-level functions are
+   auto-exported to tests; logic buried inside an event listener is not).
 5. Run `npm test`. Fix anything you broke.
 6. Refactor under a green suite.
 7. Optionally drive the page in a real browser to sanity-check the look.

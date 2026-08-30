@@ -59,8 +59,11 @@ function buildExportEpilogue(names) {
  *
  * @param {object} [options]
  * @param {number} [options.devicePixelRatio=2] value app.js reads into its DPR constant
- * @param {boolean} [options.fonts=true] set to `false` to boot with no `document.fonts`
- *   at all, as in jsdom's default state and in old browsers
+ * @param {boolean|string} [options.fonts=true] set to `false` to boot with no
+ *   `document.fonts` at all, as in jsdom's default state and in old browsers, or to
+ *   `"reject"` to have the face fail to load, as a missing or corrupt file would
+ * @param {string} [options.notation] value to put in `#notation` *before* the scripts
+ *   run, the way a browser restores a `<select>` across a soft reload
  * @returns {object} harness
  */
 function loadApp(options = {}) {
@@ -69,8 +72,10 @@ function loadApp(options = {}) {
   const html = fs.readFileSync(HTML_PATH, "utf8");
 
   const jsdomErrors = [];
+  const consoleWarnings = [];
   const virtualConsole = new VirtualConsole();
   virtualConsole.on("jsdomError", (error) => jsdomErrors.push(error));
+  virtualConsole.on("warn", (message) => consoleWarnings.push(String(message)));
 
   const dom = new JSDOM(html, {
     runScripts: "outside-only", // `<script src="app.js">` is loaded manually below
@@ -114,11 +119,14 @@ function loadApp(options = {}) {
   // paint, because PUA codepoints have no fallback glyph.
   const fontLoads = [];
   if (options.fonts !== false) {
+    const rejects = options.fonts === "reject";
     Object.defineProperty(document, "fonts", {
       value: {
         load(spec) {
           fontLoads.push(spec);
-          return Promise.resolve([]);
+          return rejects
+            ? Promise.reject(new Error(`stub: ${spec} could not be loaded`))
+            : Promise.resolve([]);
         },
         ready: Promise.resolve(),
       },
@@ -132,6 +140,12 @@ function loadApp(options = {}) {
   window.HTMLAnchorElement.prototype.click = function click() {
     downloads.push({ download: this.download, href: this.href });
   };
+
+  // Set before any script runs, so the app sees a control that already carries
+  // a value — exactly what a browser hands it after a soft reload.
+  if (options.notation !== undefined) {
+    document.getElementById("notation").value = options.notation;
+  }
 
   const files = scriptPaths(html).map((file) => ({
     file,
@@ -175,6 +189,8 @@ function loadApp(options = {}) {
     audioContexts,
     /** Errors jsdom itself reported (unimplemented APIs, uncaught throws). */
     jsdomErrors,
+    /** Every `console.warn()` the app made, as text. */
+    consoleWarnings,
     /** Names re-exported from the app's scripts, for harness self-tests. */
     exportedNames: names,
     /** Absolute paths of the scripts index.html loaded, in document order. */

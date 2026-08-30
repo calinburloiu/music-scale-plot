@@ -1183,9 +1183,12 @@ function loadByzantineFont() {
       byzFontReady = true;
       render();
     })
-    .catch(function () {
-      // The face never arrived. The chart keeps drawing with fallback
-      // metrics rather than failing; nothing was cached from it.
+    .catch(function (error) {
+      // The face never arrived. The chart keeps drawing rather than failing,
+      // but with fallback metrics and no glyphs — wrong in both content and
+      // layout — so say so: a missing or corrupt font file is otherwise
+      // invisible to anyone but the person who vendored it.
+      console.warn("Byzantine notation: the Neanes face failed to load.", error);
     });
 }
 
@@ -1428,5 +1431,8 @@ notationSelect.addEventListener("change", onNotationChange);
 updateRemoveBtn();
 updateZoom();
 updateAllLabels();
-render();
+// The editor follows the control, not the markup's default: a browser restores
+// a <select>'s value across a soft reload, and a Byzantine chart beside a
+// Generic editor is the one state the two panels must never be left in.
+onNotationChange();
 loadByzantineFont();
