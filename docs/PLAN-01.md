@@ -8,18 +8,29 @@ Music Scale Plot is a zero-dependency, client-side web application with separate
 
 ```
 music-scale-plot/
-├── index.html      # Page structure and markup
-├── style.css       # All styles
-├── app.js          # All application logic
+├── index.html               # Page structure and markup
+├── style.css                # All styles
+├── byzantine.js             # Byzantine symbol model: tables + SBMuFL resolvers, no DOM
+├── byzantine-ui.js          # Byzantine notation: editor UI (wells, pickers, ladder)
+├── app.js                   # Everything else: editor DOM management, chart rendering,
+│                             # audio, PNG export — runs at load time, so it loads last
 ├── docs/
-│   └── PLAN-01.md  # This document
+│   ├── PLAN-01.md            # This document
+│   └── BYZANTINE-SYMBOLS.md  # The Byzantine notation layer, for maintainers
+├── fonts/                    # Vendored Neanes SBMuFL font (see README's NOTICE)
 ├── LICENSE
 └── README.md
 ```
 
-- `index.html` — contains the page skeleton, links to `style.css`, and loads `app.js` (deferred).
+- `index.html` — contains the page skeleton, links to `style.css`, and loads the three
+  scripts in that order (deferred).
 - `style.css` — all visual styling.
-- `app.js` — all JavaScript: editor management, canvas rendering, and PNG export.
+- `byzantine.js`, `byzantine-ui.js`, `app.js` — all JavaScript, split into three classic
+  `<script>` files loaded in load order, not modules: `<script type="module">` is fetched
+  under CORS, and a page opened with `file://` has an opaque origin, so a module script
+  would be blocked — breaking "open `index.html` directly in a browser". Classic scripts
+  share one global scope, so `byzantine.js`'s tables and resolvers are visible to
+  `byzantine-ui.js` and `app.js` without any import.
 
 Tests live under `test/` and are described in [TESTING.md](TESTING.md), which also
 defines the mandatory TDD workflow for changes to this design.
@@ -33,6 +44,16 @@ The page is split into two side-by-side panels using CSS flexbox:
 | Form-based editor for notes and intervals | `<canvas>` element displaying the scale chart |
 | Add / Remove note buttons | Save as PNG button |
 
+The **Notation** setting (`#notation`, `generic` or `byzantine`) sits at the top of the
+Settings panel, above the base-note row. It does not rebuild the editor: every note row
+carries both a name input and both symbol wells at all times (see **Scale Editor → Note
+row**), and a `notation-byzantine` class on `#editor` is all that decides, in CSS, which
+half is visible. Switching notation therefore discards nothing.
+
+Every note row also carries the **fthora well** and the **martyria well**, each a small
+button that shows the resolved glyph (or sits empty) and opens its own picker panel when
+clicked — see **Notation** below.
+
 ## Data Model
 
 The scale is represented as a single JavaScript array of objects:
@@ -40,14 +61,27 @@ The scale is represented as a single JavaScript array of objects:
 ```js
 // Conceptual structure — not literal code
 scaleData = [
-  { type: "note", degree: 1, name: "C" },
+  { type: "note", degree: 1, name: "C", fthora: "", martyria: null },
   { type: "interval", ratio: "9/8", label: "major tone" },
-  { type: "note", degree: 2, name: "D" },
+  { type: "note", degree: 2, name: "D", fthora: "", martyria: null },
   ...
 ]
 ```
 
 This flat list mirrors the alternating note/interval rows in the editor UI. It is rebuilt from the DOM inputs on every change, keeping the DOM as the single source of truth (no separate state syncing needed for this small app).
+
+Each note item carries two extra fields for Byzantine notation, read off the row's `data-*`
+attributes by `readNoteSymbols()` (`byzantine-ui.js`):
+
+- `fthora` — an id from `BYZ_FTHORES`, or `""` when the well is empty.
+- `martyria` — `{ note, genus, ticks }` (a `BYZ_NOTES` id, a `BYZ_GENERA` id or
+  `GENUS_NONE`, and the octave-tick count), or `null` when the well is empty.
+
+A note row itself carries the symbol state as four `data-*` attributes (`NOTE_SYMBOL_ATTRS`
+in `byzantine-ui.js`): `data-fthora`, `data-martyria-note`, `data-martyria-genus` and
+`data-martyria-ticks`. Row add/remove and the ladder's rebuilds copy these attributes across
+along with everything else, so the DOM stays the single source of truth for Byzantine state
+too.
 
 ## Scale Editor
 
@@ -57,6 +91,12 @@ The editor is a vertical list of rows, alternating between **note rows** and **i
 
 - Static label: `Note {degree}`
 - Text input: note name (optional, placeholder "name")
+- The **fthora well** and the **martyria well** (see **Notation**)
+
+All four of these are always present on every row, in both notations — a notation switch
+never adds or removes DOM. CSS shows the name input in Generic notation and the two wells in
+Byzantine notation; the underlying values are untouched either way, so switching back and
+forth loses nothing.
 
 ### Interval row
 
@@ -74,6 +114,30 @@ The editor starts with Note 1, one interval (ratio defaulting to `9/8`, label em
 
 All inputs fire an `input` event listener that triggers a chart re-render, giving real-time feedback.
 
+## Notation
+
+`#notation` has two values: `generic` (typed note names, the default and unchanged) and
+`byzantine` (psaltic signs from the vendored Neanes SBMuFL font). Full detail — the tables,
+the resolvers, the ladder, and how to add a second font — lives in
+[BYZANTINE-SYMBOLS.md](BYZANTINE-SYMBOLS.md); this section only orients where it fits into
+the app's design.
+
+**Logical model vs. resolvers.** `byzantine.js` splits the two concerns a font-facing feature
+always has. The logical model — which 21 notes exist, which 12 genera, which 16 fthores, and
+which genera the modes table pairs with which note (`MARTYRIA_COMPATIBILITY`) — never
+mentions a codepoint. The resolvers (`resolveMartyriaGlyphs`, `resolveFthoraGlyph`) are the
+only code that does; they turn a logical choice into the glyph string the font needs. Nothing
+outside `byzantine.js` should ever construct a codepoint by hand.
+
+**The note ladder.** A martyria names an absolute degree, so raising or lowering a scale's
+base note must be able to walk every other degree's martyria up or down in lock-step. The
+ladder is a flat integer line of positions (`ladderPosition` / `ladderNoteAt`) that the 21
+letters plus one ticked octave populate; `propagateMartyriaLadder` walks it from whichever
+well the user just confirmed. Its two boundary rules: the ladder runs out below low Ζω (no
+SBMuFL block exists under it, so the ladder simply stops there) and is extended above high Κε
+by a tick rather than a new block (there is no block above it either). See
+BYZANTINE-SYMBOLS.md §5 for the exact inequalities.
+
 ## Chart Rendering (Canvas)
 
 ### Geometry
@@ -88,6 +152,33 @@ The chart is a vertical stack of rectangles drawn on an HTML5 `<canvas>`. The st
 4. Each rectangle's height = `cents * pxPerCent`.
 5. All rectangles share the same fixed width.
 
+In Byzantine notation the canvas grows by two more bands, both measured from ink
+(`inkBox`/`maxInkExtent`), never assumed from a constant offset:
+
+- **The fthora gutter** (`fthoraGutter`) — a band of its own along the leading edge (left
+  when vertical, top when horizontal), sized to the tallest/widest fthora ink plus one
+  `TEXT_MARGIN`, and `0` when no degree carries a fthora. On the horizontal line chart this
+  gutter also pushes the interval text and axis down by the same amount, so it is real clear
+  space, not just reserved margin.
+- **The sign overhang** (`signOverhang`) — extra clearance at *both* ends of the stack, in
+  both orientations. A martyria or fthora is ink-centred on the separator it names, and the
+  outermost separators sit only `CANVAS_PADDING` from the canvas edge; whatever ink extends
+  past that padding is reserved as overhang so the first and last sign are never clipped.
+  Zero in Generic notation.
+
+The horizontal **note band** (`byzantineNoteBandHeight`) is `0` when no note in the scale
+carries a martyria, and `max(tallest martyria ink, NOTE_TEXT_HEIGHT)` once at least one does —
+so a scale with no Byzantine signs draws exactly as before, and one with a tall martyria gets
+a band tall enough to hold it.
+
+**Caveat for a future font.** The horizontal *line* chart's side padding (`halfNote`, used for
+`displayWidth`) is derived from the widest **martyria** ink alone; it does not include the
+fthora. In the vendored Neanes font the fthora is narrower than the martyria, so this is safe
+today, and the test canvas stub's ink model (`test/helpers/canvas-stub.js`) reflects that same
+shape — no test can currently fail to demand a fix. A font whose fthora ink is wider than its
+martyria ink would clip at the first/last fthora on this one chart. See
+BYZANTINE-SYMBOLS.md §6 for what to change if that ever happens.
+
 ### Drawing
 
 For each interval (bottom to top):
@@ -100,6 +191,14 @@ For each interval (bottom to top):
 
 - Note names are placed at the horizontal line boundaries, to the right of the stack.
 - Interval labels are placed at the vertical midpoint of each rectangle, to the right of the stack.
+- In Byzantine notation, the **martyria substitutes for the note name** at every position a
+  name would otherwise go (`drawNoteLabel` dispatches to `drawByzantineMark` when the chart is
+  in Byzantine notation); the **fthora is drawn on the opposite side** from the note text in
+  each orientation — above the note band on the horizontal charts, on the far side of the
+  fthora gutter on the vertical ones. Both signs are positioned from measured ink
+  (`drawGlyphs`/`inkBox`) on both axes, not from the font's baseline/pen origin, because a
+  martyria's ink sits well above the baseline in Neanes and a fthora's sits well below it, and
+  a constant offset would break the moment the font changes.
 
 ### Canvas resolution
 
@@ -146,4 +245,4 @@ Add/Remove note buttons modify the DOM (insert or remove rows) and then trigger 
 | Export | `canvas.toDataURL()` + programmatic download |
 | Dependencies | None |
 | Build step | None — open `index.html` in a browser |
-| Code organisation | Separate `index.html`, `style.css`, and `app.js` files |
+| Code organisation | Separate `index.html`, `style.css` files and three classic scripts (`byzantine.js`, `byzantine-ui.js`, `app.js`) — no modules |

@@ -44,9 +44,9 @@ without a concrete reason that cannot be met by the standard library.
 
 ## 2. Test-driven development is mandatory
 
-Every change to `app.js`, `index.html` or `style.css` that affects behaviour
-follows the red/green/refactor loop. No exceptions for "small" changes; small
-changes are where regressions hide.
+Every change to `app.js`, `byzantine.js`, `byzantine-ui.js`, `index.html` or
+`style.css` that affects behaviour follows the red/green/refactor loop. No
+exceptions for "small" changes; small changes are where regressions hide.
 
 ### RED — write a failing test first
 
@@ -192,8 +192,8 @@ this repository.
 
 test/
 ├── helpers/
-│   ├── harness.js       loads index.html + app.js into jsdom; interaction helpers
-│   ├── canvas-stub.js   recording 2D context + the text-measurement model
+│   ├── harness.js       loads index.html's scripts into jsdom; interaction helpers
+│   ├── canvas-stub.js   recording 2D context + the text/ink-measurement model
 │   ├── audio-stub.js    recording Web Audio stubs
 │   └── assertions.js    closeTo, isNaNValue, equalArray
 ├── unit/                logic that can be checked without driving the editor
@@ -202,7 +202,8 @@ test/
 │   ├── defaults.test.js
 │   ├── mode-conversion.test.js
 │   ├── pitch.test.js
-│   └── palette.test.js
+│   ├── palette.test.js
+│   └── byzantine-symbols.test.js   the tables, the resolvers, the ladder
 └── integration/         behaviour that spans the editor, the model and the chart
     ├── harness.test.js
     ├── editor.test.js
@@ -211,7 +212,9 @@ test/
     ├── settings.test.js
     ├── scale-mode.test.js
     ├── color-label-sync.test.js
-    └── render.test.js
+    ├── render.test.js
+    ├── notation.test.js            switching notation; the chart's Byzantine geometry
+    └── byzantine-pickers.test.js   the fthora/martyria wells and their picker panels
 ```
 
 Put a test where a maintainer would look for it: by the *feature* it covers,
@@ -222,31 +225,33 @@ a new file named after the feature.
 
 ## 5. How the harness works
 
-`app.js` is a classic script with no exports: it reads elements at the top
-level and wires up listeners as a side effect of loading. Rather than
-restructure the app to suit the tests, `test/helpers/harness.js` loads it the
-way a browser does.
+The app's scripts (`byzantine.js`, `byzantine-ui.js`, `app.js`) are classic
+scripts with no exports: they read elements at the top level and wire up
+listeners as a side effect of loading. Rather than restructure the app to
+suit the tests, `test/helpers/harness.js` loads it the way a browser does.
 
 ```js
 const { loadApp, buildRelativeScale, intervalRows } = require("../helpers/harness.js");
 
-const h = loadApp();                       // fresh window, real index.html, app.js executed
+const h = loadApp();                       // fresh window, real index.html, every script executed
 buildRelativeScale(h, ["9/8", "10/9"]);    // drive the editor through real events
-h.app.readScaleData();                     // call any top-level function from app.js
+h.app.readScaleData();                     // call any top-level function from any of the scripts
 h.ctx.callsOf("fillRect");                 // inspect what was drawn
 ```
 
 What `loadApp()` does:
 
 1. Parses the real `index.html` in jsdom, with `runScripts: "outside-only"` so
-   the `<script src="app.js">` tag is *not* fetched.
+   none of its `<script src="...">` tags are fetched.
 2. Installs stubs for the browser APIs jsdom lacks (below).
-3. Reads `app.js` from disk, appends a generated epilogue, and runs it in the
-   window's VM context under the real filename (so stack traces and coverage
-   point at `app.js`).
+3. Reads the `<script src>` tags out of `index.html`, in document order, and
+   runs each file's source in the window's VM context under its own real
+   filename (so stack traces and coverage point at the right file) — then
+   runs one generated epilogue built from the union of every script's
+   top-level names.
 
-The epilogue re-exports every **top-level** declaration as a live getter on
-`window.__app`, which the harness returns as `h.app`:
+The epilogue re-exports every **top-level** declaration, from every script,
+as a live getter on `window.__app`, which the harness returns as `h.app`:
 
 ```js
 window.__app = { get intervalToCents() { return intervalToCents; }, /* … */ };
@@ -254,10 +259,14 @@ window.__app = { get intervalToCents() { return intervalToCents; }, /* … */ };
 
 Two consequences worth knowing:
 
-- **Any new top-level `function` or `const` in `app.js` is testable
-  automatically.** Nothing needs registering. Keep logic in named top-level
-  functions rather than burying it in a listener callback, and it stays
-  reachable from tests.
+- **Any new top-level `function` or `const` in *any* of the app's scripts is
+  testable automatically.** Nothing needs registering. Keep logic in named
+  top-level functions rather than burying it in a listener callback, and it
+  stays reachable from tests. Classic scripts share one global lexical
+  environment, so a `const` in `byzantine.js` is visible to `app.js` and to
+  the epilogue exactly as if it were declared in the same file — but it also
+  means no top-level name may be declared in two of the scripts, or loading
+  throws a `SyntaxError` before any test runs.
 - The getters are live, so `h.app.displayZoom` reflects the current value, not
   a snapshot from load time.
 
@@ -266,15 +275,17 @@ Two consequences worth knowing:
 | API | Stub | Why |
 |---|---|---|
 | `canvas.getContext("2d")` | `RecordingContext2D` | jsdom has no canvas. Records every draw call with the drawing state active at the time. |
-| `ctx.measureText` | `length × fontSize × 0.6` | Deterministic stand-in for font metrics. Font-size sensitive, so the 24px UI font and 21px monospace font measure differently, as in a browser. |
+| `ctx.measureText` | ink model: `length × fontSize × 0.6` advance, plus modelled bounding-box metrics | Deterministic stand-in for font metrics. Font-size sensitive, so the 24px UI font and 21px monospace font measure differently, as in a browser. Also models ink for Byzantine glyphs: zero-advance genus marks, and a mark-aware ascent/descent that grows for an `…Above` or `…Below` mark — see the ratio table in `canvas-stub.js` and `docs/BYZANTINE-SYMBOLS.md` §8. |
 | `canvas.toDataURL` | records the call | Lets export tests check the exported size. |
 | `AudioContext` | `FakeAudioContext` | Records oscillators, gains and every scheduled parameter change. |
 | `HTMLAnchorElement.click` | records `{download, href}` | jsdom cannot navigate or download. |
 | `window.devicePixelRatio` | `2` by default | `loadApp({ devicePixelRatio: 3 })` to vary it. |
+| `document.fonts` | `load()` and `ready` both resolve immediately | jsdom implements no `FontFaceSet`, and `app.js` waits on one before its first real paint. `loadApp({ fonts: false })` removes `document.fonts` entirely, to exercise the codepath that guards against browsers (and jsdom's own default state) with no `FontFaceSet` at all. |
 
 Because `measureText` is a model rather than real metrics, a test that needs an
-expected canvas size computes it with the exported `measureTextWidth()` helper
-instead of hard-coding a number.
+expected canvas size or ink box computes it with the exported
+`measureTextWidth()` or `measureTextInk()` helper instead of hard-coding a
+number.
 
 ### Harness helpers
 
@@ -288,6 +299,10 @@ instead of hard-coding a number.
 | `selectOption(h, id, value)` | Change a `<select>` and dispatch `change`. |
 | `pickColor(h, row, hex)` | Open a row's dropdown and click a swatch. |
 | `noteRows(h)` / `intervalRows(h)` | The editor's rows, in order. |
+| `setNotation(h, value)` | Switch `#notation` (`"generic"` or `"byzantine"`) and dispatch `change`. |
+| `openWell(h, row, kind)` | Click a note row's `"fthora"` or `"martyria"` well; returns its picker panel. |
+| `pickFthora(h, row, fthoraId)` | Open the fthora picker and click one option (`""` picks None). |
+| `pickMartyria(h, row, { note, genus, ticks, done })` | Open the martyria picker and click a note and/or genus option; `done: true` presses Done (propagating the ladder) instead of closing the panel by re-clicking the well. |
 
 Everything goes through real DOM events. Do not call the app's internal
 functions to *set up* state when a helper can drive the UI — a test that
