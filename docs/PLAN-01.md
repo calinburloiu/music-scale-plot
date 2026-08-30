@@ -164,20 +164,17 @@ In Byzantine notation the canvas grows by two more bands, both measured from ink
   both orientations. A martyria or fthora is ink-centred on the separator it names, and the
   outermost separators sit only `CANVAS_PADDING` from the canvas edge; whatever ink extends
   past that padding is reserved as overhang so the first and last sign are never clipped.
-  Zero in Generic notation.
+  Zero in Generic notation. The clearance is sized from `signExtent` — the wider (horizontal)
+  or taller (vertical) of the **martyria and the fthora** ink, so neither sign can be clipped
+  by the other one being narrower. The horizontal *line* chart spends the same `signExtent`
+  differently: it starts its axis half a sign *past* the padding (`halfSign`), which clears
+  the extreme ink outright and so needs no overhang on top. All four chart paths therefore
+  derive their end clearance from the one quantity.
 
 The horizontal **note band** (`byzantineNoteBandHeight`) is `0` when no note in the scale
 carries a martyria, and `max(tallest martyria ink, NOTE_TEXT_HEIGHT)` once at least one does —
 so a scale with no Byzantine signs draws exactly as before, and one with a tall martyria gets
 a band tall enough to hold it.
-
-**Caveat for a future font.** The horizontal *line* chart's side padding (`halfNote`, used for
-`displayWidth`) is derived from the widest **martyria** ink alone; it does not include the
-fthora. In the vendored Neanes font the fthora is narrower than the martyria, so this is safe
-today, and the test canvas stub's ink model (`test/helpers/canvas-stub.js`) reflects that same
-shape — no test can currently fail to demand a fix. A font whose fthora ink is wider than its
-martyria ink would clip at the first/last fthora on this one chart. See
-BYZANTINE-SYMBOLS.md §6 for what to change if that ever happens.
 
 ### Drawing
 

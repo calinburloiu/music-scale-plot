@@ -980,6 +980,39 @@ test("Byzantine notation, horizontal lines", async (t) => {
     closeTo(firstTickX, CANVAS_PADDING + widest / 2, 1e-6, "the axis starts half a martyria in");
   });
 
+  await t.test("sizes that padding from the fthora when no degree carries a martyria", () => {
+    const h = chart(t, [{ fthora: "diatonicPa" }, {}]);
+    const { CANVAS_PADDING } = h.app;
+
+    const fthoraInk = inkWidth(h, h.app.resolveFthoraGlyph("diatonicPa"));
+    const firstTickX = h.ctx.calls.find(
+      (c) => c.method === "moveTo" && c.state.lineWidth === h.app.TICK_WIDTH
+    ).args[0];
+
+    closeTo(
+      firstTickX,
+      CANVAS_PADDING + fthoraInk / 2,
+      1e-6,
+      "with no martyria in the scale the fthora's own ink must set the side padding"
+    );
+  });
+
+  await t.test("keeps a lone fthora's ink out of the canvas padding", () => {
+    const h = chart(t, [{ fthora: "diatonicPa" }, {}]);
+    const { CANVAS_PADDING } = h.app;
+    const width = parseFloat(h.canvas().style.width);
+    const signs = signInkBoxes(h);
+
+    assert.ok(signs.length > 0, "no Byzantine sign was drawn at all");
+    for (const sign of signs) {
+      assert.ok(
+        sign.left >= CANVAS_PADDING - 1e-9 && sign.right <= width - CANVAS_PADDING + 1e-9,
+        `ink x [${sign.left}, ${sign.right}] eats into the ${CANVAS_PADDING}px side padding ` +
+          `of a ${width}px canvas; a wider fthora would fall off the edge`
+      );
+    }
+  });
+
   await t.test("keeps every sign's ink inside the canvas", () => {
     assertSignsFitTheCanvas(chart(t, [PA, VOU]));
   });

@@ -153,18 +153,12 @@ offset tuning: they place a sign from its *measured ink*, not from an assumed
 baseline position, so a face whose ink sits on the other side of the baseline
 from Neanes's still lands correctly with zero changes to the drawing code.
 
-**One caveat to check when the new font's fthora is wide.** The horizontal
-*line* chart's side padding (`halfNote`, computed in `render()` in `app.js`)
-is derived from the widest **martyria** ink alone — it does not include the
-fthora. That is safe for Neanes, whose fthora ink is narrower than its
-martyria ink, and the test canvas stub's ink model
-(`test/helpers/canvas-stub.js`, §8 below) reproduces that same relative
-shape — so no test can currently demand a fix here. A font whose fthora ink
-is *wider* than its martyria ink would clip the first/last fthora on this one
-chart. If you add such a font: fold the fthora ink into that padding
-calculation, and extend the stub's ink model so a test can actually demand
-that fix (right now nothing distinguishes a fthora's ink ratio from a
-martyria's in the model, which is why this can't be caught today).
+**A new font's proportions need no chart changes.** All four chart paths size
+the room they keep at the ends of the stack from one quantity, `signExtent` in
+`render()` — the wider (horizontal) or taller (vertical) of the **martyria and
+the fthora** ink actually present in the scale. Whichever of the two signs a
+new face draws bigger, the clearance follows it, and a scale carrying only a
+fthora reserves room from the fthora.
 
 ---
 

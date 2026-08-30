@@ -467,12 +467,15 @@ function drawNoteLabel(text, x, y, spec) {
   ctx.fillText(text, x, y);
 }
 
-function drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextBlockH, font, monoFont, byz) {
-  const halfNote = maxNoteWidth / 2;
+function drawLinesHorizontal(intervals, stackLength, signExtent, intervalTextBlockH, font, monoFont, byz) {
+  // `signExtent` is the widest ink centred on an end separator — a note name
+  // in Generic notation, the wider of the martyria and the fthora in
+  // Byzantine. Half of it at each end keeps the first and last one whole.
+  const halfSign = signExtent / 2;
   const axisCenterY = CANVAS_PADDING + byz.gutter + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH / 2;
   const tickTop = axisCenterY - TICK_LENGTH / 2;
   const tickBottom = axisCenterY + TICK_LENGTH / 2;
-  const startX = CANVAS_PADDING + halfNote;
+  const startX = CANVAS_PADDING + halfSign;
   const noteTextY = tickBottom + TEXT_MARGIN;
   const intervalTextCenterY = CANVAS_PADDING + byz.gutter + intervalTextBlockH / 2;
 
@@ -736,14 +739,17 @@ function render() {
   // bottom-aligned at the band's far edge, one text margin clear of whatever
   // the chart lays out after it — the boxes, or the line chart's interval text.
   const fthoraAnchor = CANVAS_PADDING + fthoraGutter - TEXT_MARGIN;
-  // Both signs are ink-centred on a separator, and the extreme separators sit
-  // one CANVAS_PADDING from the edge: reserve whatever ink overflows that, at
-  // both ends of the stack, so the first and last sign are never clipped. The
-  // stack runs along x when horizontal, so there it is the ink's width that
-  // overflows the padding, and its height when vertical.
+  // The widest ink that any chart centres on an end separator: a martyria, a
+  // fthora, or — in Generic notation, where there are no signs — a note name.
+  // The stack runs along x when horizontal, so there it is the ink's width
+  // that matters, and its height when vertical.
   const signExtent = isHorizontal
     ? Math.max(maxNoteWidth, maxFthoraWidth)
     : Math.max(maxNoteHeight, maxFthoraHeight);
+  // Three of the four charts start their stack one CANVAS_PADDING from the
+  // edge, so they reserve only whatever ink overflows that padding, at both
+  // ends, and the first and last sign are never clipped. (The horizontal line
+  // chart instead starts half a sign *past* the padding — see drawLinesHorizontal.)
   const signOverhang = isByzantine ? Math.max(0, signExtent / 2 - CANVAS_PADDING) : 0;
   const noteBandH = isByzantine ? byzantineNoteBandHeight(maxNoteHeight) : NOTE_TEXT_HEIGHT;
   const byz = {
@@ -759,10 +765,10 @@ function render() {
 
   let displayWidth, displayHeight;
   if (isLines && isHorizontal) {
-    // The half-note padding at each end already clears the martyria's ink, so
-    // this chart reserves no overhang of its own.
-    const halfNote = maxNoteWidth / 2;
-    displayWidth = CANVAS_PADDING + halfNote + stackLength + halfNote + CANVAS_PADDING;
+    // Half a sign at each end clears the extreme ink outright, so this chart
+    // needs no overhang of its own on top of the padding.
+    const halfSign = signExtent / 2;
+    displayWidth = CANVAS_PADDING + halfSign + stackLength + halfSign + CANVAS_PADDING;
     displayHeight = CANVAS_PADDING + fthoraGutter + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + noteBandH + CANVAS_PADDING;
   } else if (isLines && !isHorizontal) {
     displayWidth = CANVAS_PADDING + fthoraGutter + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + maxNoteWidth + CANVAS_PADDING;
@@ -786,7 +792,7 @@ function render() {
   ctx.clearRect(0, 0, displayWidth, displayHeight);
 
   if (isLines && isHorizontal) {
-    drawLinesHorizontal(intervals, stackLength, maxNoteWidth, intervalTextBlockH, font, monoFont, byz);
+    drawLinesHorizontal(intervals, stackLength, signExtent, intervalTextBlockH, font, monoFont, byz);
   } else if (isLines && !isHorizontal) {
     drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont, byz);
   } else if (isHorizontal) {
