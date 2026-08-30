@@ -475,10 +475,12 @@ body {
     0 14px 38px -10px rgba(30, 20, 10, 0.38);
 }
 
-/* The panels are tall, so they scroll. They never flip up: a scrolling panel
-   cannot escape the editor. */
-.fthora-picker.open {
-  display: block;
+/* The lists are tall, so they scroll inside their panel — which never flips
+   up: a scrolling panel cannot escape the editor. The footer stays put below
+   the scroller, so Apply is always in reach. */
+.fthora-picker.open { display: block; }
+
+.fthora-picker-body {
   max-height: 320px;
   overflow-y: auto;
 }
@@ -558,15 +560,31 @@ body {
   background: var(--rule);
 }
 
-.martyria-picker-footer {
+.byz-picker-footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
+  gap: 0.4rem;
   margin-top: 0.5rem;
   padding-top: 0.5rem;
   border-top: 1px solid var(--rule);
 }
 
-.martyria-done {
+/* The well keeps showing the committed symbol while a picker is open, so this
+   is where the pending one — letter, genus and octave tick together — shows. */
+.byz-preview {
+  flex: 1 1 auto;
+  min-width: 2.5rem;
+  padding-left: 0.2rem;
+  font-family: "Neanes", serif;
+  font-size: 26px;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.byz-apply,
+.byz-cancel {
+  flex: 0 0 auto;
   padding: 0.4rem 0.9rem;
   border: 1px solid var(--rule);
   border-radius: 3px;
@@ -577,7 +595,17 @@ body {
   cursor: pointer;
 }
 
-.martyria-done:hover { border-color: var(--ink); }
+.byz-apply { border-color: var(--ink-soft); font-weight: 600; }
+
+.byz-apply:hover:not(:disabled),
+.byz-cancel:hover { border-color: var(--ink); }
+
+.byz-apply:disabled {
+  opacity: 0.4;
+  border-color: var(--rule);
+  font-weight: 400;
+  cursor: default;
+}
 
 .byz-label {
   font-family: 'DM Sans', sans-serif;

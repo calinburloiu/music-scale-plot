@@ -52,7 +52,9 @@ half is visible. Switching notation therefore discards nothing.
 
 Every note row also carries the **fthora well** and the **martyria well**, each a small
 button that shows the resolved glyph (or sits empty) and opens its own picker panel when
-clicked — see **Notation** below.
+clicked. A picker edits a draft of its own: clicking inside it changes only what the panel
+shows, **Apply** writes that draft to the row, and Cancel — or a click outside, or a second
+click on the well — discards it. See **Notation** below.
 
 ## Data Model
 

@@ -304,8 +304,9 @@ number.
 | `noteRows(h)` / `intervalRows(h)` | The editor's rows, in order. |
 | `setNotation(h, value)` | Switch `#notation` (`"generic"` or `"byzantine"`) and dispatch `change`. |
 | `openWell(h, row, kind)` | Click a note row's `"fthora"` or `"martyria"` well; returns its picker panel. |
-| `pickFthora(h, row, fthoraId)` | Open the fthora picker and click one option (`""` picks None). |
-| `pickMartyria(h, row, { note, genus, ticks, done })` | Open the martyria picker and click a note and/or genus option, then dismiss the panel: `done: true` presses Done, otherwise it re-clicks the well. Either way the ladder propagates — `done` picks which gesture is exercised. |
+| `pickFthora(h, row, fthoraId, { dismiss })` | Open the fthora picker, click one option (`""` picks None) and dismiss the panel. |
+| `pickMartyria(h, row, { note, genus, ticks, dismiss })` | Open the martyria picker, click a note and/or genus option and dismiss the panel. |
+| `dismissPicker(h, row, how, kind)` | The four real ways out of a picker: `"apply"` commits (and, for a martyria, propagates the ladder); `"cancel"`, `"outside"` and `"well"` all discard the draft; `"none"` leaves the panel open to inspect. `pickFthora`/`pickMartyria` take the same word as `dismiss`, defaulting to `"apply"`. |
 
 Everything goes through real DOM events. Do not call the app's internal
 functions to *set up* state when a helper can drive the UI — a test that

@@ -107,7 +107,72 @@ function applyNoteSymbolAttrs(row, attrs) {
 // Only one picker is open at a time. Opening one goes through app.js's
 // closeAllDropdowns(), which is the same machinery the colour picker uses, so
 // the two can never be open together.
+//
+// An open picker edits a *draft*, not the scale. Opening seeds the draft from
+// the row; clicking an option moves the draft and rebuilds the panel around it;
+// only Apply writes it back. Every other way out — Cancel, a click outside, a
+// second click on the well, opening another picker — discards the draft and
+// leaves the scale exactly as it was.
 // ---------------------------------------------------------------------------
+
+// The draft lives on the panel element, for the same reason a row's symbols
+// live on the row: the DOM is this app's data model, and a panel that is torn
+// down and rebuilt on every click needs its pending value to outlive its
+// contents.
+const PICKER_DRAFT_ATTRS = ["draftFthora", "draftNote", "draftGenus", "draftTicks"];
+
+function clearPickerDraft(panel) {
+  for (const key of PICKER_DRAFT_ATTRS) delete panel.dataset[key];
+}
+
+/** Starts a panel's draft from the symbols its row currently holds. */
+function seedPickerDraft(panel, row) {
+  clearPickerDraft(panel);
+  const symbols = readNoteSymbols(row);
+  if (panel.classList.contains("fthora-picker")) panel.dataset.draftFthora = symbols.fthora;
+  else if (symbols.martyria) {
+    writeMartyriaDraft(panel, symbols.martyria.note, symbols.martyria.genus, symbols.martyria.ticks);
+  }
+}
+
+/** The drafted martyria, in the shape `readNoteSymbols` returns, or null. */
+function readMartyriaDraft(panel) {
+  const noteId = panel.dataset.draftNote || "";
+  if (!noteId) return null;
+  return {
+    note: noteId,
+    genus: panel.dataset.draftGenus || GENUS_NONE,
+    ticks: parseInt(panel.dataset.draftTicks || "0", 10) || 0,
+  };
+}
+
+function writeMartyriaDraft(panel, noteId, genusId, ticks) {
+  // No note is no martyria, exactly as on a row: never leave a stray attribute
+  // behind for readMartyriaDraft to step over.
+  if (!noteId) {
+    delete panel.dataset.draftNote;
+    delete panel.dataset.draftGenus;
+    delete panel.dataset.draftTicks;
+    return;
+  }
+  panel.dataset.draftNote = noteId;
+  panel.dataset.draftGenus = genusId || GENUS_NONE;
+  panel.dataset.draftTicks = String(ticks || 0);
+}
+
+/** True when applying the draft would actually change the row. */
+function pickerDraftIsDirty(panel, row) {
+  const symbols = readNoteSymbols(row);
+  if (panel.classList.contains("fthora-picker")) {
+    return (panel.dataset.draftFthora || "") !== symbols.fthora;
+  }
+  const draft = readMartyriaDraft(panel);
+  const current = symbols.martyria;
+  if (!draft || !current) return Boolean(draft) !== Boolean(current);
+  return (
+    draft.note !== current.note || draft.genus !== current.genus || draft.ticks !== current.ticks
+  );
+}
 
 /** One clickable row of a picker: a glyph preview and a label. */
 function makeByzOption(spec) {
@@ -132,9 +197,12 @@ function makeByzOption(spec) {
 
 /** One flat list: None, then the sixteen fthores in block order. */
 function buildFthoraPicker(panel, row) {
-  const current = readNoteSymbols(row).fthora;
+  const draft = panel.dataset.draftFthora || "";
   panel.innerHTML = "";
-  panel.appendChild(
+
+  const body = document.createElement("div");
+  body.className = "fthora-picker-body";
+  body.appendChild(
     makeByzOption({ className: "fthora-option", data: { fthora: "" }, glyph: "", label: "None" })
   );
   for (const fthora of BYZ_FTHORES) {
@@ -144,9 +212,11 @@ function buildFthoraPicker(panel, row) {
       glyph: resolveFthoraGlyph(fthora.id),
       label: fthora.label,
     });
-    if (current === fthora.id) option.classList.add("is-selected");
-    panel.appendChild(option);
+    if (draft === fthora.id) option.classList.add("is-selected");
+    body.appendChild(option);
   }
+  panel.appendChild(body);
+  panel.appendChild(buildPickerFooter(panel, row));
 }
 
 function noteRowDegree(row) {
@@ -176,27 +246,56 @@ function byzGroupTitle(text) {
 }
 
 function buildMartyriaPicker(panel, row) {
-  const current = readNoteSymbols(row).martyria;
+  const draft = readMartyriaDraft(panel);
 
   panel.innerHTML = "";
 
   const body = document.createElement("div");
   body.className = "martyria-picker-body";
-  body.appendChild(buildNotesColumn(noteRowDegree(row), getDegreeCount(), current, scaleHasTicks()));
-  body.appendChild(buildGenusColumn(current));
+  body.appendChild(buildNotesColumn(noteRowDegree(row), getDegreeCount(), draft, scaleHasTicks()));
+  body.appendChild(buildGenusColumn(draft));
   panel.appendChild(body);
 
-  const footer = document.createElement("div");
-  footer.className = "martyria-picker-footer";
-  const done = document.createElement("button");
-  done.type = "button";
-  done.className = "martyria-done";
-  done.textContent = "Done";
-  footer.appendChild(done);
-  panel.appendChild(footer);
+  // The well still shows the committed martyria, so the footer is the only
+  // place the draft is visible whole — and the only place its octave tick is.
+  panel.appendChild(
+    buildPickerFooter(panel, row, draft ? resolveMartyriaGlyphs(draft.note, draft.genus, draft.ticks) : "")
+  );
 }
 
-function buildNotesColumn(degree, degreeCount, current, showTicks) {
+/**
+ * Cancel and Apply, and for the martyria picker a preview of the draft.
+ * Apply is dead while the draft still matches the row: there is nothing to
+ * apply, and pressing it would only re-run the ladder for no reason.
+ */
+function buildPickerFooter(panel, row, previewText) {
+  const footer = document.createElement("div");
+  footer.className = "byz-picker-footer";
+
+  if (previewText !== undefined) {
+    const preview = document.createElement("div");
+    preview.className = "byz-preview";
+    preview.textContent = previewText;
+    footer.appendChild(preview);
+  }
+
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.className = "byz-cancel";
+  cancel.textContent = "Cancel";
+  footer.appendChild(cancel);
+
+  const apply = document.createElement("button");
+  apply.type = "button";
+  apply.className = "byz-apply";
+  apply.textContent = "Apply";
+  apply.disabled = !pickerDraftIsDirty(panel, row);
+  footer.appendChild(apply);
+
+  return footer;
+}
+
+function buildNotesColumn(degree, degreeCount, draft, showTicks) {
   const column = document.createElement("div");
   column.className = "martyria-notes-column";
   column.appendChild(byzColumnTitle("Notes"));
@@ -230,7 +329,7 @@ function buildNotesColumn(degree, degreeCount, current, showTicks) {
         label: note.greek + " " + note.latin,
         disabled: !isLadderPositionLegal(position, degree, degreeCount),
       });
-      if (current && current.note === note.id && current.ticks === group.ticks) {
+      if (draft && draft.note === note.id && draft.ticks === group.ticks) {
         option.classList.add("is-selected");
       }
       column.appendChild(option);
@@ -239,12 +338,12 @@ function buildNotesColumn(degree, degreeCount, current, showTicks) {
   return column;
 }
 
-function buildGenusColumn(current) {
+function buildGenusColumn(draft) {
   const column = document.createElement("div");
   column.className = "martyria-genus-column";
   column.appendChild(byzColumnTitle("Genus"));
 
-  if (!current) {
+  if (!draft) {
     column.classList.add("is-inert");
     return column;
   }
@@ -256,15 +355,15 @@ function buildGenusColumn(current) {
     const option = makeByzOption({
       className: "martyria-genus-option",
       data: { genus: id },
-      glyph: resolveMartyriaGlyphs(current.note, id, 0),
+      glyph: resolveMartyriaGlyphs(draft.note, id, 0),
       label: label,
     });
-    if (current.genus === id) option.classList.add("is-selected");
+    if (draft.genus === id) option.classList.add("is-selected");
     return option;
   }
 
   column.appendChild(genusOption(GENUS_NONE, "None"));
-  for (const id of compatibleGenera(current.note)) {
+  for (const id of compatibleGenera(draft.note)) {
     column.appendChild(genusOption(id, byzGenusById(id).label));
   }
 
@@ -272,7 +371,7 @@ function buildGenusColumn(current) {
   separator.className = "byz-separator";
   column.appendChild(separator);
 
-  for (const id of otherGenera(current.note)) {
+  for (const id of otherGenera(draft.note)) {
     column.appendChild(genusOption(id, byzGenusById(id).label));
   }
   return column;
@@ -285,6 +384,7 @@ function toggleWellPicker(well) {
   if (wasOpen) return;
 
   const row = well.closest(".note-row");
+  seedPickerDraft(panel, row);
   if (panel.classList.contains("fthora-picker")) buildFthoraPicker(panel, row);
   else buildMartyriaPicker(panel, row);
   panel.classList.add("open");
@@ -292,56 +392,69 @@ function toggleWellPicker(well) {
 }
 
 /**
- * Closes whatever picker is open. Dismissing a martyria panel — by clicking
- * outside, by re-clicking the well, or by opening another picker — means
- * exactly what pressing Done means: the letter now in the well anchors the
- * ladder, so the rest of the scale follows it. There is no cancel.
+ * Closes whatever picker is open and throws its draft away. Apply is the only
+ * gesture that commits, so every path through here — Cancel, a click outside,
+ * a second click on the well, another picker opening — leaves the scale
+ * untouched, and an untouched scale has nothing to redraw.
  */
 function closeByzantinePickers() {
-  let propagated = false;
   for (const panel of editor.querySelectorAll(".fthora-picker.open, .martyria-picker.open")) {
     panel.classList.remove("open");
+    clearPickerDraft(panel);
     const row = panel.closest(".note-row");
     if (row) row.classList.remove("picker-open");
-    if (row && panel.classList.contains("martyria-picker")) {
-      propagateMartyriaLadder(row);
-      propagated = true;
-    }
   }
-  // The dismissal paths have no render of their own — the document-level
-  // listener just closes things — so the letters written above need one here.
-  if (propagated) render();
 }
 
-function applyByzantineOption(option) {
+/** Moves the open panel's draft, then rebuilds the panel around it. */
+function selectByzantineOption(option) {
   const row = option.closest(".note-row");
   if (!row) return;
 
   if (option.classList.contains("fthora-option")) {
-    writeFthora(row, option.dataset.fthora);
-    closeAllDropdowns();
-  } else if (option.classList.contains("martyria-note-option")) {
-    if (!option.dataset.note) {
-      clearMartyria(row);
-    } else {
-      const existing = readNoteSymbols(row).martyria;
-      writeMartyria(
-        row,
-        option.dataset.note,
-        existing ? existing.genus : GENUS_NONE,
-        parseInt(option.dataset.ticks, 10) || 0
-      );
-    }
-    // Rebuild so the genus previews recompose on the new letter. The panel
-    // stays open: the user picks a note, then a genus, then presses Done.
-    buildMartyriaPicker(row.querySelector(".martyria-picker"), row);
-  } else if (option.classList.contains("martyria-genus-option")) {
-    const existing = readNoteSymbols(row).martyria;
-    if (!existing) return;
-    writeMartyria(row, existing.note, option.dataset.genus, existing.ticks);
-    // Same as above: stays open for Done.
-    buildMartyriaPicker(row.querySelector(".martyria-picker"), row);
+    const panel = row.querySelector(".fthora-picker");
+    panel.dataset.draftFthora = option.dataset.fthora;
+    buildFthoraPicker(panel, row);
+    return;
   }
+
+  const panel = row.querySelector(".martyria-picker");
+  if (option.classList.contains("martyria-note-option")) {
+    const draft = readMartyriaDraft(panel);
+    writeMartyriaDraft(
+      panel,
+      option.dataset.note,
+      draft ? draft.genus : GENUS_NONE,
+      parseInt(option.dataset.ticks, 10) || 0
+    );
+  } else if (option.classList.contains("martyria-genus-option")) {
+    const draft = readMartyriaDraft(panel);
+    if (!draft) return;
+    writeMartyriaDraft(panel, draft.note, option.dataset.genus, draft.ticks);
+  } else {
+    return;
+  }
+  // Rebuild so the genus previews recompose on the drafted letter and the
+  // footer follows it. The panel stays open until Apply or Cancel.
+  buildMartyriaPicker(panel, row);
+}
+
+/** Writes the open panel's draft to its row, and runs the ladder after it. */
+function applyPickerDraft(panel) {
+  const row = panel.closest(".note-row");
+  if (!row) return;
+
+  if (panel.classList.contains("fthora-picker")) {
+    writeFthora(row, panel.dataset.draftFthora || "");
+  } else {
+    const draft = readMartyriaDraft(panel);
+    if (draft) writeMartyria(row, draft.note, draft.genus, draft.ticks);
+    else clearMartyria(row);
+    // The letter the user confirmed anchors the ladder; the rest follows it.
+    // A cleared well anchors nothing, and propagation returns on its own.
+    propagateMartyriaLadder(row);
+  }
+  closeAllDropdowns();
   render();
 }
 
@@ -357,10 +470,21 @@ function handleByzantineClick(e) {
     return true;
   }
 
-  const done = e.target.closest(".martyria-done");
-  if (done) {
+  const apply = e.target.closest(".byz-apply");
+  if (apply) {
     e.stopPropagation();
-    // Done is just an explicit dismissal; closing does the propagating.
+    // A dead Apply is a dead click: it must not even dismiss the panel.
+    if (!apply.disabled) {
+      applyPickerDraft(apply.closest(".fthora-picker, .martyria-picker"));
+    }
+    return true;
+  }
+
+  const cancel = e.target.closest(".byz-cancel");
+  if (cancel) {
+    e.stopPropagation();
+    // Cancel is the explicit spelling of every other dismissal; closing
+    // discards the draft.
     closeAllDropdowns();
     return true;
   }
@@ -368,7 +492,7 @@ function handleByzantineClick(e) {
   const option = e.target.closest(".byz-option");
   if (option) {
     e.stopPropagation();
-    if (!option.disabled) applyByzantineOption(option);
+    if (!option.disabled) selectByzantineOption(option);
     return true;
   }
 

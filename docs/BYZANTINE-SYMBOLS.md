@@ -125,23 +125,32 @@ of per-note lookups.
   illegal anchor to the nearest end of the window the two inequalities above
   describe. The legal window depends on how long the scale is, and a scale
   grows *after* its martyries are set: letters that fitted two degrees need
-  not fit nine. Without the clamp, adding degrees strands them off the top of
-  the ladder with empty wells and no gesture that repairs it. A scale longer
-  than the ladder (more than 28 degrees) has no legal window at all — it
-  anchors at the bottom and the degrees past the top rung stay empty, which is
-  the only case where propagation still skips a row.
+  not fit nine. The picker disables the rows that break the inequalities, so a
+  freshly drafted letter is always legal — but a draft that changed only the
+  *genus* still carries whatever letter the row already had, which may by then
+  be stranded. That is the case the clamp exists for: applying re-anchors the
+  whole scale rather than leaving it with empty wells and no gesture that
+  repairs them. A scale longer than the ladder (more than 28 degrees) has no
+  legal window at all — it anchors at the bottom and the degrees past the top
+  rung stay empty, which is the only case where propagation still skips a row.
 - **Propagation moves letters only.** `propagateMartyriaLadder` (in
   `byzantine-ui.js`) walks every other note row to `ladderNoteAt(base + Δ)`
   from whichever row's martyria the user just confirmed. It only ever changes
   a row's *note*; each row keeps whatever genus it already had (or the
   `GENUS_NONE` sentinel if it had none), and fthores are never touched by the
   ladder at all.
-- **Every dismissal confirms; there is no cancel.** Propagation hangs off
-  `closeByzantinePickers`, not off the Done button, so closing the martyria
-  panel by clicking outside it, by re-clicking the well, or by opening another
-  picker all do exactly what Done does. Done is only the explicit way to say
-  it. A picker that closed without propagating used to be the one way to leave
-  the scale's letters inconsistent with the well the user had just set.
+- **Only Apply confirms; every other way out cancels.** An open picker edits a
+  *draft* held on the panel element (`draftFthora`, `draftNote`, `draftGenus`,
+  `draftTicks`), seeded from the row by `seedPickerDraft` when the panel opens.
+  Clicking an option moves that draft and rebuilds the panel around it:
+  `selectByzantineOption` writes nothing to the row and never renders, so the
+  well goes on showing the committed symbol and the chart never flickers
+  through half-made states. `applyPickerDraft` is the only path that writes the
+  row, propagates the ladder and renders. `closeByzantinePickers` merely closes
+  and drops the draft, so Cancel, a click outside, a second click on the well
+  and another picker opening are one and the same cancel. Apply is disabled
+  while `pickerDraftIsDirty` is false, which makes a picker opened and closed
+  unchanged a no-op in every direction.
 
 ---
 
@@ -159,10 +168,11 @@ is small and localized. What changes:
   font string the JavaScript uses is built from it by `byzantineFont()`: the
   chart's drawing and measuring font, and the face `loadByzantineFont()`
   preloads (§7). Nothing else in the JavaScript names a family.
-- **Both CSS rules that name the family**, because CSS cannot read a JS
-  constant: `.fthora-well, .martyria-well` (the two wells in the editor) and
-  `.byz-glyph` (the previews inside both picker panels). Miss these and the
-  chart changes font while the editor keeps drawing the old one.
+- **All three CSS rules that name the family**, because CSS cannot read a JS
+  constant: `.fthora-well, .martyria-well` (the two wells in the editor),
+  `.byz-glyph` (the previews on every option row of both picker panels) and
+  `.byz-preview` (the drafted martyria in the picker footer). Miss these and
+  the chart changes font while the editor keeps drawing the old one.
 
 Everything else is untouched: the four tables (§2), `MARTYRIA_COMPATIBILITY`
 (§3), the ladder (§5), the pickers (`byzantine-ui.js`), `readScaleData`, and

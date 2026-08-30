@@ -321,21 +321,41 @@ function openWell(harness, noteRow, kind) {
   return noteRow.querySelector(`.${kind}-picker`);
 }
 
-/** Opens the fthora picker and clicks one of its rows. `""` picks None. */
-function pickFthora(harness, noteRow, fthoraId) {
+/**
+ * Dismisses the picker open in `noteRow` with one of the four real gestures:
+ * `"apply"` commits, `"cancel"`, `"outside"` and `"well"` all discard. `"none"`
+ * leaves the panel open for the test to inspect.
+ */
+function dismissPicker(harness, noteRow, how, kind) {
+  if (how === "none") return;
+  // A closed panel keeps its markup, so both panels of a row can hold an Apply
+  // button. Always press the one belonging to the picker under test.
+  const button = (cls) => noteRow.querySelector(`.${kind}-picker ${cls}`);
+  if (how === "apply") fireClick(harness, button(".byz-apply"));
+  else if (how === "cancel") fireClick(harness, button(".byz-cancel"));
+  else if (how === "outside") fireClick(harness, harness.document.body);
+  else if (how === "well") fireClick(harness, noteRow.querySelector(`.${kind}-well`));
+  else throw new Error(`Unknown dismissal "${how}"`);
+}
+
+/**
+ * Opens the fthora picker, clicks one of its rows (`""` picks None) and
+ * dismisses the panel. Only `dismiss: "apply"` — the default — reaches the row.
+ */
+function pickFthora(harness, noteRow, fthoraId, { dismiss = "apply" } = {}) {
   const panel = openWell(harness, noteRow, "fthora");
   const option = panel.querySelector(`.fthora-option[data-fthora="${fthoraId}"]`);
   if (!option) throw new Error(`No fthora option "${fthoraId}" in the picker`);
   fireClick(harness, option);
+  dismissPicker(harness, noteRow, dismiss, "fthora");
 }
 
 /**
- * Drives the martyria picker: opens it, picks a note and/or a genus, then
- * dismisses the panel — with Done when `done` is set, otherwise by clicking
- * the well again. Both gestures propagate the ladder; `done` chooses which
- * path a test exercises, not what it does.
+ * Drives the martyria picker: opens it, drafts a note and/or a genus, then
+ * dismisses the panel. Only `dismiss: "apply"` — the default — writes the draft
+ * to the row and propagates the ladder; the other gestures are cancels.
  */
-function pickMartyria(harness, noteRow, { note, genus, ticks = 0, done = false } = {}) {
+function pickMartyria(harness, noteRow, { note, genus, ticks = 0, dismiss = "apply" } = {}) {
   openWell(harness, noteRow, "martyria");
 
   if (note !== undefined) {
@@ -347,14 +367,13 @@ function pickMartyria(harness, noteRow, { note, genus, ticks = 0, done = false }
   }
 
   if (genus !== undefined) {
-    // Picking a note rebuilds the panel, so the genus option must be re-queried.
+    // Drafting a note rebuilds the panel, so the genus option must be re-queried.
     const option = noteRow.querySelector(`.martyria-genus-option[data-genus="${genus}"]`);
     if (!option) throw new Error(`No genus option "${genus}" in the picker`);
     fireClick(harness, option);
   }
 
-  if (done) fireClick(harness, noteRow.querySelector(".martyria-done"));
-  else fireClick(harness, noteRow.querySelector(".martyria-well"));
+  dismissPicker(harness, noteRow, dismiss, "martyria");
 }
 
 module.exports = {
@@ -374,6 +393,7 @@ module.exports = {
   openWell,
   pickFthora,
   pickMartyria,
+  dismissPicker,
   measureTextWidth,
   measureTextInk,
   scriptPaths,
