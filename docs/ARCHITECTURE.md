@@ -57,6 +57,13 @@ clicked. A picker edits a draft of its own: clicking inside it changes only what
 shows, **Apply** writes that draft to the row, and Cancel — or a click outside, or a second
 click on the well — discards it. See **Notation** below.
 
+A picker opens on the choice the row already holds, scrolled into view; a martyria picker
+with nothing set opens on the middle octave rather than the top of a twenty-one row list.
+The martyria well, the picker's note rows and the picker's footer preview all place their
+glyph the same way, on one baseline shared by the whole martyria vocabulary, so a letter
+lands at the height the face draws it — which is the only thing distinguishing a low-octave
+letter from its middle-octave twin. See `docs/BYZANTINE-SYMBOLS.md` §8.
+
 ## Data Model
 
 The scale is represented as a single JavaScript array of objects:

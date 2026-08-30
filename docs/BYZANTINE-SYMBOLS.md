@@ -227,22 +227,102 @@ guard on it.
 
 ---
 
-## 8. The ink model in the tests
+## 8. Where a sign sits in a box
+
+Three places show a whole martyria — a note row in the picker, the picker's
+footer preview, and the well on the note row — and they must agree, because the
+user reads them against each other. `glyphBoxPlacement()` (`byzantine-ui.js`)
+routes all three to the same placement, so there is one mechanism and not three.
+
+**Every martyria shares one baseline.** `martyriaInkRange()` (`byzantine.js`)
+measures the vertical range the *whole vocabulary* spans in the current face —
+every letter, every mark, ticked and not — and `inkCenteringShift()` centres
+*that* range rather than each composition's own ink. This is not a refinement;
+it is the difference between working and not:
+
+- A low letter and its middle-octave twin are **the same outline drawn at two
+  heights**. In Neanes at 24px the low Πα's ink sits at `[+3.8, +11.1]` and the
+  middle one's at `[−8.9, −1.6]` — identical size, identical advance. Where it
+  sits is the *only* thing that tells the registers apart, and it is how a
+  reader identifies a low letter, which has no octave tick to give it away.
+  Centre each on its own ink and all three registers land in the middle of their
+  box, rendering identically.
+- A genus mark grows the composition on one side only. Centring the composition
+  drags the **letter** off the spot the reader is judging the mark's side
+  against; the shared baseline holds the letter still and lets the mark move.
+
+The genus list is the exception, and deliberately so: a mark shown *without* its
+letter has lost the thing that says which way it faces, so those boxes pin the
+mark to an edge (`"top"` for the low register's `…Above` marks, `"bottom"`
+otherwise) — see `martyriaMarkSide()` in §4. A fthora belongs to no such family
+and is centred on its own ink.
+
+The range is measured once per font string and cached. It is a fact about the
+face, so a second font re-derives it and nothing else changes (§6).
+
+**Offsets are in em, never pixels.** `inkCenteringShiftEm()` measures once at
+`BYZ_FONT_SIZE` and divides. The ink metrics are exactly proportional to the
+font size — verified across 16–64px in Neanes; only the *strut* rounds to whole
+pixels — so one measurement serves the 22px well and the 24px picker row alike.
+The alternative, reading `getComputedStyle(box).fontSize`, is what the old code
+did, and it reports **nothing at all** for a box that is not in the document
+yet. The scale-mode switch rebuilds every note row detached and fills its wells
+before appending them, so every sign was measured against a 40px fallback and
+sat visibly wrong — in both modes, since the switch back rebuilds the same way.
+In em there is no size to get wrong.
+
+---
+
+## 9. Why the octave tick is appended, not prepended
+
+SBMuFL describes `U+E145 martyriaTick` as the vertical tick set *before* a
+martyria. That is a **different use** from this app's, and the leading ornament
+is explicitly out of scope (see the design doc's §1). Here the tick is the
+ladder's octave extension above high Κε (§5), and the two placements do not
+render the same thing:
+
+| | rendered | reads as |
+|---|---|---|
+| `E144 E145` (append) | `χ″` | the second stroke of a double prime — the octave above the high octave |
+| `E145 E144` (prepend) | `′ χ′` | a separate ornament, then a martyria |
+
+A high letter already carries its own octave stroke, so a tick after it lands
+beside that stroke and compounds it. Before the letter it cannot: the high
+letters have a wide left side bearing (0.38 em in Neanes), which opens a visible
+gap the tick sits on the far side of. No Unicode control character closes that
+gap — it is font geometry, and only negative letter-spacing would move it, which
+does not survive a `fillText` and would be a fact about Neanes besides.
+
+Both orders are equally well-formed as text: `martyriaTick` is an ordinary
+spacing glyph (a positive advance of 0.148 em, not the zero advance the
+comparison table in `SBMUFL-FONTS.md` claims), the genus marks are the only
+GPOS marks in play, and in both orders the mark still immediately follows the
+letter it attaches to — which is the one ordering constraint that would break
+silently. `E146`–`E14F` are unassigned in Neanes, so there is no dedicated
+octave glyph to use instead.
+
+`test/unit/byzantine-symbols.test.js` pins both facts, so this does not get
+"corrected" back.
+
+---
+
+## 10. The ink model in the tests
 
 `test/helpers/canvas-stub.js` models font metrics deterministically instead of
 using a real font — see `docs/TESTING.md` §5 for the general
 `measureText`/`measureTextInk` contract. The ratios that shape the model
 (`INK_LEFT_BEARING_RATIO`, `INK_WIDTH_RATIO`, `ASCENT_RATIO`, `DESCENT_RATIO`,
 `MARK_ABOVE_ASCENT_RATIO`, `MARK_BELOW_DESCENT_RATIO`, `FTHORA_ASCENT_RATIO`,
-`FTHORA_DESCENT_RATIO`, `FONT_ASCENT_RATIO`, `FONT_DESCENT_RATIO`) and the
+`FTHORA_DESCENT_RATIO`, `FONT_ASCENT_RATIO`, `FONT_DESCENT_RATIO`,
+`LOW_REGISTER_DROP_RATIO`, `HIGH_REGISTER_RISE_RATIO`) and the
 codepoint ranges it treats as zero-advance marks live at the top of that file.
 It is a **documented model of the shape of a real SBMuFL font's metrics — not a
 measurement of Neanes itself.** Tests that need an expected ink box compute it
 with the exported `measureTextInk()` helper rather than hard-coding numbers,
 the same way non-Byzantine tests use `measureTextWidth()`.
 
-Two properties of that shape exist because ink-centring depends on them, and a
-simpler model would hide the bugs it is there to catch:
+Some properties of that shape exist because ink placement depends on them, and
+a simpler model would hide the bugs it is there to catch:
 
 - **A fthora's ink never crosses the baseline.** `E1D0`–`E1DF` are modelled with
   a *negative* descent, because the face cuts them to ride above a neume. A
@@ -250,6 +330,13 @@ simpler model would hide the bugs it is there to catch:
   is what `inkCenteringShift()` corrects. Every other glyph in the model
   straddles the baseline, so a fthora is the only case that proves the
   correction is measured rather than guessed.
+- **The three octave blocks sit at three heights.** A low letter is modelled as
+  the middle one pushed down by `LOW_REGISTER_DROP_RATIO`, a high one as the
+  middle one reaching up by `HIGH_REGISTER_RISE_RATIO` for its octave stroke —
+  both taken from Neanes. The middle register keeps the model's base ratios, so
+  every measurement that is not about registers is unchanged. Without this the
+  three registers would be indistinguishable in the model and §8's shared
+  baseline could not be tested at all.
 - **The strut is asymmetric.** `fontBoundingBoxAscent` and
   `fontBoundingBoxDescent` are reported (0.775 em and 0.25 em), so the baseline
   does *not* sit in the middle of the line box. A model with a symmetric strut

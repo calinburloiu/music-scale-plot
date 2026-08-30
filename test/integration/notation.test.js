@@ -9,6 +9,7 @@ const {
   noteRows,
   typeInto,
   setNoteCount,
+  selectOption,
 } = require("../helpers/harness.js");
 
 test("the Notation setting", async (t) => {
@@ -258,14 +259,15 @@ test("where a well puts its glyph", async (t) => {
 
     const fthora = shiftOf(row.querySelector(".fthora-well"));
     const martyria = shiftOf(row.querySelector(".martyria-well"));
+    // Offsets are in em, so a quarter of one is a difference nobody could miss.
     assert.ok(
-      Math.abs(fthora - martyria) > 1,
+      Math.abs(fthora - martyria) > 0.25,
       "the two signs sit at different heights in the face, so one offset cannot " +
-        "serve both; got " + fthora + " and " + martyria
+        "serve both; got " + fthora + "em and " + martyria + "em"
     );
   });
 
-  await t.test("re-measures when the glyph changes", () => {
+  await t.test("holds the letter still when a genus mark is hung under it", () => {
     const h = loadApp();
     t.after(() => h.close());
     const row = noteRows(h)[0];
@@ -277,11 +279,85 @@ test("where a well puts its glyph", async (t) => {
     h.app.writeMartyria(row, "midPa", "alpha", 0);
     const marked = shiftOf(well);
 
-    assert.ok(
-      marked < bare,
-      "hanging a genus mark below the letter drops the ink's centre, so the " +
-        "glyph must ride higher; got " + bare + " then " + marked
+    assert.equal(
+      marked, bare,
+      "every martyria shares one baseline, so adding a mark must move the mark " +
+        "into view without dragging the letter with it; got " + bare + " then " + marked
     );
+  });
+
+  await t.test("gives a low letter and its middle-octave twin the same offset", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+    const well = row.querySelector(".martyria-well");
+
+    h.app.writeMartyria(row, "lowPa", h.app.GENUS_NONE, 0);
+    const low = shiftOf(well);
+    h.app.writeMartyria(row, "midPa", h.app.GENUS_NONE, 0);
+    const mid = shiftOf(well);
+
+    // The two letters are the same outline drawn at two heights. Centring each
+    // on its own ink would put both in the middle of the well and make them
+    // identical on screen; one shared offset is what lets the face's own
+    // difference through, which is how a reader tells the registers apart.
+    assert.equal(
+      low, mid,
+      "the register is the font's to show, not the well's to normalise away; got " +
+        low + " and " + mid
+    );
+  });
+
+  await t.test("states the offset in em, so it does not depend on the box's size", () => {
+    // The offset used to be measured in pixels against `getComputedStyle`,
+    // which reports nothing for a box that is not in the document yet — so a
+    // well filled during a rebuild (the scale-mode switch does exactly that)
+    // was measured against the wrong font and sat visibly wrong. In em there is
+    // no size to get wrong: CSS resolves it against the box's real font size.
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeFthora(row, "diatonicPa");
+    h.app.writeMartyria(row, "midPa", "alpha", 0);
+
+    for (const selector of [".fthora-well", ".martyria-well"]) {
+      const ink = row.querySelector(selector + " .glyph-ink");
+      for (const property of ["--ink-dx", "--ink-dy"]) {
+        assert.match(
+          ink.style.getPropertyValue(property),
+          /em$/,
+          selector + " " + property + " should be an em offset, not a pixel one"
+        );
+      }
+    }
+  });
+
+  await t.test("keeps both wells' offsets across a scale-mode switch and back", () => {
+    // The reported bug: switching to Absolute rebuilt every note row and filled
+    // its wells while the row was still detached, so the signs came back
+    // misaligned — and stayed wrong on the way back.
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+    const offsets = () =>
+      noteRows(h).map((row) =>
+        [".fthora-well", ".martyria-well"].map((s) => {
+          const ink = row.querySelector(s + " .glyph-ink");
+          return ink ? ink.style.getPropertyValue("--ink-dy") : null;
+        }).join("|")
+      );
+
+    h.app.writeFthora(noteRows(h)[0], "diatonicPa");
+    h.app.writeMartyria(noteRows(h)[0], "lowPa", "alpha", 0);
+    const before = offsets();
+
+    selectOption(h, "scale-mode", "absolute");
+    const inAbsolute = offsets();
+    selectOption(h, "scale-mode", "relative");
+
+    assert.deepEqual(inAbsolute, before, "switching to Absolute must not move the signs");
+    assert.deepEqual(offsets(), before, "and switching back must not either");
   });
 
   await t.test("leaves an empty well with nothing to offset", () => {

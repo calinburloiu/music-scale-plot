@@ -629,6 +629,173 @@ test("centring a glyph's ink inside a box", async (t) => {
   });
 });
 
+test("seating every martyria on one shared baseline", async (t) => {
+  // Centring a martyria on its *own* ink throws away the one thing that tells
+  // the three octaves apart: a low letter and its middle-octave twin are the
+  // same outline drawn at two heights, so once each is centred in its own box
+  // they are indistinguishable — and a genus mark, which grows the composition
+  // on one side only, drags the letter off the position the reader is judging.
+  // The whole family therefore shares one baseline, taken from the range the
+  // *vocabulary* spans, so a letter lands where the face draws it.
+
+  await t.test("spans every letter, mark and tick the vocabulary can compose", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = h.app.byzantineFont(h.app.BYZ_FONT_SIZE);
+
+    const range = h.app.martyriaInkRange(h.ctx, font);
+
+    for (const note of h.app.BYZ_NOTES) {
+      for (const genus of ["none"].concat(h.app.BYZ_GENERA.map((g) => g.id))) {
+        const ticks = note.octave === "high" ? 1 : 0;
+        const box = h.app.inkBox(h.ctx, h.app.resolveMartyriaGlyphs(note.id, genus, ticks), font);
+        assert.ok(
+          box.top >= range.top - 1e-9 && box.bottom <= range.bottom + 1e-9,
+          note.id + "+" + genus + " escapes the shared range: ink [" + box.top + ", " +
+            box.bottom + "] vs range [" + range.top + ", " + range.bottom + "]"
+        );
+      }
+    }
+  });
+
+  // Where the top edge of a composition's ink lands, measured down from the top
+  // of its line box, once the shared-baseline shift has been applied.
+  function inkTopAfterShift(h, text, font, range) {
+    const size = parseFloat(font);
+    const m = measureTextInk(text, font);
+    const shift = h.app.inkCenteringShift(h.ctx, text, font, "center", range);
+    const baselineFromTop =
+      size / 2 + (m.fontBoundingBoxAscent - m.fontBoundingBoxDescent) / 2 + shift.dy;
+    return baselineFromTop - m.actualBoundingBoxAscent;
+  }
+
+  await t.test("lands a low letter below its middle-octave twin", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = h.app.byzantineFont(h.app.BYZ_FONT_SIZE);
+    const range = h.app.martyriaInkRange(h.ctx, font);
+    const top = (id) => inkTopAfterShift(h, h.app.resolveMartyriaGlyphs(id, "none", 0), font, range);
+
+    assert.ok(
+      top("lowPa") > top("midPa") + 1,
+      "the face draws the low Πα below the middle one; centring each on its own " +
+        "ink would hide that, so the shared baseline must keep it; got " +
+        top("lowPa") + " and " + top("midPa")
+    );
+    assert.ok(
+      top("midPa") > top("highPa"),
+      "and the high Πα, which carries the octave stroke, must reach higher still; got " +
+        top("midPa") + " and " + top("highPa")
+    );
+  });
+
+  await t.test("does not move the letter when a genus mark is hung under it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = h.app.byzantineFont(h.app.BYZ_FONT_SIZE);
+    const range = h.app.martyriaInkRange(h.ctx, font);
+    // A middle letter takes its mark below, so the composition's top edge is
+    // the letter's own top edge either way.
+    const top = (genus) =>
+      inkTopAfterShift(h, h.app.resolveMartyriaGlyphs("midPa", genus, 0), font, range);
+
+    closeTo(
+      top("alpha"), top("none"), 1e-9,
+      "the letter is the fixed point a reader judges the mark's side against, so " +
+        "hanging a mark under it must not shift it"
+    );
+  });
+
+  await t.test("centres that shared range in the box, so the family fits", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const size = h.app.BYZ_FONT_SIZE;
+    const font = h.app.byzantineFont(size);
+    const range = h.app.martyriaInkRange(h.ctx, font);
+    const text = h.app.resolveMartyriaGlyphs("midPa", "none", 0);
+    const m = measureTextInk(text, font);
+    const shift = h.app.inkCenteringShift(h.ctx, text, font, "center", range);
+    // .glyph-ink is line-height: 1, so the line box is one font size tall.
+    const baselineFromTop =
+      size / 2 + (m.fontBoundingBoxAscent - m.fontBoundingBoxDescent) / 2 + shift.dy;
+
+    closeTo(
+      baselineFromTop + (range.top + range.bottom) / 2, size / 2, 1e-9,
+      "the shared range's middle should land on the box's middle"
+    );
+  });
+
+  await t.test("measures the range once and reuses it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = h.app.byzantineFont(h.app.BYZ_FONT_SIZE);
+
+    const first = h.app.martyriaInkRange(h.ctx, font);
+    const real = h.ctx.measureText.bind(h.ctx);
+    let measured = 0;
+    h.ctx.measureText = (text) => {
+      measured++;
+      return real(text);
+    };
+    const second = h.app.martyriaInkRange(h.ctx, font);
+
+    assert.equal(second, first, "the range for a font is a constant; it should be cached");
+    assert.equal(measured, 0, "a cached range must not measure the vocabulary again");
+  });
+
+  await t.test("leaves the context's text state as it found it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    h.ctx.font = "24px sans-serif";
+    h.ctx.textAlign = "right";
+    h.ctx.textBaseline = "middle";
+
+    h.app.martyriaInkRange(h.ctx, '37px "Neanes"');
+
+    assert.equal(h.ctx.font, "24px sans-serif");
+    assert.equal(h.ctx.textAlign, "right", "measuring must not leak an alignment change");
+    assert.equal(h.ctx.textBaseline, "middle");
+  });
+});
+
+test("expressing an ink offset in em", async (t) => {
+  // A box's offset used to be measured in pixels, at whatever size
+  // `getComputedStyle` reported for that box. A box that is not in the document
+  // yet reports no size at all, so the offset was measured against the wrong
+  // font and the sign sat visibly wrong — see the scale-mode switch. Measuring
+  // once and reporting the answer in em removes the question: the ink metrics
+  // are exactly proportional to the font size, and CSS resolves em against the
+  // size the box really renders at, attached or not.
+
+  await t.test("reports the shift as a fraction of the em", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const size = h.app.BYZ_FONT_SIZE;
+    const font = h.app.byzantineFont(size);
+    const text = h.app.resolveFthoraGlyph("diatonicPa");
+
+    const px = h.app.inkCenteringShift(h.ctx, text, font);
+    const em = h.app.inkCenteringShiftEm(h.ctx, text);
+
+    closeTo(em.dy, px.dy / size, 1e-9, "dy should be the pixel shift divided by the font size");
+    closeTo(em.dx, px.dx / size, 1e-9, "and dx likewise");
+  });
+
+  await t.test("is the same offset whatever size the box renders at", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const text = h.app.resolveMartyriaGlyphs("midPa", "alpha", 0);
+
+    const em = h.app.inkCenteringShiftEm(h.ctx, text);
+    const small = h.app.inkCenteringShift(h.ctx, text, h.app.byzantineFont(22));
+
+    closeTo(
+      em.dy * 22, small.dy, 1e-9,
+      "an em offset must land the 22px well's glyph exactly where measuring at 22px would"
+    );
+  });
+});
+
 test("drawing ink-anchored glyphs", async (t) => {
   function drawn(h, text, x, y, options) {
     h.ctx.reset();

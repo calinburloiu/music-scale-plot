@@ -341,19 +341,32 @@ function inkBox(ctx, text, font) {
  * list, which is the fixed point a reader judges the mark's position against.
  * It assumes the glyph's line box is one font size tall (`line-height: 1`).
  *
+ * `range` replaces the ink box the *vertical* centring is computed from, while
+ * the glyph is still drawn as itself. Pass one family's whole range and every
+ * member of it lands on a single shared baseline, which is the only way a
+ * reader can see that one sign is drawn higher than another — centre each on
+ * its own ink and that difference is exactly what is normalised away. See
+ * `martyriaInkRange`.
+ *
  * Positive `dy` moves the glyph down, positive `dx` moves it right.
  */
-function inkCenteringShift(ctx, text, font, vAlign) {
+function inkCenteringShift(ctx, text, font, vAlign, range) {
   if (!text) return { dx: 0, dy: 0 };
 
   const box = inkBox(ctx, text, font);
+  // Horizontal centring is always this glyph's own business: a shared range
+  // says where the family sits vertically, not how wide any member of it is.
+  const anchor = range || box;
 
   // A line box seats its baseline (ascent - descent) / 2 below its own middle,
   // whatever its line-height; the ink then sits (top + bottom) / 2 from that
   // baseline. Undo both.
   const dx = box.adv / 2 - (box.left + box.right) / 2;
   if (vAlign !== "top" && vAlign !== "bottom") {
-    return { dx: dx, dy: -((box.fontAscent - box.fontDescent) / 2 + (box.top + box.bottom) / 2) };
+    return {
+      dx: dx,
+      dy: -((box.fontAscent - box.fontDescent) / 2 + (anchor.top + anchor.bottom) / 2),
+    };
   }
 
   // Pinned instead: measure from the line box's own edge. The caller has told
@@ -364,6 +377,58 @@ function inkCenteringShift(ctx, text, font, vAlign) {
     dx: dx,
     dy: vAlign === "top" ? -(baselineFromTop + box.top) : lineHeight - (baselineFromTop + box.bottom),
   };
+}
+
+// The vertical range every martyria in the vocabulary occupies, per font. A
+// letter's register is carried by *where it is drawn*: the three octave blocks
+// share their outlines and differ by the height they sit at, so a box that
+// centres each letter on its own ink shows the same picture for all three. One
+// range, shared by every composition, keeps that difference on screen — and
+// keeps the letter still when a genus mark grows the composition beneath it.
+//
+// Measured, never assumed: the range is a fact about the face, so a second font
+// re-derives it here and nothing else changes. One pass over the vocabulary is
+// a few hundred measurements, so it is done once per font and cached.
+const martyriaInkRangeCache = new Map();
+
+function martyriaInkRange(ctx, font) {
+  const cached = martyriaInkRangeCache.get(font);
+  if (cached) return cached;
+
+  let top = Infinity;
+  let bottom = -Infinity;
+  for (const note of BYZ_NOTES) {
+    // Only the high letters are ever ticked, and only by one octave.
+    const maxTicks = note.octave === "high" ? 1 : 0;
+    for (let ticks = 0; ticks <= maxTicks; ticks++) {
+      for (const genus of [GENUS_NONE].concat(BYZ_GENERA.map((g) => g.id))) {
+        const box = inkBox(ctx, resolveMartyriaGlyphs(note.id, genus, ticks), font);
+        top = Math.min(top, box.top);
+        bottom = Math.max(bottom, box.bottom);
+      }
+    }
+  }
+
+  const range = Object.freeze({ top: top, bottom: bottom });
+  martyriaInkRangeCache.set(font, range);
+  return range;
+}
+
+/**
+ * The same offset as `inkCenteringShift`, as a fraction of the em.
+ *
+ * A box's offset used to be measured in pixels at whatever size
+ * `getComputedStyle` reported for that box — which is nothing at all for a box
+ * that is not in the document yet, so the sign was measured against the wrong
+ * font and sat visibly wrong. The ink metrics are exactly proportional to the
+ * font size, so measuring once at a nominal size and reporting em removes the
+ * question: CSS resolves em against the size the box really renders at, whether
+ * that is the well's 22px or a picker row's 24px, attached or not.
+ */
+function inkCenteringShiftEm(ctx, text, vAlign, range) {
+  const font = byzantineFont(BYZ_FONT_SIZE);
+  const shift = inkCenteringShift(ctx, text, font, vAlign, range);
+  return { dx: shift.dx / BYZ_FONT_SIZE, dy: shift.dy / BYZ_FONT_SIZE };
 }
 
 /**

@@ -45,12 +45,32 @@ const FTHORA_DESCENT_RATIO = -0.65;
 const FONT_ASCENT_RATIO = 0.775;
 const FONT_DESCENT_RATIO = 0.25;
 
+// The three octave blocks of note letters are *drawn at three heights*. A low
+// letter and its middle-octave twin have the same outline and the same advance;
+// where the ink sits relative to the baseline is the only thing that tells them
+// apart, which is why anything that re-centres a letter on its own ink erases
+// the register. Measured from Neanes and expressed in em, relative to a middle
+// letter: a low letter is the same shape pushed down, a high one is the same
+// shape with the octave stroke added on top. Middle is left at the model's base
+// ratios, so every measurement not about registers is unchanged.
+const LETTER_FIRST = 0xe130;
+const LETTER_LAST = 0xe144;
+const LETTERS_PER_OCTAVE = 7;
+const LOW_REGISTER_DROP_RATIO = 0.53;
+const HIGH_REGISTER_RISE_RATIO = 0.18;
+
 const MARK_BELOW_FIRST = 0xe150;
 const MARK_BELOW_LAST = 0xe15b;
 const MARK_ABOVE_FIRST = 0xe170;
 const MARK_ABOVE_LAST = 0xe17b;
 const FTHORA_FIRST = 0xe1d0;
 const FTHORA_LAST = 0xe1df;
+
+/** 0 low, 1 middle, 2 high — or -1 when the codepoint is not a note letter. */
+function letterOctave(code) {
+  if (code < LETTER_FIRST || code > LETTER_LAST) return -1;
+  return Math.floor((code - LETTER_FIRST) / LETTERS_PER_OCTAVE);
+}
 
 function isZeroAdvance(code) {
   return code >= MARK_BELOW_FIRST && code <= MARK_ABOVE_LAST;
@@ -89,6 +109,7 @@ function measureTextInk(text, font) {
 
     let charTop = -size * ASCENT_RATIO;
     let charBottom = size * DESCENT_RATIO;
+    const octave = letterOctave(code);
     if (code >= FTHORA_FIRST && code <= FTHORA_LAST) {
       charTop = -size * FTHORA_ASCENT_RATIO;
       charBottom = size * FTHORA_DESCENT_RATIO;
@@ -96,6 +117,11 @@ function measureTextInk(text, font) {
       charTop = -size * MARK_ABOVE_ASCENT_RATIO;
     } else if (code >= MARK_BELOW_FIRST && code <= MARK_BELOW_LAST) {
       charBottom = size * MARK_BELOW_DESCENT_RATIO;
+    } else if (octave === 0) {
+      charTop += size * LOW_REGISTER_DROP_RATIO;
+      charBottom += size * LOW_REGISTER_DROP_RATIO;
+    } else if (octave === 2) {
+      charTop -= size * HIGH_REGISTER_RISE_RATIO;
     }
 
     if (index === 0) {

@@ -950,10 +950,11 @@ test("how a picker row shows its symbol", async (t) => {
       fthoraDy > 0,
       "a fthora's ink clears the baseline, so its box has to push it down; got " + fthoraDy
     );
+    // Offsets are in em, so a quarter of one is a difference nobody could miss.
     assert.ok(
-      Math.abs(fthoraDy - dyOf(martyria)) > 1,
+      Math.abs(fthoraDy - dyOf(martyria)) > 0.25,
       "the two signs sit at different heights in the face, so one offset cannot serve " +
-        "both rows; got " + fthoraDy + " and " + dyOf(martyria)
+        "both rows; got " + fthoraDy + "em and " + dyOf(martyria) + "em"
     );
   });
 
@@ -968,6 +969,46 @@ test("how a picker row shows its symbol", async (t) => {
     assert.ok(
       preview.querySelector(".glyph-ink"),
       "the drafted sign is the one the well will show, so it gets the well's treatment"
+    );
+  });
+
+  await t.test("seats a note row, the preview and the well identically", () => {
+    // The three places a whole martyria appears must agree, because the user
+    // reads them against each other: the row is what they pick, the preview is
+    // what they are about to commit, and the well is what they committed. One
+    // mechanism, one offset.
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    const panel = openWell(h, row, "martyria");
+
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="lowPa"]'));
+    const option = row.querySelector('.martyria-note-option[data-note="lowPa"]');
+    const preview = row.querySelector(".martyria-picker .byz-preview");
+    fireClick(h, row.querySelector(".martyria-picker .byz-apply"));
+    const well = row.querySelector(".martyria-well");
+
+    const dy = (el) => el.querySelector(".glyph-ink").style.getPropertyValue("--ink-dy");
+    assert.equal(dy(option), dy(preview), "the picked row and the preview must agree");
+    assert.equal(dy(preview), dy(well), "and the preview and the well must agree");
+  });
+
+  await t.test("holds a note row's letter at the height the face draws it", () => {
+    // Low letters are the only ones with no octave tick to identify them: the
+    // face tells them apart by drawing them lower. Centring each row's letter
+    // on its own ink puts every register in the middle of its box and makes the
+    // three identical, so the rows share one baseline instead.
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "martyria");
+    const dyOfNote = (note) =>
+      parseFloat(
+        panel
+          .querySelector('.martyria-note-option[data-note="' + note + '"] .glyph-ink')
+          .style.getPropertyValue("--ink-dy")
+      );
+
+    assert.equal(
+      dyOfNote("lowPa"), dyOfNote("midPa"),
+      "one shared offset, so the letters land where the face draws them"
     );
   });
 });

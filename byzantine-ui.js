@@ -81,25 +81,27 @@ function wellMeasuringContext() {
   return wellMeasuringCtx;
 }
 
-/** The font a box actually renders in, so the measurement matches the paint. */
-function glyphBoxFont(box) {
-  const size = parseFloat(getComputedStyle(box).fontSize);
-  return byzantineFont(size > 0 ? size : undefined);
-}
-
 /**
- * Puts `text` in `box` with its *ink* centred rather than its baseline.
+ * Puts `text` in `box` with its *ink* placed rather than its baseline.
  *
  * The glyph goes in a span of its own so it has something to be offset by: a
  * fthora would otherwise float in the top third of the box and a martyria's
  * genus mark would hang below the border. The offset is measured per glyph —
  * see `inkCenteringShift` for why it cannot be a constant.
  *
- * `box` must already be in the document, unless the caller passes `font`: the
- * offset depends on the size the box actually renders at, and only a computed
- * style knows that.
+ * `placement` is one of:
+ *
+ *   "center"   the glyph's own ink, centred — a sign shown on its own.
+ *   "top"      pinned against an edge of the box. What the genus list needs:
+ *   "bottom"     a mark shown without its letter has to say which way it faces.
+ *   "martyria" the shared martyria baseline, so a letter lands where the face
+ *              draws it and a mark cannot drag it off that spot.
+ *
+ * The offset comes back in em, so it is right for the 22px well and the 24px
+ * picker row alike and does not depend on the box being in the document — a box
+ * filled during a rebuild has no computed size to measure against.
  */
-function setGlyphBoxText(box, text, font, vAlign) {
+function setGlyphBoxText(box, text, placement) {
   box.textContent = "";
   if (!text) return;
 
@@ -107,49 +109,53 @@ function setGlyphBoxText(box, text, font, vAlign) {
   ink.className = "glyph-ink";
   ink.textContent = text;
 
-  const shift = inkCenteringShift(wellMeasuringContext(), text, font || glyphBoxFont(box), vAlign);
-  ink.style.setProperty("--ink-dx", shift.dx.toFixed(2) + "px");
-  ink.style.setProperty("--ink-dy", shift.dy.toFixed(2) + "px");
+  const ctx = wellMeasuringContext();
+  const shared =
+    placement === "martyria" ? martyriaInkRange(ctx, byzantineFont(BYZ_FONT_SIZE)) : null;
+  const shift = inkCenteringShiftEm(ctx, text, shared ? "center" : placement, shared);
+  ink.style.setProperty("--ink-dx", shift.dx.toFixed(4) + "em");
+  ink.style.setProperty("--ink-dy", shift.dy.toFixed(4) + "em");
 
   box.appendChild(ink);
 }
 
-function fillWell(well, text) {
-  setGlyphBoxText(well, text);
+function fillWell(well, text, placement) {
+  setGlyphBoxText(well, text, placement);
   well.classList.toggle("is-empty", !text);
 }
 
 /**
- * Boxes and ink-centres every sign in a freshly built panel.
+ * Boxes and places every sign in a freshly built panel.
  *
- * A picker's rows are assembled detached and appended in one go, so this runs
- * afterwards, when the boxes finally have a computed font size. Re-reading
- * `textContent` picks the glyph back up whether the box still holds a bare
- * text node or an already-wrapped one, which keeps a rebuild idempotent.
+ * Re-reading `textContent` picks the glyph back up whether the box still holds
+ * a bare text node or an already-wrapped one, which keeps a rebuild idempotent.
  */
 function centerPickerGlyphs(panel) {
-  // Every box of a given class renders at the same size, and asking for a
-  // computed style is the expensive part of this pass — a panel holds up to
-  // three dozen boxes — so the font is resolved once per class, not per box.
-  const fonts = new Map();
   for (const box of panel.querySelectorAll(".byz-glyph, .byz-preview")) {
-    const key = box.className;
-    if (!fonts.has(key)) fonts.set(key, glyphBoxFont(box));
-    setGlyphBoxText(box, box.textContent, fonts.get(key), glyphBoxAlign(box));
+    setGlyphBoxText(box, box.textContent, glyphBoxPlacement(box));
   }
 }
 
 /**
- * Where a box should seat its sign. Only the genus list pins: a mark shown on
- * its own has lost the letter that would say which way it faces, so the box
- * says it instead — a mark that stacks above the letter rides the top of its
- * box, one that stacks below sits at the bottom. Everywhere else a box holds a
- * whole sign with nothing to compare it against, so it is centred.
+ * Where a box should seat its sign.
+ *
+ * The genus list pins: a mark shown on its own has lost the letter that would
+ * say which way it faces, so the box says it instead — a mark that stacks above
+ * the letter rides the top of its box, one that stacks below sits at the
+ * bottom.
+ *
+ * Anything showing a whole martyria — a note row, the footer preview, the well
+ * itself — takes the shared martyria baseline, so all three agree and none of
+ * them normalises the register away. A fthora has no family to sit in, so it is
+ * centred on its own ink.
  */
-function glyphBoxAlign(box) {
+function glyphBoxPlacement(box) {
   const column = box.closest(".martyria-genus-column");
-  if (!column) return "center";
-  return column.classList.contains("genus-above") ? "top" : "bottom";
+  if (column) return column.classList.contains("genus-above") ? "top" : "bottom";
+  if (box.closest(".martyria-notes-column") || box.classList.contains("byz-preview")) {
+    return "martyria";
+  }
+  return "center";
 }
 
 function refreshNoteRowWells(row) {
@@ -162,11 +168,14 @@ function refreshNoteRowWells(row) {
 
   const martyriaWell = row.querySelector(".martyria-well");
   if (martyriaWell) {
+    // The same placement the picker's preview uses, so the well shows exactly
+    // what the preview promised.
     fillWell(
       martyriaWell,
       symbols.martyria
         ? resolveMartyriaGlyphs(symbols.martyria.note, symbols.martyria.genus, symbols.martyria.ticks)
-        : ""
+        : "",
+      "martyria"
     );
   }
 }

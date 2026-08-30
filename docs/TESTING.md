@@ -278,7 +278,7 @@ Two consequences worth knowing:
 | API | Stub | Why |
 |---|---|---|
 | `canvas.getContext("2d")` | `RecordingContext2D` | jsdom has no canvas. Records every draw call with the drawing state active at the time. |
-| `ctx.measureText` | ink model: `length × fontSize × 0.6` advance, plus modelled bounding-box and font metrics, reported **from the anchor `textAlign`/`textBaseline` choose** | Deterministic stand-in for font metrics. Font-size sensitive, so the 24px UI font and 21px monospace font measure differently, as in a browser. Also models ink for Byzantine glyphs: zero-advance genus marks, a mark-aware ascent/descent that grows for an `…Above` or `…Below` mark, a fthora whose ink sits *entirely above* the baseline (a negative descent), and an asymmetric `fontBoundingBox…` strut. Like a real canvas it moves the bounding box with `textAlign` and `textBaseline`, so measuring without pinning them is a bug a test can catch — see the ratio table in `canvas-stub.js` and `docs/BYZANTINE-SYMBOLS.md` §8. |
+| `ctx.measureText` | ink model: `length × fontSize × 0.6` advance, plus modelled bounding-box and font metrics, reported **from the anchor `textAlign`/`textBaseline` choose** | Deterministic stand-in for font metrics. Font-size sensitive, so the 24px UI font and 21px monospace font measure differently, as in a browser. Also models ink for Byzantine glyphs: zero-advance genus marks, a mark-aware ascent/descent that grows for an `…Above` or `…Below` mark, a fthora whose ink sits *entirely above* the baseline (a negative descent), an asymmetric `fontBoundingBox…` strut, and the three octave blocks of note letters drawn at three different heights — the only thing that tells a low letter from its middle-octave twin. Like a real canvas it moves the bounding box with `textAlign` and `textBaseline`, so measuring without pinning them is a bug a test can catch — see the ratio table in `canvas-stub.js` and `docs/BYZANTINE-SYMBOLS.md` §10. |
 | `canvas.toDataURL` | records the call | Lets export tests check the exported size. |
 | `AudioContext` | `FakeAudioContext` | Records oscillators, gains and every scheduled parameter change. |
 | `HTMLAnchorElement.click` | records `{download, href}` | jsdom cannot navigate or download. |
@@ -367,7 +367,7 @@ Conventions:
 
 ## 7. Adding a feature to this app
 
-1. Read `docs/PLAN-01.md` — it is the source of truth for intended behaviour —
+1. Read `docs/ARCHITECTURE.md` — it is the source of truth for intended behaviour —
    and update it if the feature changes the design.
 2. Decide where the behaviour is observable: a pure function, the editor's DOM
    model, or the chart's geometry. That tells you which test file to open.
