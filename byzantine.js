@@ -68,6 +68,11 @@ const BYZ_GENERA = freezeTable([
 // Sixteen fthores: the standalone block, which has a normal advance. The
 // zero-advance Above/Secondary/Tertiary/Below variants are meant to ride a
 // neume and are not used here.
+//
+// The diatonic and chromatic fthores are named for the degree they sit on, so
+// the psaltic name is enough. Enharmonic and the three chroes are not: they
+// name a flavour, and a reader coming from Ottoman makam is likelier to know
+// them as Acem, Muştar, Nişabur and Hisar — so those four labels carry both.
 const BYZ_FTHORES = freezeTable([
   { id: "diatonicNiLow", index: 0, label: "Diatonic Νη (low)" },
   { id: "diatonicPa", index: 1, label: "Diatonic Πα" },
@@ -81,10 +86,10 @@ const BYZ_FTHORES = freezeTable([
   { id: "hardChromaticDi", index: 9, label: "Hard chromatic Δι" },
   { id: "softChromaticDi", index: 10, label: "Soft chromatic Δι" },
   { id: "softChromaticKe", index: 11, label: "Soft chromatic Κε" },
-  { id: "enharmonic", index: 12, label: "Enharmonic" },
-  { id: "chroaZygos", index: 13, label: "Zygos" },
-  { id: "chroaKliton", index: 14, label: "Kliton" },
-  { id: "chroaSpathi", index: 15, label: "Spathi" },
+  { id: "enharmonic", index: 12, label: "Enharmonic (Acem)" },
+  { id: "chroaZygos", index: 13, label: "Zygos (Muştar)" },
+  { id: "chroaKliton", index: 14, label: "Kliton (Nişabur)" },
+  { id: "chroaSpathi", index: 15, label: "Spathi (Hisar)" },
 ]);
 
 // Per note, the genera the modes table pairs with it: de-duplicated, in the

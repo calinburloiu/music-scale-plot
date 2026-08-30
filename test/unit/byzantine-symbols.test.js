@@ -129,6 +129,21 @@ test("the fthora vocabulary", async (t) => {
     assert.equal(h.app.byzFthoraById("nonesuch"), null);
   });
 
+  await t.test("names the four chroes by their makam equivalents too", () => {
+    // Enharmonic and the three chroes are the fthores a reader is most likely
+    // to know under an Ottoman name rather than a psaltic one, so each label
+    // carries both. The diatonic and chromatic fthores are named for the degree
+    // they sit on and need no gloss.
+    const h = loadApp();
+    t.after(() => h.close());
+    const labelOf = (id) => h.app.byzFthoraById(id).label;
+
+    assert.equal(labelOf("enharmonic"), "Enharmonic (Acem)");
+    assert.equal(labelOf("chroaZygos"), "Zygos (Mu\u015ftar)");
+    assert.equal(labelOf("chroaKliton"), "Kliton (Ni\u015fabur)");
+    assert.equal(labelOf("chroaSpathi"), "Spathi (Hisar)");
+  });
+
   await t.test("is frozen: the vocabulary table cannot be mutated", () => {
     const h = loadApp();
     t.after(() => h.close());
