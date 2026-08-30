@@ -42,6 +42,12 @@ function readNoteSymbols(row) {
 }
 
 function writeMartyria(row, noteId, genusId, ticks) {
+  // No note is no martyria: never leave an empty attribute behind for
+  // readNoteSymbols to step over.
+  if (!noteId) {
+    clearMartyria(row);
+    return;
+  }
   row.dataset.martyriaNote = noteId;
   row.dataset.martyriaGenus = genusId || GENUS_NONE;
   row.dataset.martyriaTicks = String(ticks || 0);
@@ -143,10 +149,6 @@ function buildFthoraPicker(panel, row) {
   }
 }
 
-function degreeCount() {
-  return editor.querySelectorAll(".note-row").length;
-}
-
 function noteRowDegree(row) {
   return parseInt(row.dataset.degree, 10) || 1;
 }
@@ -180,7 +182,7 @@ function buildMartyriaPicker(panel, row) {
 
   const body = document.createElement("div");
   body.className = "martyria-picker-body";
-  body.appendChild(buildNotesColumn(noteRowDegree(row), degreeCount(), current, scaleHasTicks()));
+  body.appendChild(buildNotesColumn(noteRowDegree(row), getDegreeCount(), current, scaleHasTicks()));
   body.appendChild(buildGenusColumn(current));
   panel.appendChild(body);
 
@@ -194,7 +196,7 @@ function buildMartyriaPicker(panel, row) {
   panel.appendChild(footer);
 }
 
-function buildNotesColumn(degree, count, current, showTicks) {
+function buildNotesColumn(degree, degreeCount, current, showTicks) {
   const column = document.createElement("div");
   column.className = "martyria-notes-column";
   column.appendChild(byzColumnTitle("Notes"));
@@ -226,7 +228,7 @@ function buildNotesColumn(degree, count, current, showTicks) {
         data: { note: note.id, ticks: String(group.ticks) },
         glyph: resolveMartyriaGlyphs(note.id, GENUS_NONE, group.ticks),
         label: note.greek + " " + note.latin,
-        disabled: !isLadderPositionLegal(position, degree, count),
+        disabled: !isLadderPositionLegal(position, degree, degreeCount),
       });
       if (current && current.note === note.id && current.ticks === group.ticks) {
         option.classList.add("is-selected");

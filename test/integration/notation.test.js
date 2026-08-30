@@ -173,6 +173,24 @@ test("symbol state on a note row", async (t) => {
     assert.equal(row.dataset.martyriaTicks, undefined);
   });
 
+  await t.test("treats writing an empty note as clearing the martyria", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeMartyria(row, "midPa", "alpha", 1);
+    h.app.writeMartyria(row, "", "alpha", 1);
+
+    assert.equal(h.app.readNoteSymbols(row).martyria, null);
+    assert.equal(
+      row.dataset.martyriaNote,
+      undefined,
+      "an empty note id must leave no attribute behind, not an empty one"
+    );
+    assert.equal(row.dataset.martyriaGenus, undefined);
+    assert.equal(row.dataset.martyriaTicks, undefined);
+  });
+
   await t.test("stores and clears a fthora independently of the martyria", () => {
     const h = loadApp();
     t.after(() => h.close());

@@ -252,7 +252,7 @@ function addNote() {
   const mode = getScaleMode();
   const degree = getDegreeCount() + 1;
   const defaultVal = getDefaultIntervalValue();
-  const prevNoteRow = editor.querySelector(".note-row:last-of-type");
+  const prevNoteRow = [...editor.querySelectorAll(".note-row")].at(-1);
 
   const intervalRow = document.createElement("div");
   intervalRow.className = "row interval-row";
@@ -754,7 +754,6 @@ function render() {
   const noteBandH = isByzantine ? byzantineNoteBandHeight(maxNoteHeight) : NOTE_TEXT_HEIGHT;
   const byz = {
     on: isByzantine,
-    font: byzFont,
     gutter: fthoraGutter,
     anchor: fthoraAnchor,
     overhang: signOverhang,
