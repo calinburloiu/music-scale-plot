@@ -362,12 +362,19 @@ test("readScaleData and the note symbols", async (t) => {
     const h = loadApp();
     t.after(() => h.close());
     h.app.writeMartyria(noteRows(h)[0], "midPa", "alpha", 0);
+    h.app.writeFthora(noteRows(h)[0], "diatonicPa");
 
     const generic = h.app.readScaleData().filter((item) => item.type === "note")[0];
     setNotation(h, "byzantine");
     const byzantine = h.app.readScaleData().filter((item) => item.type === "note")[0];
 
     assert.deepEqual({ ...byzantine.martyria }, { ...generic.martyria });
+    assert.equal(
+      byzantine.fthora,
+      generic.fthora,
+      "the fthora is read off the row too, so the notation must not change it either"
+    );
+    assert.equal(generic.fthora, "diatonicPa", "and it is the fthora that was actually set");
   });
 });
 

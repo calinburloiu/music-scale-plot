@@ -543,6 +543,56 @@ function assertSignsFitTheCanvas(h) {
   }
 }
 
+/**
+ * The `isByzantine` seam, from the Generic side. Symbols live on the note rows
+ * whichever notation is selected, so the guard in `render()` is the only thing
+ * keeping them off a Generic chart.
+ */
+test("Generic notation with symbols set on the rows", async (t) => {
+  function withSymbols(t) {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+    h.app.writeMartyria(noteRows(h)[0], "midPa", "alpha", 0);
+    h.app.writeFthora(noteRows(h)[0], "diatonicPa");
+    h.app.writeMartyria(noteRows(h)[1], "midVou", h.app.GENUS_NONE, 0);
+    h.ctx.reset();
+    h.app.render();
+    return h;
+  }
+
+  await t.test("draws no Byzantine sign at all", () => {
+    const h = withSymbols(t);
+    const byzFont = h.app.byzantineFont(h.app.BYZ_FONT_SIZE);
+
+    assert.equal(
+      h.ctx.callsOf("fillText").filter((c) => c.state.font === byzFont).length,
+      0,
+      "nothing may be drawn in the Byzantine font while the notation is Generic"
+    );
+    assert.deepEqual(
+      h.ctx.drawnText().filter((s) => s.charCodeAt(0) >= 0xe000),
+      [],
+      "no glyph from the font's private use area may reach the canvas either"
+    );
+  });
+
+  await t.test("sizes the canvas as if the symbols were not there", () => {
+    const withSigns = withSymbols(t);
+
+    const plain = loadApp();
+    t.after(() => plain.close());
+    buildRelativeScale(plain, ["9/8"]);
+
+    assert.equal(withSigns.canvas().style.width, plain.canvas().style.width);
+    assert.equal(
+      withSigns.canvas().style.height,
+      plain.canvas().style.height,
+      "a Generic chart must not reserve a gutter, a band or an overhang for signs it never draws"
+    );
+  });
+});
+
 test("Byzantine notation, vertical boxes", async (t) => {
   const PA = { note: "midPa", genus: "alpha" };
   const VOU = { note: "midVou", genus: "legetos" };
@@ -563,6 +613,17 @@ test("Byzantine notation, vertical boxes", async (t) => {
       [martyriaOf(h, PA)],
       "an empty well draws nothing, exactly as an empty name does"
     );
+  });
+
+  await t.test("draws a martyria carried only by the last degree", () => {
+    const h = byzantineChart(t, [{}, VOU]);
+
+    assert.deepEqual(
+      h.ctx.drawnText().filter((s) => s.charCodeAt(0) >= 0xe000),
+      [martyriaOf(h, VOU)],
+      "a martyria on the top degree alone must still be drawn"
+    );
+    assertSignsFitTheCanvas(h);
   });
 
   await t.test("ignores the typed note names, which belong to Generic notation", () => {

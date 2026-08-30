@@ -212,8 +212,9 @@ test/
     ├── settings.test.js
     ├── scale-mode.test.js
     ├── color-label-sync.test.js
-    ├── render.test.js
-    ├── notation.test.js            switching notation; the chart's Byzantine geometry
+    ├── render.test.js              chart geometry, Generic and Byzantine alike
+    ├── notation.test.js            the Notation setting and the editor's switch;
+    │                               symbol state, readScaleData, font loading
     └── byzantine-pickers.test.js   the fthora/martyria wells and their picker panels
 ```
 
