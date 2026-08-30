@@ -173,7 +173,12 @@ function divideRatios(r1, r2) {
   return simplifyRatio(r1[0] * r2[1], r1[1] * r2[0]);
 }
 
-function computeRelativeDisplay(prevAbsStr, nextAbsStr) {
+/**
+ * The interval between two absolute positions, as a value string in the current
+ * interval type — the same string the user would have typed for it in relative
+ * mode.
+ */
+function computeRelativeValue(prevAbsStr, nextAbsStr) {
   const type = getIntervalType();
   if (type === "ratio") {
     const a = parseRatioPair(prevAbsStr);
@@ -185,13 +190,31 @@ function computeRelativeDisplay(prevAbsStr, nextAbsStr) {
     const a = parseInt(prevAbsStr, 10);
     const b = parseInt(nextAbsStr, 10);
     if (isNaN(a) || isNaN(b)) return "";
-    return String(b - a) + " steps";
+    return String(b - a);
   } else {
     const a = parseFloat(prevAbsStr);
     const b = parseFloat(nextAbsStr);
     if (isNaN(a) || isNaN(b)) return "";
-    return (b - a).toFixed(2) + "￠";
+    // Rounded to hundredths: subtracting two absolute positions otherwise
+    // trails floating-point dust into the chart.
+    return (b - a).toFixed(2);
   }
+}
+
+/**
+ * What the chart writes on an interval in absolute mode.
+ *
+ * Mode changes only how intervals are *typed*, never what the chart draws, so
+ * this deliberately ends in `intervalToDisplayString` — the same formatter
+ * relative mode uses. Formatting the difference separately here is what let the
+ * two modes drift apart: an EDO chart grew the word "steps" on every box, which
+ * relative mode never showed.
+ *
+ * Cents keep the two decimal places the subtraction produces, and their ￠ sign.
+ */
+function computeRelativeDisplay(prevAbsStr, nextAbsStr) {
+  const value = computeRelativeValue(prevAbsStr, nextAbsStr);
+  return value === "" ? "" : intervalToDisplayString(value);
 }
 
 function makeNoteRowHTML(degree, mode, absoluteValue) {

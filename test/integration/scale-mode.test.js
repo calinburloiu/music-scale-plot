@@ -164,3 +164,86 @@ test("a relative -> absolute -> relative round trip", async (t) => {
     assert.equal(h.canvas().height, before);
   });
 });
+
+test("the chart does not change when the editor's Mode does", async (t) => {
+  // Mode changes only how intervals are *typed*: relative values on the
+  // interval rows, or absolute positions on the note rows. The scale is the
+  // same scale either way, so everything the chart draws — the cents it stacks
+  // and the text it writes in each box — has to come out identical. It did not:
+  // absolute mode ran the interval through a second, differently-worded
+  // formatter, so an EDO chart grew the word "steps" and a cents chart grew two
+  // decimal places the user never typed.
+  // Copied out of the jsdom realm, or deepEqual rejects them — see TESTING.md §5.
+  const chartText = (h) =>
+    Array.from(h.app.readScaleData().filter((i) => i.type === "interval"), (i) => i.displayInterval);
+  const chartCents = (h) =>
+    Array.from(h.app.readScaleData().filter((i) => i.type === "interval"), (i) => i.cents);
+
+  // Cents are the deliberate exception: absolute mode subtracts two positions
+  // and rounds, so it writes "200.00￠" where relative mode echoes the typed
+  // "200￠". Both carry the ￠ sign, and the figure is the same size; only the
+  // trailing zeros differ, and that is left alone on purpose.
+  for (const [type, values] of [
+    ["edo", ["2", "1", "3"]],
+    ["ratio", ["9/8", "10/9", "16/15"]],
+  ]) {
+    await t.test("keeps the same interval text in " + type, () => {
+      const h = loadApp();
+      t.after(() => h.close());
+      selectOption(h, "interval-type", type);
+      buildRelativeScale(h, values);
+
+      const before = chartText(h);
+      selectOption(h, "scale-mode", "absolute");
+      const inAbsolute = chartText(h);
+      selectOption(h, "scale-mode", "relative");
+
+      assert.deepEqual(inAbsolute, before, type + ": switching to Absolute changed the chart");
+      assert.deepEqual(chartText(h), before, type + ": switching back changed the chart");
+    });
+
+    await t.test("keeps the same interval sizes in " + type, () => {
+      const h = loadApp();
+      t.after(() => h.close());
+      selectOption(h, "interval-type", type);
+      buildRelativeScale(h, values);
+
+      const before = chartCents(h);
+      selectOption(h, "scale-mode", "absolute");
+
+      for (let i = 0; i < before.length; i++) {
+        closeTo(chartCents(h)[i], before[i], 1e-9, type + ": interval " + i + " changed size");
+      }
+    });
+  }
+
+  await t.test("keeps a cents chart's sizes and its ￠ sign across the switch", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    selectOption(h, "interval-type", "cents");
+    buildRelativeScale(h, ["200", "100", "350.5"]);
+
+    const before = chartCents(h);
+    selectOption(h, "scale-mode", "absolute");
+
+    for (let i = 0; i < before.length; i++) {
+      closeTo(chartCents(h)[i], before[i], 1e-9, "interval " + i + " changed size");
+    }
+    for (const text of chartText(h)) {
+      assert.ok(text.endsWith("￠"), "a cents interval keeps its sign in either mode; got " + text);
+    }
+  });
+
+  await t.test("writes an EDO interval as a bare step count, with no unit word", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    selectOption(h, "interval-type", "edo");
+    buildRelativeScale(h, ["2", "1"]);
+    selectOption(h, "scale-mode", "absolute");
+
+    // The chart is a picture, not a sentence: the boxes are already labelled by
+    // the axis, so a unit word in every box is noise the relative mode never
+    // showed.
+    assert.deepEqual(chartText(h), ["2", "1"]);
+  });
+});
