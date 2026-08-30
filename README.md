@@ -6,7 +6,7 @@ Supports scales from various traditions including Byzantine/psaltic music, Ottom
 
 ## Usage
 
-Open `index.html` in a browser. No build step or server required. The page loads `style.css` and `app.js` from the same directory.
+Open `index.html` in a browser. No build step or server required. The page loads `style.css` and, in order, `byzantine.js`, `byzantine-ui.js` and `app.js` (all `defer`), from the same directory.
 
 1. Use the scale editor to define notes and intervals.
 2. The chart updates in real-time as you type.
@@ -24,7 +24,7 @@ npm test
 
 **All development follows strict TDD (red/green/refactor)** — write the failing
 test first. See [docs/TESTING.md](docs/TESTING.md) for the workflow, what is and
-is not tested, and how the test harness loads `app.js`.
+is not tested, and how the test harness loads the app's scripts.
 
 ## License
 
