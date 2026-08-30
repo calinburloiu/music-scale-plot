@@ -3,7 +3,7 @@
 This is the human-readable guide to the Byzantine (psaltic) notation layer:
 `byzantine.js` (the symbol model — tables and SBMuFL resolvers, no DOM) and
 `byzantine-ui.js` (the editor UI built on top of it — wells, pickers, the note
-ladder). `docs/PLAN-01.md`'s **Notation** section is the one-paragraph
+ladder). `docs/ARCHITECTURE.md`'s **Notation** section is the one-paragraph
 orientation; this document is where you come to actually change something.
 
 ---
@@ -23,7 +23,7 @@ typed name:
 
 One goes on each side of a separator between two intervals: the martyria in
 place of the note name, the fthora on the opposite side (see
-`docs/PLAN-01.md`'s Chart Rendering → Text layout).
+`docs/ARCHITECTURE.md`'s Chart Rendering → Text layout).
 
 For the typography that makes a martyria's two glyphs stack correctly — GSUB,
 GPOS, mark-to-base attachment, all of it — read

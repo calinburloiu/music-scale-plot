@@ -1,4 +1,4 @@
-# Music Scale Plot — Architecture & Implementation Plan
+# Music Scale Plot — Architecture
 
 ## Overview
 
@@ -15,8 +15,9 @@ music-scale-plot/
 ├── app.js                   # Everything else: editor DOM management, chart rendering,
 │                             # audio, PNG export — runs at load time, so it loads last
 ├── docs/
-│   ├── PLAN-01.md            # This document
-│   └── BYZANTINE-SYMBOLS.md  # The Byzantine notation layer, for maintainers
+│   ├── ARCHITECTURE.md       # This document
+│   ├── BYZANTINE-SYMBOLS.md  # The Byzantine notation layer, for maintainers
+│   └── TESTING.md            # Testing guide and the mandatory TDD workflow
 ├── fonts/                    # Vendored Neanes SBMuFL font (see README's NOTICE)
 ├── LICENSE
 └── README.md

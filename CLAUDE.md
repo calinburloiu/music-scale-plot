@@ -14,7 +14,7 @@ Client-side web app for plotting microtonal music scales (Byzantine/psaltic, Ott
 - `app.js` — everything else: editor DOM management, interval parsing, canvas rendering, Web Audio playback, PNG export, color picker. Runs at load time, so it loads last.
 - `style.css` — all styling.
 - `fonts/` — vendored Neanes SBMuFL font (see `README.md`'s NOTICE for licensing).
-- `docs/PLAN-01.md` — architecture / design plan (source of truth for intended behavior).
+- `docs/ARCHITECTURE.md` — the architecture (source of truth for intended behavior).
 - `docs/BYZANTINE-SYMBOLS.md` — maintainer's map of the Byzantine notation layer: the tables, the hand-maintained compatibility table, the ladder, and what a second font would touch.
 - `docs/TESTING.md` — testing guide and the mandatory TDD workflow (**read before changing any behavior**).
 - `test/` — Node test-runner suite (`test/unit`, `test/integration`, `test/helpers`).
@@ -57,7 +57,7 @@ Key concepts:
   break "open `index.html` in a browser". Classic scripts share one global
   scope, which also means no top-level name may be declared in two of them —
   that is a load-time SyntaxError.
-- `docs/PLAN-01.md` describes the intended design — consult it before non-trivial changes.
+- `docs/ARCHITECTURE.md` describes the intended design — consult it before non-trivial changes.
 - **Commit messages**: always prefix with the GitHub issue number in brackets to annotate which
   issue the work belongs to, e.g. `[#2] Add Byzantine font research`. Use this prefix for every
   commit that relates to an issue.
