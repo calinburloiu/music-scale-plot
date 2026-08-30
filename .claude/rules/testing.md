@@ -1,6 +1,8 @@
 ---
 paths:
   - "app.js"
+  - "byzantine.js"
+  - "byzantine-ui.js"
   - "index.html"
   - "style.css"
   - "test/**/*.js"

@@ -106,7 +106,7 @@ willingness to follow it.
 
 `.claude/rules/testing.md` closes that gap. It is a
 [path-scoped rule](https://code.claude.com/docs/en/memory): its `paths:`
-frontmatter lists `app.js`, `index.html`, `style.css` and `test/**/*.js`, and it
+frontmatter lists `app.js`, `byzantine.js`, `byzantine-ui.js`, `index.html`, `style.css` and `test/**/*.js`, and it
 `@`-imports this guide. The moment Claude reads any guarded file, the rule loads
 and pulls this document into context with it — no separate step that could be
 skipped. Rules without `paths:` load every session; this one costs nothing until
