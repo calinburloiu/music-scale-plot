@@ -1,15 +1,17 @@
 "use strict";
 
 /**
- * Loads the real `index.html` + `app.js` into a fresh jsdom window.
+ * Loads the real `index.html` into a fresh jsdom window, running every script
+ * it references via `<script src>`, in document order.
  *
- * `app.js` is a classic script with no module system: it reads DOM elements at
- * the top level and wires up listeners as a side effect of loading. Rather than
- * restructuring the app to make it testable, the harness loads the file exactly
- * as the browser does and appends a generated epilogue that re-exports every
- * top-level declaration as a live getter on `window.__app`. Production code
- * therefore stays untouched, and any new top-level `function`/`const` in
- * `app.js` becomes testable automatically.
+ * The app's scripts are classic scripts with no module system: they read DOM
+ * elements at the top level and wire up listeners as a side effect of loading.
+ * Rather than restructuring the app to make it testable, the harness loads each
+ * file exactly as the browser does and runs a generated epilogue afterwards
+ * that re-exports every top-level declaration, across all the scripts, as a
+ * live getter on `window.__app`. Production code therefore stays untouched,
+ * and any new top-level `function`/`const` in any of the app's scripts becomes
+ * testable automatically.
  *
  * Browser APIs jsdom does not implement are replaced with recording stubs (see
  * canvas-stub.js and audio-stub.js) so drawing, audio and PNG export can be
@@ -21,14 +23,20 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { JSDOM, VirtualConsole } = require("jsdom");
 
-const { RecordingContext2D, measureTextWidth } = require("./canvas-stub.js");
+const { RecordingContext2D, measureTextWidth, measureTextInk } = require("./canvas-stub.js");
 const { FakeAudioContext } = require("./audio-stub.js");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const HTML_PATH = path.join(ROOT, "index.html");
-const APP_PATH = path.join(ROOT, "app.js");
 
-/** Matches a top-level (column 0) declaration in app.js. */
+/** Matches `<script src="...">` in index.html, in document order. */
+const SCRIPT_SRC = /<script\b[^>]*\bsrc="([^"]+)"/g;
+
+function scriptPaths(html) {
+  return [...html.matchAll(SCRIPT_SRC)].map((m) => path.join(ROOT, m[1]));
+}
+
+/** Matches a top-level (column 0) declaration in a script. */
 const TOP_LEVEL_DECLARATION = /^(?:function|const|let|var)\s+([A-Za-z_$][\w$]*)/gm;
 
 function topLevelNames(source) {
@@ -43,7 +51,7 @@ function topLevelNames(source) {
  */
 function buildExportEpilogue(names) {
   const accessors = names.map((name) => `get ${name}() { return ${name}; }`);
-  return `\n;window.__app = { ${accessors.join(", ")} };\n`;
+  return `window.__app = { ${accessors.join(", ")} };\n`;
 }
 
 /**
@@ -51,17 +59,23 @@ function buildExportEpilogue(names) {
  *
  * @param {object} [options]
  * @param {number} [options.devicePixelRatio=2] value app.js reads into its DPR constant
+ * @param {boolean|string} [options.fonts=true] set to `false` to boot with no
+ *   `document.fonts` at all, as in jsdom's default state and in old browsers, or to
+ *   `"reject"` to have the face fail to load, as a missing or corrupt file would
+ * @param {string} [options.notation] value to put in `#notation` *before* the scripts
+ *   run, the way a browser restores a `<select>` across a soft reload
  * @returns {object} harness
  */
 function loadApp(options = {}) {
   const devicePixelRatio = options.devicePixelRatio ?? 2;
 
   const html = fs.readFileSync(HTML_PATH, "utf8");
-  const appSource = fs.readFileSync(APP_PATH, "utf8");
 
   const jsdomErrors = [];
+  const consoleWarnings = [];
   const virtualConsole = new VirtualConsole();
   virtualConsole.on("jsdomError", (error) => jsdomErrors.push(error));
+  virtualConsole.on("warn", (message) => consoleWarnings.push(String(message)));
 
   const dom = new JSDOM(html, {
     runScripts: "outside-only", // `<script src="app.js">` is loaded manually below
@@ -100,6 +114,26 @@ function loadApp(options = {}) {
     }
   };
 
+  // --- fonts ---------------------------------------------------------------
+  // jsdom implements no FontFaceSet. app.js waits on one before its first real
+  // paint, because PUA codepoints have no fallback glyph.
+  const fontLoads = [];
+  if (options.fonts !== false) {
+    const rejects = options.fonts === "reject";
+    Object.defineProperty(document, "fonts", {
+      value: {
+        load(spec) {
+          fontLoads.push(spec);
+          return rejects
+            ? Promise.reject(new Error(`stub: ${spec} could not be loaded`))
+            : Promise.resolve([]);
+        },
+        ready: Promise.resolve(),
+      },
+      configurable: true,
+    });
+  }
+
   // --- downloads ---------------------------------------------------------
   // jsdom has no navigation, so record anchor activation instead of following it.
   const downloads = [];
@@ -107,11 +141,33 @@ function loadApp(options = {}) {
     downloads.push({ download: this.download, href: this.href });
   };
 
-  const names = topLevelNames(appSource);
-  // Run through `vm` with app.js's real filename so stack traces and
-  // `--experimental-test-coverage` attribute the code to the file on disk.
-  vm.runInContext(appSource + buildExportEpilogue(names), dom.getInternalVMContext(), {
-    filename: APP_PATH,
+  // Set before any script runs, so the app sees a control that already carries
+  // a value — exactly what a browser hands it after a soft reload.
+  if (options.notation !== undefined) {
+    document.getElementById("notation").value = options.notation;
+  }
+
+  const files = scriptPaths(html).map((file) => ({
+    file,
+    source: fs.readFileSync(file, "utf8"),
+  }));
+
+  const names = [];
+  for (const { source } of files) {
+    for (const name of topLevelNames(source)) {
+      if (!names.includes(name)) names.push(name);
+    }
+  }
+
+  // Each file runs under its own real filename so stack traces and
+  // --experimental-test-coverage attribute the code to the file on disk.
+  // Classic scripts share one global lexical environment, so a `const` in
+  // byzantine.js is visible to app.js and to the epilogue below.
+  for (const { file, source } of files) {
+    vm.runInContext(source, dom.getInternalVMContext(), { filename: file });
+  }
+  vm.runInContext(buildExportEpilogue(names), dom.getInternalVMContext(), {
+    filename: path.join(ROOT, "__harness_exports__.js"),
   });
 
   const app = window.__app;
@@ -127,12 +183,18 @@ function loadApp(options = {}) {
     downloads,
     /** Every `toDataURL()` call made on the chart canvas. */
     dataUrls,
+    /** Every font spec passed to `document.fonts.load()`. */
+    fontLoads,
     /** Every AudioContext the app constructed (it should only ever be one). */
     audioContexts,
     /** Errors jsdom itself reported (unimplemented APIs, uncaught throws). */
     jsdomErrors,
-    /** Names re-exported from app.js, for harness self-tests. */
+    /** Every `console.warn()` the app made, as text. */
+    consoleWarnings,
+    /** Names re-exported from the app's scripts, for harness self-tests. */
     exportedNames: names,
+    /** Absolute paths of the scripts index.html loaded, in document order. */
+    scriptFiles: files.map((f) => f.file),
 
     el: (selector) => document.querySelector(selector),
     all: (selector) => [...document.querySelectorAll(selector)],
@@ -173,6 +235,11 @@ function selectOption(harness, selectId, value) {
   select.value = value;
   fireChange(harness, select);
   return select;
+}
+
+/** Switches the Notation setting and dispatches the `change` event. */
+function setNotation(harness, value) {
+  return selectOption(harness, "notation", value);
 }
 
 function noteRows(harness) {
@@ -248,6 +315,67 @@ function pickColor(harness, intervalRow, hex) {
   return option;
 }
 
+/** Clicks a well and returns its picker panel. `kind` is "fthora" or "martyria". */
+function openWell(harness, noteRow, kind) {
+  fireClick(harness, noteRow.querySelector(`.${kind}-well`));
+  return noteRow.querySelector(`.${kind}-picker`);
+}
+
+/**
+ * Dismisses the picker open in `noteRow` with one of the four real gestures:
+ * `"apply"` commits, `"cancel"`, `"outside"` and `"well"` all discard. `"none"`
+ * leaves the panel open for the test to inspect.
+ */
+function dismissPicker(harness, noteRow, how, kind) {
+  if (how === "none") return;
+  // A closed panel keeps its markup, so both panels of a row can hold an Apply
+  // button. Always press the one belonging to the picker under test.
+  const button = (cls) => noteRow.querySelector(`.${kind}-picker ${cls}`);
+  if (how === "apply") fireClick(harness, button(".byz-apply"));
+  else if (how === "cancel") fireClick(harness, button(".byz-cancel"));
+  else if (how === "outside") fireClick(harness, harness.document.body);
+  else if (how === "well") fireClick(harness, noteRow.querySelector(`.${kind}-well`));
+  else throw new Error(`Unknown dismissal "${how}"`);
+}
+
+/**
+ * Opens the fthora picker, clicks one of its rows (`""` picks None) and
+ * dismisses the panel. Only `dismiss: "apply"` — the default — reaches the row.
+ */
+function pickFthora(harness, noteRow, fthoraId, { dismiss = "apply" } = {}) {
+  const panel = openWell(harness, noteRow, "fthora");
+  const option = panel.querySelector(`.fthora-option[data-fthora="${fthoraId}"]`);
+  if (!option) throw new Error(`No fthora option "${fthoraId}" in the picker`);
+  fireClick(harness, option);
+  dismissPicker(harness, noteRow, dismiss, "fthora");
+}
+
+/**
+ * Drives the martyria picker: opens it, drafts a note and/or a genus, then
+ * dismisses the panel. Only `dismiss: "apply"` — the default — writes the draft
+ * to the row and propagates the ladder; the other gestures are cancels.
+ */
+function pickMartyria(harness, noteRow, { note, genus, ticks = 0, dismiss = "apply" } = {}) {
+  openWell(harness, noteRow, "martyria");
+
+  if (note !== undefined) {
+    const selector = `.martyria-note-option[data-note="${note}"][data-ticks="${ticks}"]`;
+    const option = noteRow.querySelector(selector);
+    if (!option) throw new Error(`No note option "${note}" (ticks ${ticks}) in the picker`);
+    if (option.disabled) throw new Error(`Note option "${note}" is disabled for this degree`);
+    fireClick(harness, option);
+  }
+
+  if (genus !== undefined) {
+    // Drafting a note rebuilds the panel, so the genus option must be re-queried.
+    const option = noteRow.querySelector(`.martyria-genus-option[data-genus="${genus}"]`);
+    if (!option) throw new Error(`No genus option "${genus}" in the picker`);
+    fireClick(harness, option);
+  }
+
+  dismissPicker(harness, noteRow, dismiss, "martyria");
+}
+
 module.exports = {
   loadApp,
   fireInput,
@@ -255,12 +383,19 @@ module.exports = {
   fireClick,
   typeInto,
   selectOption,
+  setNotation,
   noteRows,
   intervalRows,
   setNoteCount,
   buildRelativeScale,
   buildAbsoluteScale,
   pickColor,
+  openWell,
+  pickFthora,
+  pickMartyria,
+  dismissPicker,
   measureTextWidth,
+  measureTextInk,
+  scriptPaths,
   ROOT,
 };

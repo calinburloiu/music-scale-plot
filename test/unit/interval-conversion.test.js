@@ -139,8 +139,8 @@ test("computeRelativeDisplay renders the step between two absolute positions", a
   await t.test("as a step count in 'edo' mode", () => {
     const h = appWith("edo", 12);
     t.after(() => h.close());
-    assert.equal(h.app.computeRelativeDisplay("2", "4"), "2 steps");
-    assert.equal(h.app.computeRelativeDisplay("4", "2"), "-2 steps", "descending");
+    assert.equal(h.app.computeRelativeDisplay("2", "4"), "2", "a bare step count, as relative mode writes it");
+    assert.equal(h.app.computeRelativeDisplay("4", "2"), "-2", "descending");
     assert.equal(h.app.computeRelativeDisplay("x", "4"), "");
   });
 

@@ -61,4 +61,23 @@ test("the test harness", async (t) => {
     assert.ok(h.ctx.callsOf("fillRect").length > 0, "the initial scale was never drawn");
     assert.equal(h.el(".cents-label").textContent, "203.91￠", "labels were never filled in");
   });
+
+  await t.test("runs every script index.html loads, in document order", () => {
+    const path = require("node:path");
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const names = h.scriptFiles.map((f) => path.basename(f));
+    assert.ok(names.includes("byzantine.js"), `byzantine.js was never run, got ${names}`);
+    assert.equal(names.at(-1), "app.js", "app.js must run last: it wires the page up");
+  });
+
+  await t.test("re-exports top-level names from every script, not just app.js", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.ok(h.exportedNames.includes("BYZ_NOTES"), "byzantine.js names are missing");
+    assert.ok(h.exportedNames.includes("readScaleData"), "app.js names are missing");
+    assert.equal(typeof h.app.byzNoteById, "function");
+  });
 });

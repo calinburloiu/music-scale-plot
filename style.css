@@ -1,5 +1,11 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;600&family=Fraunces:opsz,wght,SOFT@9..144,400;500;600,30..100&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
+@font-face {
+  font-family: "Neanes";
+  src: url("fonts/Neanes.woff2") format("woff2");
+  font-display: block;
+}
+
 *,
 *::before,
 *::after {
@@ -92,6 +98,7 @@ body {
 
 /* --- Settings Panel --- */
 
+.notation-row,
 .base-note-row,
 .interval-type-row,
 .edo-settings-row {
@@ -100,6 +107,9 @@ body {
   gap: 0.65rem;
 }
 
+/* Every settings row after the first is spaced the same way; only the EDO row,
+   which appears and disappears under Interval Type, sits slightly closer. */
+.base-note-row,
 .interval-type-row { margin-top: 0.85rem; }
 .edo-settings-row  { margin-top: 0.65rem; align-items: flex-start; }
 
@@ -111,6 +121,7 @@ body {
   min-width: 0;
 }
 
+.notation-row label,
 .base-note-row label,
 .interval-type-row label,
 .edo-settings-row label {
@@ -123,6 +134,7 @@ body {
   letter-spacing: 0.09em;
 }
 
+.notation-row select,
 .base-note-row select,
 .interval-type-row select,
 .edo-settings-row input {
@@ -139,12 +151,14 @@ body {
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
+.notation-row select:hover,
 .base-note-row select:hover,
 .interval-type-row select:hover,
 .edo-settings-row input:hover {
   border-color: var(--ink-soft);
 }
 
+.notation-row select:focus,
 .base-note-row select:focus,
 .interval-type-row select:focus,
 .edo-settings-row input:focus {
@@ -372,6 +386,281 @@ body {
   border-color: var(--ink);
   background: #fff;
   box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+/* --- Notation switch --- */
+
+/* Both sets of controls live on every note row; CSS decides which are visible,
+   so a switch discards nothing. */
+.note-row .fthora-well-wrapper,
+.note-row .martyria-well-wrapper { display: none; }
+
+#editor.notation-byzantine .note-row .note-name { display: none; }
+
+#editor.notation-byzantine .note-row .fthora-well-wrapper,
+#editor.notation-byzantine .note-row .martyria-well-wrapper {
+  display: block;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+/* .note-name carried the right-alignment; the first visible well takes it on. */
+#editor.notation-byzantine .note-row .fthora-well-wrapper { margin-left: auto; }
+
+/* --- Symbol wells --- */
+
+.fthora-well,
+.martyria-well {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--paper-fade);
+  color: var(--ink);
+  cursor: pointer;
+  font-family: "Neanes", serif;
+  font-size: 22px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.fthora-well:hover,
+.martyria-well:hover { border-color: var(--ink); }
+
+/* Flexbox centres the glyph's line box and advance box. Neanes puts a fthora's
+   ink a whole em above the baseline and hangs a genus mark below it, so the
+   ink is in the middle of neither — `setGlyphBoxText()` measures the difference
+   and supplies it here. Both default to 0, so a box is still sane if the script
+   has not filled it. Wells, picker rows and the picker's preview all use it. */
+.glyph-ink {
+  display: block;
+  line-height: 1;
+  transform: translate(var(--ink-dx, 0px), var(--ink-dy, 0px));
+}
+
+/* An empty well says which sign it takes, in pure CSS, so it is legible
+   before the webfont arrives. */
+.fthora-well.is-empty,
+.martyria-well.is-empty {
+  border-style: dashed;
+  position: relative;
+}
+
+.fthora-well.is-empty::before {
+  content: "";
+  position: absolute;
+  width: 15px;
+  height: 2px;
+  background: var(--ink-faint);
+  transform: rotate(-45deg);
+}
+
+.martyria-well.is-empty::before,
+.martyria-well.is-empty::after {
+  content: "";
+  position: absolute;
+  height: 2px;
+  background: var(--ink-faint);
+}
+
+.martyria-well.is-empty::before { width: 14px; top: 12px; }
+.martyria-well.is-empty::after  { width:  8px; top: 19px; }
+
+/* --- Symbol pickers --- */
+
+.fthora-picker,
+.martyria-picker {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 10;
+  margin-top: 7px;
+  padding: 6px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 14px 38px -10px rgba(30, 20, 10, 0.38);
+}
+
+/* The lists are tall, so they scroll inside their panel — which never flips
+   up: a scrolling panel cannot escape the editor. The footer stays put below
+   the scroller, so Apply is always in reach. */
+.fthora-picker.open { display: block; }
+
+.fthora-picker-body {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+#editor .note-row.picker-open { z-index: 100; }
+
+.byz-option {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.byz-option:hover:not(:disabled) { background: var(--paper-fade); }
+.byz-option:disabled { opacity: 0.35; cursor: default; }
+.byz-option.is-selected { background: var(--paper-fade); font-weight: 600; }
+
+/* A psaltic sign and a Latin name are hard to scan side by side: the sign is
+   small, unfamiliar, and sits nowhere near the name's optical line. Boxing it
+   gives the eye a column to run down, and matches the well the sign is going
+   into. */
+.byz-glyph {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--rule-soft);
+  border-radius: 3px;
+  background: var(--paper-fade);
+  font-family: "Neanes", serif;
+  font-size: 24px;
+  line-height: 1;
+}
+
+/* A genus row shows its mark alone, so the box has to carry the one thing the
+   missing letter would have said: which way the mark faces. A mark that stacks
+   above the letter rides the top of its box, one that stacks below sits at the
+   bottom. `glyphBoxAlign()` supplies the matching offset. */
+.martyria-genus-column.genus-above .byz-glyph { align-items: flex-start; }
+.martyria-genus-column.genus-below .byz-glyph { align-items: flex-end; }
+.martyria-genus-column .byz-glyph { height: 42px; padding: 4px 0; }
+
+.byz-option.is-selected .byz-glyph { border-color: var(--ink-faint); }
+.byz-option:disabled .byz-glyph { background: none; }
+
+/* The None row, and the preview before anything is drafted, hold no sign. A
+   solid empty box reads as a glyph that failed to load; a dashed one says
+   "empty", the same way an empty well does. */
+.byz-glyph:empty,
+.byz-preview:empty {
+  border-style: dashed;
+  background: none;
+}
+
+.martyria-picker.open { display: block; }
+
+.martyria-picker-body {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+
+.martyria-notes-column,
+.martyria-genus-column {
+  max-height: 300px;
+  overflow-y: auto;
+  min-width: 9rem;
+}
+
+.martyria-genus-column.is-inert { opacity: 0.45; }
+
+.byz-column-title {
+  position: sticky;
+  top: 0;
+  padding: 0.25rem 0.5rem;
+  background: var(--paper);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.byz-group-title {
+  padding: 0.35rem 0.5rem 0.15rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.byz-separator {
+  height: 1px;
+  margin: 0.4rem 0.5rem;
+  background: var(--rule);
+}
+
+.byz-picker-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--rule);
+}
+
+/* The well keeps showing the committed symbol while a picker is open, so this
+   is where the pending one — letter, genus and octave tick together — shows. */
+.byz-preview {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-right: auto;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--paper-fade);
+  font-family: "Neanes", serif;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.byz-apply,
+.byz-cancel {
+  flex: 0 0 auto;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--paper-fade);
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.byz-apply { border-color: var(--ink-soft); font-weight: 600; }
+
+.byz-apply:hover:not(:disabled),
+.byz-cancel:hover { border-color: var(--ink); }
+
+.byz-apply:disabled {
+  opacity: 0.4;
+  border-color: var(--rule);
+  font-weight: 400;
+  cursor: default;
+}
+
+.byz-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
 }
 
 .note-row .cumulative-cents {
@@ -814,6 +1103,7 @@ body {
   }
 
   /* Settings rows: stack label above full-width input */
+  .notation-row,
   .base-note-row,
   .interval-type-row,
   .edo-settings-row {
@@ -821,12 +1111,14 @@ body {
     align-items: stretch;
     gap: 0.35rem;
   }
+  .notation-row label,
   .base-note-row label,
   .interval-type-row label,
   .edo-settings-row label {
     width: auto;
     font-size: 0.68rem;
   }
+  .notation-row select,
   .base-note-row select,
   .interval-type-row select,
   .edo-settings-row input {

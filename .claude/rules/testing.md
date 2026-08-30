@@ -1,6 +1,8 @@
 ---
 paths:
   - "app.js"
+  - "byzantine.js"
+  - "byzantine-ui.js"
   - "index.html"
   - "style.css"
   - "test/**/*.js"
@@ -17,5 +19,5 @@ Read tool before continuing.
 
 @../../docs/TESTING.md
 
-For a non-trivial change also read `docs/PLAN-01.md`, the source of truth for
+For a non-trivial change also read `docs/ARCHITECTURE.md`, the source of truth for
 intended behaviour. It is not imported here because most changes do not need it.

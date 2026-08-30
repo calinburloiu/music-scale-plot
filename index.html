@@ -11,6 +11,13 @@
     <div class="left-column">
     <div class="panel settings-panel">
       <h2>Settings</h2>
+      <div class="notation-row">
+        <label for="notation">Notation</label>
+        <select id="notation">
+          <option value="generic">Generic</option>
+          <option value="byzantine">Byzantine</option>
+        </select>
+      </div>
       <div class="base-note-row">
         <label for="base-note">Base Note</label>
         <select id="base-note">
@@ -54,6 +61,14 @@
           <label>Note 1</label>
           <span class="cumulative-cents"></span>
           <input type="text" class="note-name" placeholder="name">
+          <div class="fthora-well-wrapper">
+            <button type="button" class="fthora-well is-empty" title="Fthora"></button>
+            <div class="fthora-picker"></div>
+          </div>
+          <div class="martyria-well-wrapper">
+            <button type="button" class="martyria-well is-empty" title="Martyria"></button>
+            <div class="martyria-picker"></div>
+          </div>
         </div>
         <div class="row interval-row">
           <input type="text" class="interval" placeholder="ratio" value="9/8">
@@ -71,6 +86,14 @@
           <label>Note 2</label>
           <span class="cumulative-cents"></span>
           <input type="text" class="note-name" placeholder="name">
+          <div class="fthora-well-wrapper">
+            <button type="button" class="fthora-well is-empty" title="Fthora"></button>
+            <div class="fthora-picker"></div>
+          </div>
+          <div class="martyria-well-wrapper">
+            <button type="button" class="martyria-well is-empty" title="Martyria"></button>
+            <div class="martyria-picker"></div>
+          </div>
         </div>
       </div>
       <div class="editor-controls">
@@ -108,6 +131,8 @@
       <canvas id="chart"></canvas>
     </div>
   </div>
+  <script src="byzantine.js" defer></script>
+  <script src="byzantine-ui.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>
