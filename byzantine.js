@@ -178,6 +178,36 @@ function resolveMartyriaGlyphs(noteId, genusId, ticks) {
   return out;
 }
 
+/**
+ * A genus mark on its own, with no letter under it — what a picker row offers,
+ * since a row's subject is the mark and not the composition.
+ *
+ * The register still decides which of the two mark sets it comes from, so this
+ * takes the note it would be stacked on rather than a bare side: the glyph a
+ * row shows is then, by construction, the glyph the martyria will carry.
+ */
+function resolveGenusGlyph(noteId, genusId) {
+  const note = byzNoteById(noteId);
+  const genus = genusId && genusId !== GENUS_NONE ? byzGenusById(genusId) : null;
+  if (!note || !genus) return "";
+  const base = note.octave === "low" ? BYZ_GENUS_ABOVE_BASE : BYZ_GENUS_BELOW_BASE;
+  return String.fromCharCode(base + genus.index);
+}
+
+/**
+ * Which side of the note letter a genus mark stacks on.
+ *
+ * The same register rule `resolveMartyriaGlyphs` applies when it chooses a
+ * mark set: a low-octave letter carries its mark on the `martyriaTop` anchor,
+ * every other letter on `martyriaBottom`. Named here so the UI can lay a
+ * picker out around it without restating the rule — and so a second font that
+ * anchors differently changes it in one place.
+ */
+function martyriaMarkSide(noteId) {
+  const note = byzNoteById(noteId);
+  return note && note.octave === "low" ? "above" : "below";
+}
+
 function resolveFthoraGlyph(fthoraId) {
   const fthora = byzFthoraById(fthoraId);
   return fthora ? String.fromCharCode(BYZ_FTHORA_BASE + fthora.index) : "";
@@ -265,9 +295,19 @@ function byzantineFont(size) {
  */
 function inkBox(ctx, text, font) {
   const previousFont = ctx.font;
+  const previousAlign = ctx.textAlign;
+  const previousBaseline = ctx.textBaseline;
   if (font) ctx.font = font;
+  // actualBoundingBox* is reported from the anchor textAlign and textBaseline
+  // choose, so both are pinned here. Leave them to the caller's leftovers and
+  // the box shifts by a whole advance, or by half an em — silently, and only
+  // for whichever sign happened to be drawn after right-aligned text.
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
   const metrics = ctx.measureText(text);
   ctx.font = previousFont;
+  ctx.textAlign = previousAlign;
+  ctx.textBaseline = previousBaseline;
 
   return {
     adv: metrics.width,
@@ -275,6 +315,54 @@ function inkBox(ctx, text, font) {
     right: metrics.actualBoundingBoxRight === undefined ? metrics.width : metrics.actualBoundingBoxRight,
     top: -(metrics.actualBoundingBoxAscent || 0),
     bottom: metrics.actualBoundingBoxDescent || 0,
+    // The face's own ascent and descent — the strut, not this text's ink. They
+    // decide where a line box seats its baseline, which is what ink-centring in
+    // the DOM has to undo.
+    fontAscent: metrics.fontBoundingBoxAscent || 0,
+    fontDescent: metrics.fontBoundingBoxDescent || 0,
+  };
+}
+
+/**
+ * How far to move `text` so that its *ink* sits in the middle of the box a
+ * browser centres it in — what a symbol well needs, and what neither
+ * `align-items: center` nor `justify-content: center` gives on its own.
+ *
+ * Both of those centre the glyph's line box and its advance box. The ink sits
+ * in the middle of neither: a fthora's ink clears the baseline entirely
+ * because the face expects it over a neume, a martyria's straddles it, and a
+ * genus mark carries ink but no advance. So both offsets are *measured*. A
+ * constant would be a fact about Neanes, and would be wrong for the next face.
+ *
+ * `vAlign` says where in the line box the ink should land: `"center"` (the
+ * default), or `"top"` / `"bottom"` to pin it against an edge. Pinning is what
+ * a list of genus marks needs — every mark grows the composition on one side
+ * only, so anchoring the far edge holds the *note letter* still down the whole
+ * list, which is the fixed point a reader judges the mark's position against.
+ * It assumes the glyph's line box is one font size tall (`line-height: 1`).
+ *
+ * Positive `dy` moves the glyph down, positive `dx` moves it right.
+ */
+function inkCenteringShift(ctx, text, font, vAlign) {
+  if (!text) return { dx: 0, dy: 0 };
+
+  const box = inkBox(ctx, text, font);
+
+  // A line box seats its baseline (ascent - descent) / 2 below its own middle,
+  // whatever its line-height; the ink then sits (top + bottom) / 2 from that
+  // baseline. Undo both.
+  const dx = box.adv / 2 - (box.left + box.right) / 2;
+  if (vAlign !== "top" && vAlign !== "bottom") {
+    return { dx: dx, dy: -((box.fontAscent - box.fontDescent) / 2 + (box.top + box.bottom) / 2) };
+  }
+
+  // Pinned instead: measure from the line box's own edge. The caller has told
+  // CSS to seat the box against that edge, so this is the last hop.
+  const lineHeight = parseFloat(font || ctx.font) || 0;
+  const baselineFromTop = lineHeight / 2 + (box.fontAscent - box.fontDescent) / 2;
+  return {
+    dx: dx,
+    dy: vAlign === "top" ? -(baselineFromTop + box.top) : lineHeight - (baselineFromTop + box.bottom),
   };
 }
 

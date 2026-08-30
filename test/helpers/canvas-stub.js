@@ -32,10 +32,25 @@ const DESCENT_RATIO = 0.2;
 const MARK_ABOVE_ASCENT_RATIO = 1.15;
 const MARK_BELOW_DESCENT_RATIO = 0.6;
 
+// A fthora is cut to ride above a neume, so its ink clears the baseline
+// outright: the descent is *negative*, the whole glyph sitting between about
+// -1.1em and -0.65em. Nothing else in the model has ink on one side of the
+// baseline only, and it is the case ink-centring exists for.
+const FTHORA_ASCENT_RATIO = 1.1;
+const FTHORA_DESCENT_RATIO = -0.65;
+
+// The strut: the ascent and descent the *face* declares, which decide where a
+// line box puts its baseline. Asymmetric, as a real face is — so the baseline
+// is not the middle of the line box, which is what ink-centring corrects for.
+const FONT_ASCENT_RATIO = 0.775;
+const FONT_DESCENT_RATIO = 0.25;
+
 const MARK_BELOW_FIRST = 0xe150;
 const MARK_BELOW_LAST = 0xe15b;
 const MARK_ABOVE_FIRST = 0xe170;
 const MARK_ABOVE_LAST = 0xe17b;
+const FTHORA_FIRST = 0xe1d0;
+const FTHORA_LAST = 0xe1df;
 
 function isZeroAdvance(code) {
   return code >= MARK_BELOW_FIRST && code <= MARK_ABOVE_LAST;
@@ -62,27 +77,87 @@ function measureTextInk(text, font) {
 
   let pen = 0;
   let right = 0;
-  let ascent = size * ASCENT_RATIO;
-  let descent = size * DESCENT_RATIO;
+  // The ink box is the union of the characters', so a glyph whose ink never
+  // crosses the baseline keeps its sign instead of being merged into a
+  // baseline-straddling default.
+  let top = 0;
+  let bottom = 0;
 
-  for (const ch of chars) {
+  chars.forEach(function (ch, index) {
     const code = ch.codePointAt(0);
     right = Math.max(right, pen + size * (INK_LEFT_BEARING_RATIO + INK_WIDTH_RATIO));
-    if (code >= MARK_ABOVE_FIRST && code <= MARK_ABOVE_LAST) {
-      ascent = Math.max(ascent, size * MARK_ABOVE_ASCENT_RATIO);
+
+    let charTop = -size * ASCENT_RATIO;
+    let charBottom = size * DESCENT_RATIO;
+    if (code >= FTHORA_FIRST && code <= FTHORA_LAST) {
+      charTop = -size * FTHORA_ASCENT_RATIO;
+      charBottom = size * FTHORA_DESCENT_RATIO;
+    } else if (code >= MARK_ABOVE_FIRST && code <= MARK_ABOVE_LAST) {
+      charTop = -size * MARK_ABOVE_ASCENT_RATIO;
     } else if (code >= MARK_BELOW_FIRST && code <= MARK_BELOW_LAST) {
-      descent = Math.max(descent, size * MARK_BELOW_DESCENT_RATIO);
+      charBottom = size * MARK_BELOW_DESCENT_RATIO;
     }
+
+    if (index === 0) {
+      top = charTop;
+      bottom = charBottom;
+    } else {
+      top = Math.min(top, charTop);
+      bottom = Math.max(bottom, charBottom);
+    }
+
     if (!isZeroAdvance(code)) pen += size * CHAR_WIDTH_RATIO;
-  }
+  });
 
   return {
     width: pen,
     actualBoundingBoxLeft: chars.length ? -size * INK_LEFT_BEARING_RATIO : 0,
     actualBoundingBoxRight: right,
-    actualBoundingBoxAscent: chars.length ? ascent : 0,
-    actualBoundingBoxDescent: chars.length ? descent : 0,
+    actualBoundingBoxAscent: chars.length ? -top : 0,
+    actualBoundingBoxDescent: chars.length ? bottom : 0,
+    // Font metrics, not ink: they belong to the face, so they are reported for
+    // the empty string too, exactly as a browser reports them.
+    fontBoundingBoxAscent: size * FONT_ASCENT_RATIO,
+    fontBoundingBoxDescent: size * FONT_DESCENT_RATIO,
   };
+}
+
+/**
+ * The same ink box, reported from the anchor `textAlign` and `textBaseline`
+ * choose — which is what a real canvas does, and what a caller that forgets to
+ * pin them trips over. `actualBoundingBoxLeft` is the distance *leftwards*
+ * from the anchor, so aligning right moves it by a whole advance; the vertical
+ * pair shifts with the baseline in the same way.
+ *
+ * Modelled, like the rest of this file: "middle" is taken as the middle of the
+ * em box, which is close to but not identical to what a browser computes.
+ */
+function anchorInk(metrics, textAlign, textBaseline) {
+  let anchorX = 0;
+  if (textAlign === "right" || textAlign === "end") anchorX = metrics.width;
+  else if (textAlign === "center") anchorX = metrics.width / 2;
+
+  let anchorY = 0;
+  if (textBaseline === "top" || textBaseline === "hanging") {
+    anchorY = -metrics.fontBoundingBoxAscent;
+  } else if (textBaseline === "middle") {
+    anchorY = -(metrics.fontBoundingBoxAscent - metrics.fontBoundingBoxDescent) / 2;
+  } else if (textBaseline === "bottom" || textBaseline === "ideographic") {
+    anchorY = metrics.fontBoundingBoxDescent;
+  }
+
+  // Back to pen-relative edges, then out again relative to the anchor.
+  const inkLeft = -metrics.actualBoundingBoxLeft;
+  const inkRight = metrics.actualBoundingBoxRight;
+  const inkTop = -metrics.actualBoundingBoxAscent;
+  const inkBottom = metrics.actualBoundingBoxDescent;
+
+  return Object.assign({}, metrics, {
+    actualBoundingBoxLeft: anchorX - inkLeft,
+    actualBoundingBoxRight: inkRight - anchorX,
+    actualBoundingBoxAscent: anchorY - inkTop,
+    actualBoundingBoxDescent: inkBottom - anchorY,
+  });
 }
 
 /** Advance width only — what the app's non-Byzantine measurement uses. */
@@ -133,7 +208,7 @@ class RecordingContext2D {
   }
 
   measureText(text) {
-    return measureTextInk(text, this.font);
+    return anchorInk(measureTextInk(text, this.font), this.textAlign, this.textBaseline);
   }
 
   /** All recorded calls to `method`, in draw order. */
@@ -162,4 +237,9 @@ module.exports = {
   DESCENT_RATIO,
   MARK_ABOVE_ASCENT_RATIO,
   MARK_BELOW_DESCENT_RATIO,
+  FTHORA_ASCENT_RATIO,
+  FTHORA_DESCENT_RATIO,
+  FONT_ASCENT_RATIO,
+  FONT_DESCENT_RATIO,
+  anchorInk,
 };

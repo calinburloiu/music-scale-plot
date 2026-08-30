@@ -428,6 +428,17 @@ body {
 .fthora-well:hover,
 .martyria-well:hover { border-color: var(--ink); }
 
+/* Flexbox centres the glyph's line box and advance box. Neanes puts a fthora's
+   ink a whole em above the baseline and hangs a genus mark below it, so the
+   ink is in the middle of neither — `setGlyphBoxText()` measures the difference
+   and supplies it here. Both default to 0, so a box is still sane if the script
+   has not filled it. Wells, picker rows and the picker's preview all use it. */
+.glyph-ink {
+  display: block;
+  line-height: 1;
+  transform: translate(var(--ink-dx, 0px), var(--ink-dy, 0px));
+}
+
 /* An empty well says which sign it takes, in pure CSS, so it is legible
    before the webfont arrives. */
 .fthora-well.is-empty,
@@ -506,13 +517,43 @@ body {
 .byz-option:disabled { opacity: 0.35; cursor: default; }
 .byz-option.is-selected { background: var(--paper-fade); font-weight: 600; }
 
+/* A psaltic sign and a Latin name are hard to scan side by side: the sign is
+   small, unfamiliar, and sits nowhere near the name's optical line. Boxing it
+   gives the eye a column to run down, and matches the well the sign is going
+   into. */
 .byz-glyph {
   flex: 0 0 auto;
-  width: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--rule-soft);
+  border-radius: 3px;
+  background: var(--paper-fade);
   font-family: "Neanes", serif;
-  font-size: 26px;
-  line-height: 1.4;
-  text-align: center;
+  font-size: 24px;
+  line-height: 1;
+}
+
+/* A genus row shows its mark alone, so the box has to carry the one thing the
+   missing letter would have said: which way the mark faces. A mark that stacks
+   above the letter rides the top of its box, one that stacks below sits at the
+   bottom. `glyphBoxAlign()` supplies the matching offset. */
+.martyria-genus-column.genus-above .byz-glyph { align-items: flex-start; }
+.martyria-genus-column.genus-below .byz-glyph { align-items: flex-end; }
+.martyria-genus-column .byz-glyph { height: 42px; padding: 4px 0; }
+
+.byz-option.is-selected .byz-glyph { border-color: var(--ink-faint); }
+.byz-option:disabled .byz-glyph { background: none; }
+
+/* The None row, and the preview before anything is drafted, hold no sign. A
+   solid empty box reads as a glyph that failed to load; a dashed one says
+   "empty", the same way an empty well does. */
+.byz-glyph:empty,
+.byz-preview:empty {
+  border-style: dashed;
+  background: none;
 }
 
 .martyria-picker.open { display: block; }
@@ -573,12 +614,19 @@ body {
 /* The well keeps showing the committed symbol while a picker is open, so this
    is where the pending one — letter, genus and octave tick together — shows. */
 .byz-preview {
-  flex: 1 1 auto;
-  min-width: 2.5rem;
-  padding-left: 0.2rem;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-right: auto;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--paper-fade);
   font-family: "Neanes", serif;
-  font-size: 26px;
-  line-height: 1.2;
+  font-size: 24px;
+  line-height: 1;
   color: var(--ink);
 }
 

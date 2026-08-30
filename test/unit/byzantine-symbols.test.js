@@ -451,6 +451,184 @@ test("measuring a glyph string's ink", async (t) => {
   });
 });
 
+test("resolving a genus mark on its own", async (t) => {
+  await t.test("returns the mark a martyria would stack, with no letter", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    for (const noteId of ["lowPa", "midDi", "highKe"]) {
+      const composed = h.app.resolveMartyriaGlyphs(noteId, "nana", 0);
+      assert.equal(
+        h.app.resolveGenusGlyph(noteId, "nana"),
+        composed[1],
+        noteId + ": the isolated mark must be the very glyph the composition uses"
+      );
+    }
+  });
+
+  await t.test("draws on the register's own mark set", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.notEqual(
+      h.app.resolveGenusGlyph("lowPa", "alpha"),
+      h.app.resolveGenusGlyph("midPa", "alpha"),
+      "a low letter anchors its marks at the top, so they come from another block"
+    );
+  });
+
+  await t.test("has nothing to draw for None, or for a letter it does not know", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.resolveGenusGlyph("midPa", h.app.GENUS_NONE), "");
+    assert.equal(h.app.resolveGenusGlyph("midPa", ""), "");
+    assert.equal(h.app.resolveGenusGlyph("nope", "alpha"), "");
+  });
+});
+
+test("which side of the letter a genus mark lands on", async (t) => {
+  await t.test("rides above a low-octave letter and below the others", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.martyriaMarkSide("lowZo"), "above");
+    assert.equal(h.app.martyriaMarkSide("lowKe"), "above");
+    assert.equal(h.app.martyriaMarkSide("midNi"), "below");
+    assert.equal(h.app.martyriaMarkSide("highKe"), "below");
+  });
+
+  await t.test("agrees with the mark the resolver actually picks", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    for (const note of h.app.BYZ_NOTES) {
+      const composed = h.app.resolveMartyriaGlyphs(note.id, "nana", 0);
+      const mark = composed.charCodeAt(1);
+      const expected = mark >= 0xe170 ? "above" : "below";
+      assert.equal(
+        h.app.martyriaMarkSide(note.id),
+        expected,
+        note.id + " reports the wrong side for the mark the resolver emits"
+      );
+    }
+  });
+});
+
+test("centring a glyph's ink inside a box", async (t) => {
+  // The wells centre a glyph with flexbox, which centres the glyph's *line
+  // box* and its *advance* — neither of which the ink sits in the middle of.
+  // `inkCenteringShift` is the correction, and these tests state the invariant
+  // it has to satisfy rather than the arithmetic it uses to get there.
+
+  /** Where the ink's centre lands, relative to the centre of the box. */
+  function inkCentreAfterShift(h, text, font) {
+    const shift = h.app.inkCenteringShift(h.ctx, text, font);
+    const m = measureTextInk(text, font);
+    // A line box puts its baseline (fontAscent - fontDescent) / 2 below its
+    // middle; the ink then sits (top + bottom) / 2 from that baseline.
+    const baselineBelowCentre = (m.fontBoundingBoxAscent - m.fontBoundingBoxDescent) / 2;
+    const inkBelowBaseline = (-m.actualBoundingBoxAscent + m.actualBoundingBoxDescent) / 2;
+    // The advance box is centred, so the ink's own centre is measured from it.
+    const inkRightOfCentre =
+      (-m.actualBoundingBoxLeft + m.actualBoundingBoxRight) / 2 - m.width / 2;
+    return {
+      dx: inkRightOfCentre + shift.dx,
+      dy: baselineBelowCentre + inkBelowBaseline + shift.dy,
+    };
+  }
+
+  await t.test("puts a fthora's ink in the middle, though it never crosses the baseline", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = h.app.byzantineFont(h.app.BYZ_FONT_SIZE);
+    const text = h.app.resolveFthoraGlyph("diatonicPa");
+
+    const shift = h.app.inkCenteringShift(h.ctx, text, font);
+    const landed = inkCentreAfterShift(h, text, font);
+
+    assert.ok(
+      shift.dy > 0,
+      "a fthora's ink sits above the baseline, so centring must move it down; got dy=" + shift.dy
+    );
+    closeTo(landed.dy, 0, 1e-9, "the fthora's ink centre must land on the box's centre");
+  });
+
+  await t.test("puts a martyria's ink in the middle, mark and all", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = h.app.byzantineFont(h.app.BYZ_FONT_SIZE);
+    const text = h.app.resolveMartyriaGlyphs("midPa", "alpha", 0);
+
+    const landed = inkCentreAfterShift(h, text, font);
+
+    closeTo(landed.dy, 0, 1e-9, "the martyria's ink centre must land on the box's centre");
+    closeTo(landed.dx, 0, 1e-9, "and a zero-advance mark must not pull it off centre");
+  });
+
+  await t.test("moves a fthora and a martyria by different amounts", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = h.app.byzantineFont(h.app.BYZ_FONT_SIZE);
+
+    const fthora = h.app.inkCenteringShift(h.ctx, h.app.resolveFthoraGlyph("diatonicPa"), font);
+    const martyria = h.app.inkCenteringShift(h.ctx, h.app.resolveMartyriaGlyphs("midPa", "none", 0), font);
+
+    assert.ok(
+      Math.abs(fthora.dy - martyria.dy) > h.app.BYZ_FONT_SIZE / 2,
+      "one constant cannot serve both signs: dy differed by only " +
+        Math.abs(fthora.dy - martyria.dy) + "px"
+    );
+  });
+
+  await t.test("can pin the ink to the top or the bottom of the line box instead", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const size = h.app.BYZ_FONT_SIZE;
+    const font = h.app.byzantineFont(size);
+    const text = h.app.resolveMartyriaGlyphs("midPa", "alpha", 0);
+    const m = measureTextInk(text, font);
+    // .glyph-ink is line-height: 1, so the line box is one font size tall.
+    const baselineFromTop = size / 2 + (m.fontBoundingBoxAscent - m.fontBoundingBoxDescent) / 2;
+
+    const top = h.app.inkCenteringShift(h.ctx, text, font, "top");
+    const bottom = h.app.inkCenteringShift(h.ctx, text, font, "bottom");
+
+    closeTo(
+      baselineFromTop - m.actualBoundingBoxAscent + top.dy, 0, 1e-9,
+      "top should land the ink's top edge on the line box's top edge"
+    );
+    closeTo(
+      baselineFromTop + m.actualBoundingBoxDescent + bottom.dy, size, 1e-9,
+      "bottom should land the ink's bottom edge on the line box's bottom edge"
+    );
+  });
+
+  await t.test("asks for no shift for an empty string", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const shift = h.app.inkCenteringShift(h.ctx, "", h.app.byzantineFont(h.app.BYZ_FONT_SIZE));
+
+    closeTo(shift.dx, 0, 1e-9);
+    closeTo(shift.dy, 0, 1e-9);
+  });
+
+  await t.test("leaves the context's text state as it found it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    h.ctx.font = "24px sans-serif";
+    h.ctx.textAlign = "right";
+    h.ctx.textBaseline = "middle";
+
+    h.app.inkCenteringShift(h.ctx, "\ue139", '40px "Neanes"');
+
+    assert.equal(h.ctx.font, "24px sans-serif");
+    assert.equal(h.ctx.textAlign, "right", "measuring must not leak an alignment change");
+    assert.equal(h.ctx.textBaseline, "middle");
+  });
+});
+
 test("drawing ink-anchored glyphs", async (t) => {
   function drawn(h, text, x, y, options) {
     h.ctx.reset();

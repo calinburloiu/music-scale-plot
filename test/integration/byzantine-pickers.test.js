@@ -12,6 +12,7 @@ const {
   pickMartyria,
   setNoteCount,
   fireClick,
+  measureTextInk,
 } = require("../helpers/harness.js");
 
 function byzantineApp(t) {
@@ -260,7 +261,7 @@ test("the martyria picker: the Genus column", async (t) => {
     assert.deepEqual(after.map((el) => el.dataset.genus), Array.from(h.app.otherGenera("midDi")));
   });
 
-  await t.test("previews every genus composed on the selected letter", () => {
+  await t.test("shows every genus as the bare mark it contributes", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
     openWell(h, row, "martyria");
@@ -269,12 +270,12 @@ test("the martyria picker: the Genus column", async (t) => {
     const option = row.querySelector('.martyria-genus-option[data-genus="zygos"]');
     assert.equal(
       option.querySelector(".byz-glyph").textContent,
-      h.app.resolveMartyriaGlyphs("midDi", "zygos", 0),
-      "a genus is only ever seen on a letter, so that is what the row shows"
+      h.app.resolveGenusGlyph("midDi", "zygos"),
+      "a row's subject is the mark, so the mark is what it shows"
     );
   });
 
-  await t.test("recomposes the previews when a different letter is picked", () => {
+  await t.test("re-resolves the marks when a different letter is picked", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
     openWell(h, row, "martyria");
@@ -284,8 +285,8 @@ test("the martyria picker: the Genus column", async (t) => {
     const option = row.querySelector('.martyria-genus-option[data-genus="delta"]');
     assert.equal(
       option.querySelector(".byz-glyph").textContent,
-      h.app.resolveMartyriaGlyphs("lowDi", "delta", 0),
-      "the low register takes the Above mark set, so the preview must change"
+      h.app.resolveGenusGlyph("lowDi", "delta"),
+      "the low register takes the Above mark set, so the mark itself must change"
     );
   });
 });
@@ -899,5 +900,252 @@ test("adding and removing notes in Byzantine notation", async (t) => {
       noteRows(h).map((row) => h.app.readNoteSymbols(row).martyria.note),
       ["midZo", "midNi", "midPa"]
     );
+  });
+});
+
+test("how a picker row shows its symbol", async (t) => {
+  // The rows list psaltic signs next to Greek names, in a face whose ink sits
+  // nowhere near where a Latin label's does. Each sign gets a box, and the ink
+  // is centred in it — the same treatment, from the same helper, that a well
+  // gives the sign it holds.
+  const inkOf = (option) => option.querySelector(".byz-glyph .glyph-ink");
+  const dyOf = (option) => parseFloat(inkOf(option).style.getPropertyValue("--ink-dy"));
+
+  await t.test("puts the sign in a box of its own", () => {
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "martyria");
+
+    const option = panel.querySelector('.martyria-note-option[data-note="lowPa"]');
+
+    assert.ok(inkOf(option), "the sign should sit in a box, not loose beside the label");
+    assert.equal(
+      option.querySelector(".byz-glyph").textContent,
+      h.app.resolveMartyriaGlyphs("lowPa", h.app.GENUS_NONE, 0),
+      "and the box should still show the resolved glyph"
+    );
+  });
+
+  await t.test("centres the sign's ink in that box rather than its baseline", () => {
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "martyria");
+
+    const option = panel.querySelector('.martyria-note-option[data-note="lowPa"]');
+
+    assert.notEqual(dyOf(option), 0, "a sign left on its baseline sits off-centre in its box");
+  });
+
+  await t.test("offsets a fthora row and a martyria row differently", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    const fthora = openWell(h, row, "fthora").querySelector(
+      '.fthora-option[data-fthora="diatonicPa"]'
+    );
+    const fthoraDy = dyOf(fthora);
+    const martyria = openWell(h, row, "martyria").querySelector(
+      '.martyria-note-option[data-note="lowPa"]'
+    );
+
+    assert.ok(
+      fthoraDy > 0,
+      "a fthora's ink clears the baseline, so its box has to push it down; got " + fthoraDy
+    );
+    assert.ok(
+      Math.abs(fthoraDy - dyOf(martyria)) > 1,
+      "the two signs sit at different heights in the face, so one offset cannot serve " +
+        "both rows; got " + fthoraDy + " and " + dyOf(martyria)
+    );
+  });
+
+  await t.test("gives the footer's preview the same box", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    const panel = openWell(h, row, "martyria");
+
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="lowPa"]'));
+
+    const preview = row.querySelector(".martyria-picker .byz-preview");
+    assert.ok(
+      preview.querySelector(".glyph-ink"),
+      "the drafted sign is the one the well will show, so it gets the well's treatment"
+    );
+  });
+});
+
+test("what a genus row shows", async (t) => {
+  // A genus row offers a mark, so a row shows that mark and nothing else. The
+  // composition it makes with the chosen letter is one thing, shown once, in
+  // the footer preview — which is also the only place the octave tick appears.
+  const glyphOf = (option) => option.querySelector(".byz-glyph").textContent;
+
+  await t.test("shows the mark on its own, not stacked on the note", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    const panel = openWell(h, row, "martyria");
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midPa"]'));
+
+    const option = row.querySelector('.martyria-genus-option[data-genus="alpha"]');
+
+    assert.equal(
+      glyphOf(option),
+      h.app.resolveGenusGlyph("midPa", "alpha"),
+      "the row should carry the bare genus mark"
+    );
+    assert.equal(glyphOf(option).length, 1, "one glyph, with no letter under it");
+    assert.notEqual(
+      glyphOf(option),
+      h.app.resolveMartyriaGlyphs("midPa", "alpha", 0),
+      "the composed martyria belongs to the preview, not to the row"
+    );
+  });
+
+  await t.test("offers None as an empty box, since it adds no mark", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    const panel = openWell(h, row, "martyria");
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midPa"]'));
+
+    const none = row.querySelector('.martyria-genus-option[data-genus="none"]');
+
+    assert.equal(glyphOf(none), "", "None means no mark, so there is nothing to draw");
+  });
+
+  await t.test("takes its mark from the register the letter belongs to", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    const panel = openWell(h, row, "martyria");
+
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="lowPa"]'));
+    const low = glyphOf(row.querySelector('.martyria-genus-option[data-genus="alpha"]'));
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midPa"]'));
+    const mid = glyphOf(row.querySelector('.martyria-genus-option[data-genus="alpha"]'));
+
+    assert.notEqual(low, mid, "a low letter takes its marks from a different set");
+    assert.equal(low, h.app.resolveMartyriaGlyphs("lowPa", "alpha", 0)[1]);
+    assert.equal(mid, h.app.resolveMartyriaGlyphs("midPa", "alpha", 0)[1]);
+  });
+
+  await t.test("seats a mark on the side it will attach to", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    const panel = openWell(h, row, "martyria");
+
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="lowPa"]'));
+    assert.ok(
+      row.querySelector(".martyria-genus-column").classList.contains("genus-above"),
+      "a low-octave letter takes its mark above, and the column has to say so"
+    );
+
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midPa"]'));
+    assert.ok(
+      row.querySelector(".martyria-genus-column").classList.contains("genus-below"),
+      "a middle-octave letter takes it below"
+    );
+  });
+
+  await t.test("leaves the composition to the preview", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    const panel = openWell(h, row, "martyria");
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midPa"]'));
+    fireClick(h, row.querySelector('.martyria-genus-option[data-genus="alpha"]'));
+
+    assert.equal(
+      row.querySelector(".martyria-picker .byz-preview").textContent,
+      h.app.resolveMartyriaGlyphs("midPa", "alpha", 0),
+      "the preview is where letter and mark come together"
+    );
+  });
+});
+
+test("keeping your place in a picker", async (t) => {
+  // Choosing a note rebuilds the panel, because the genus rows have to be
+  // re-resolved against the new letter. A rebuild that also scrolled the list
+  // back to the top would throw away the reader's place — and hide the row
+  // they just clicked, which is the one thing they want to see.
+  const scrollerOf = (row, name) => row.querySelector('[data-scroller="' + name + '"]');
+
+  await t.test("holds the Notes column still when a note is picked", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    const panel = openWell(h, row, "martyria");
+    scrollerOf(row, "notes").scrollTop = 460;
+
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midDi"]'));
+
+    assert.equal(
+      scrollerOf(row, "notes").scrollTop,
+      460,
+      "the list jumped back to the top, losing the row that was just chosen"
+    );
+  });
+
+  await t.test("holds the Genus column still when a genus is picked", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    const panel = openWell(h, row, "martyria");
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midDi"]'));
+    scrollerOf(row, "genus").scrollTop = 180;
+
+    fireClick(h, row.querySelector('.martyria-genus-option[data-genus="zygos"]'));
+
+    assert.equal(scrollerOf(row, "genus").scrollTop, 180);
+  });
+
+  await t.test("holds the fthora list still when a fthora is picked", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    const panel = openWell(h, row, "fthora");
+    scrollerOf(row, "fthora").scrollTop = 240;
+
+    fireClick(h, panel.querySelector('.fthora-option[data-fthora="enharmonic"]'));
+
+    assert.equal(scrollerOf(row, "fthora").scrollTop, 240);
+  });
+
+  await t.test("starts a fresh panel at the top", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    openWell(h, row, "martyria");
+
+    assert.equal(scrollerOf(row, "notes").scrollTop, 0);
+  });
+});
+
+test("scrolling a picker to its selection", async (t) => {
+  // Pure arithmetic, so it can be tested: jsdom has no layout, and the caller
+  // is the thin part that reads offsetTop and clientHeight from a real browser.
+  await t.test("centres the option when the list is long enough", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.scrollTopToReveal(500, 40, 300, 1000), 500 - (300 - 40) / 2);
+  });
+
+  await t.test("does not scroll past the top", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.scrollTopToReveal(20, 40, 300, 1000), 0, "an early row needs no scrolling");
+  });
+
+  await t.test("does not scroll past the bottom", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(
+      h.app.scrollTopToReveal(980, 40, 300, 1000),
+      700,
+      "the last row should sit at the end of the list, not beyond it"
+    );
+  });
+
+  await t.test("stays put when the list does not scroll at all", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.scrollTopToReveal(120, 40, 300, 300), 0);
+    assert.equal(h.app.scrollTopToReveal(120, 40, 0, 0), 0, "an unlaid-out list has nowhere to go");
   });
 });

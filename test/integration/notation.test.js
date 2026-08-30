@@ -227,6 +227,77 @@ test("symbol state on a note row", async (t) => {
   });
 });
 
+test("where a well puts its glyph", async (t) => {
+  // Flexbox centres a glyph's line box and advance; the ink sits in neither's
+  // middle. The well measures the face and offsets by what it finds, so these
+  // tests are about that offset existing and tracking the glyph — not about
+  // any particular number, which belongs to the font.
+  const shiftOf = (well) => {
+    const glyph = well.querySelector(".glyph-ink");
+    return glyph ? parseFloat(glyph.style.getPropertyValue("--ink-dy")) : null;
+  };
+
+  await t.test("pushes a fthora down, because its ink sits above the baseline", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeFthora(row, "diatonicPa");
+
+    const dy = shiftOf(row.querySelector(".fthora-well"));
+    assert.ok(dy > 0, "a fthora floats high in its box unless pushed down; got dy=" + dy);
+  });
+
+  await t.test("offsets a fthora and a martyria differently", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeFthora(row, "diatonicPa");
+    h.app.writeMartyria(row, "midPa", h.app.GENUS_NONE, 0);
+
+    const fthora = shiftOf(row.querySelector(".fthora-well"));
+    const martyria = shiftOf(row.querySelector(".martyria-well"));
+    assert.ok(
+      Math.abs(fthora - martyria) > 1,
+      "the two signs sit at different heights in the face, so one offset cannot " +
+        "serve both; got " + fthora + " and " + martyria
+    );
+  });
+
+  await t.test("re-measures when the glyph changes", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+    const well = row.querySelector(".martyria-well");
+
+    h.app.writeMartyria(row, "midPa", h.app.GENUS_NONE, 0);
+    const bare = shiftOf(well);
+
+    h.app.writeMartyria(row, "midPa", "alpha", 0);
+    const marked = shiftOf(well);
+
+    assert.ok(
+      marked < bare,
+      "hanging a genus mark below the letter drops the ink's centre, so the " +
+        "glyph must ride higher; got " + bare + " then " + marked
+    );
+  });
+
+  await t.test("leaves an empty well with nothing to offset", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+    const well = row.querySelector(".martyria-well");
+
+    h.app.writeMartyria(row, "midPa", "alpha", 0);
+    h.app.clearMartyria(row);
+
+    assert.equal(well.querySelector(".glyph-ink"), null, "a cleared well holds no glyph");
+    assert.equal(well.textContent, "", "and shows nothing");
+  });
+});
+
 test("what a well shows", async (t) => {
   await t.test("paints the resolved glyphs into the well button", () => {
     const h = loadApp();

@@ -1181,6 +1181,8 @@ function loadByzantineFont() {
     })
     .then(function () {
       byzFontReady = true;
+      // The wells stored an ink offset measured against fallback metrics.
+      refreshAllNoteRowWells();
       render();
     })
     .catch(function (error) {

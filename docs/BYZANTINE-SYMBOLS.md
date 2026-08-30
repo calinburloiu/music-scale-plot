@@ -90,12 +90,22 @@ can attach to (`martyriaTop` or `martyriaBottom`; see
 font's mark-to-base lookup finds no matching anchor, so the mark lands at the
 pen position instead of on the letter — a visibly broken martyria.
 
-`resolveMartyriaGlyphs` in `byzantine.js` is the **only** place that rule is
-allowed to live: it chooses the `…Above` marks for the low register (whose
-letters expose `martyriaTop`) and the `…Below` marks for the middle and high
-registers (whose letters expose `martyriaBottom`). Nothing else in the
-codebase — not the picker, not the ladder, not `app.js` — may encode this
-rule a second time; they all go through `resolveMartyriaGlyphs`.
+`byzantine.js` is the **only** place that rule is allowed to live, in three
+functions that share it: `resolveMartyriaGlyphs` composes letter and mark,
+`resolveGenusGlyph` returns the mark on its own (what a picker row shows), and
+`martyriaMarkSide` reports which side it will stack on (what the picker lays
+its rows out around). All three choose the `…Above` marks for the low register
+(whose letters expose `martyriaTop`) and the `…Below` marks for the middle and
+high registers (whose letters expose `martyriaBottom`). Nothing else in the
+codebase — not the picker, not the ladder, not `app.js` — may encode this rule
+a second time.
+
+A picker row offers a *genus*, so it shows that genus's mark alone, via
+`resolveGenusGlyph`. Letter and mark are only ever composed in two places: the
+footer preview of the open picker, and the well itself. Because a lone mark has
+no letter to say which way it faces, the genus column seats it against the edge
+it would attach on — `martyriaMarkSide` picks the edge, `glyphBoxAlign` in
+`byzantine-ui.js` applies it.
 
 ---
 
@@ -223,9 +233,31 @@ guard on it.
 using a real font — see `docs/TESTING.md` §5 for the general
 `measureText`/`measureTextInk` contract. The ratios that shape the model
 (`INK_LEFT_BEARING_RATIO`, `INK_WIDTH_RATIO`, `ASCENT_RATIO`, `DESCENT_RATIO`,
-`MARK_ABOVE_ASCENT_RATIO`, `MARK_BELOW_DESCENT_RATIO`) and the codepoint
-ranges it treats as zero-advance marks live at the top of that file. It is a
-**documented model of the shape of a real SBMuFL font's metrics — not a
+`MARK_ABOVE_ASCENT_RATIO`, `MARK_BELOW_DESCENT_RATIO`, `FTHORA_ASCENT_RATIO`,
+`FTHORA_DESCENT_RATIO`, `FONT_ASCENT_RATIO`, `FONT_DESCENT_RATIO`) and the
+codepoint ranges it treats as zero-advance marks live at the top of that file.
+It is a **documented model of the shape of a real SBMuFL font's metrics — not a
 measurement of Neanes itself.** Tests that need an expected ink box compute it
 with the exported `measureTextInk()` helper rather than hard-coding numbers,
 the same way non-Byzantine tests use `measureTextWidth()`.
+
+Two properties of that shape exist because ink-centring depends on them, and a
+simpler model would hide the bugs it is there to catch:
+
+- **A fthora's ink never crosses the baseline.** `E1D0`–`E1DF` are modelled with
+  a *negative* descent, because the face cuts them to ride above a neume. A
+  glyph centred by its line box therefore floats near the top of its box, which
+  is what `inkCenteringShift()` corrects. Every other glyph in the model
+  straddles the baseline, so a fthora is the only case that proves the
+  correction is measured rather than guessed.
+- **The strut is asymmetric.** `fontBoundingBoxAscent` and
+  `fontBoundingBoxDescent` are reported (0.775 em and 0.25 em), so the baseline
+  does *not* sit in the middle of the line box. A model with a symmetric strut
+  would make the vertical half of `inkCenteringShift()` look unnecessary.
+- **The box moves with the anchor.** `ctx.measureText` reports
+  `actualBoundingBox…` from the point `textAlign` and `textBaseline` select, as
+  a real canvas does — align right and the box shifts by a whole advance. A
+  stub that ignored them would report the same box however the context was left,
+  which is exactly the state that hides a caller measuring without pinning them.
+  `inkBox` pins both; if you write another measurement helper, pin them there
+  too.

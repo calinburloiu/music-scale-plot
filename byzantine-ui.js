@@ -68,22 +68,116 @@ function writeFthora(row, fthoraId) {
 }
 
 /** Repaints both wells of one row from its data-* attributes. */
+// The wells measure their own glyphs, and the chart's context is not theirs to
+// borrow: it carries the chart's font and alignment. One offscreen context,
+// made on first use because this file loads before there is a document to
+// draw on.
+let wellMeasuringCtx = null;
+
+function wellMeasuringContext() {
+  if (!wellMeasuringCtx) {
+    wellMeasuringCtx = document.createElement("canvas").getContext("2d");
+  }
+  return wellMeasuringCtx;
+}
+
+/** The font a box actually renders in, so the measurement matches the paint. */
+function glyphBoxFont(box) {
+  const size = parseFloat(getComputedStyle(box).fontSize);
+  return byzantineFont(size > 0 ? size : undefined);
+}
+
+/**
+ * Puts `text` in `box` with its *ink* centred rather than its baseline.
+ *
+ * The glyph goes in a span of its own so it has something to be offset by: a
+ * fthora would otherwise float in the top third of the box and a martyria's
+ * genus mark would hang below the border. The offset is measured per glyph —
+ * see `inkCenteringShift` for why it cannot be a constant.
+ *
+ * `box` must already be in the document, unless the caller passes `font`: the
+ * offset depends on the size the box actually renders at, and only a computed
+ * style knows that.
+ */
+function setGlyphBoxText(box, text, font, vAlign) {
+  box.textContent = "";
+  if (!text) return;
+
+  const ink = document.createElement("span");
+  ink.className = "glyph-ink";
+  ink.textContent = text;
+
+  const shift = inkCenteringShift(wellMeasuringContext(), text, font || glyphBoxFont(box), vAlign);
+  ink.style.setProperty("--ink-dx", shift.dx.toFixed(2) + "px");
+  ink.style.setProperty("--ink-dy", shift.dy.toFixed(2) + "px");
+
+  box.appendChild(ink);
+}
+
+function fillWell(well, text) {
+  setGlyphBoxText(well, text);
+  well.classList.toggle("is-empty", !text);
+}
+
+/**
+ * Boxes and ink-centres every sign in a freshly built panel.
+ *
+ * A picker's rows are assembled detached and appended in one go, so this runs
+ * afterwards, when the boxes finally have a computed font size. Re-reading
+ * `textContent` picks the glyph back up whether the box still holds a bare
+ * text node or an already-wrapped one, which keeps a rebuild idempotent.
+ */
+function centerPickerGlyphs(panel) {
+  // Every box of a given class renders at the same size, and asking for a
+  // computed style is the expensive part of this pass — a panel holds up to
+  // three dozen boxes — so the font is resolved once per class, not per box.
+  const fonts = new Map();
+  for (const box of panel.querySelectorAll(".byz-glyph, .byz-preview")) {
+    const key = box.className;
+    if (!fonts.has(key)) fonts.set(key, glyphBoxFont(box));
+    setGlyphBoxText(box, box.textContent, fonts.get(key), glyphBoxAlign(box));
+  }
+}
+
+/**
+ * Where a box should seat its sign. Only the genus list pins: a mark shown on
+ * its own has lost the letter that would say which way it faces, so the box
+ * says it instead — a mark that stacks above the letter rides the top of its
+ * box, one that stacks below sits at the bottom. Everywhere else a box holds a
+ * whole sign with nothing to compare it against, so it is centred.
+ */
+function glyphBoxAlign(box) {
+  const column = box.closest(".martyria-genus-column");
+  if (!column) return "center";
+  return column.classList.contains("genus-above") ? "top" : "bottom";
+}
+
 function refreshNoteRowWells(row) {
   const symbols = readNoteSymbols(row);
 
   const fthoraWell = row.querySelector(".fthora-well");
   if (fthoraWell) {
-    fthoraWell.textContent = symbols.fthora ? resolveFthoraGlyph(symbols.fthora) : "";
-    fthoraWell.classList.toggle("is-empty", !symbols.fthora);
+    fillWell(fthoraWell, symbols.fthora ? resolveFthoraGlyph(symbols.fthora) : "");
   }
 
   const martyriaWell = row.querySelector(".martyria-well");
   if (martyriaWell) {
-    martyriaWell.textContent = symbols.martyria
-      ? resolveMartyriaGlyphs(symbols.martyria.note, symbols.martyria.genus, symbols.martyria.ticks)
-      : "";
-    martyriaWell.classList.toggle("is-empty", !symbols.martyria);
+    fillWell(
+      martyriaWell,
+      symbols.martyria
+        ? resolveMartyriaGlyphs(symbols.martyria.note, symbols.martyria.genus, symbols.martyria.ticks)
+        : ""
+    );
   }
+}
+
+/**
+ * Re-measures every well. Called once the Neanes face resolves: a well filled
+ * before then was measured against fallback metrics, and the offset it stored
+ * is wrong for the glyph now on screen.
+ */
+function refreshAllNoteRowWells() {
+  for (const row of document.querySelectorAll("#editor .note-row")) refreshNoteRowWells(row);
 }
 
 /** Snapshot of a row's symbol attributes, for carrying across a rebuild. */
@@ -196,12 +290,76 @@ function makeByzOption(spec) {
 }
 
 /** One flat list: None, then the sixteen fthores in block order. */
+/**
+ * Where each of a panel's scrollers sits. Picking rebuilds the panel — the
+ * genus rows have to be re-resolved against the new letter — and a rebuild
+ * that started from the top would throw away the reader's place, hiding the
+ * very row they just clicked.
+ */
+function readPickerScroll(panel) {
+  const state = {};
+  for (const el of panel.querySelectorAll("[data-scroller]")) {
+    state[el.dataset.scroller] = el.scrollTop;
+  }
+  return state;
+}
+
+function restorePickerScroll(panel, state) {
+  for (const el of panel.querySelectorAll("[data-scroller]")) {
+    const top = state[el.dataset.scroller];
+    if (top) el.scrollTop = top;
+  }
+}
+
+/**
+ * Where a scroller has to sit for `option` to be in view — centred when the
+ * list is long enough, clamped to either end when it is not, and left alone
+ * when there is nothing to scroll.
+ *
+ * Pure arithmetic on purpose: the caller reads the layout, which jsdom does
+ * not have, so this is the half that can be tested.
+ */
+function scrollTopToReveal(optionTop, optionHeight, viewHeight, scrollHeight) {
+  if (viewHeight <= 0 || scrollHeight <= viewHeight) return 0;
+  const centred = optionTop - (viewHeight - optionHeight) / 2;
+  return Math.max(0, Math.min(centred, scrollHeight - viewHeight));
+}
+
+/** Brings the committed choice into view when a picker first opens. */
+function revealPickerSelection(panel) {
+  for (const el of panel.querySelectorAll("[data-scroller]")) {
+    const selected = el.querySelector(".is-selected");
+    if (!selected) continue;
+    el.scrollTop = scrollTopToReveal(
+      selected.offsetTop,
+      selected.offsetHeight,
+      el.clientHeight,
+      el.scrollHeight
+    );
+  }
+}
+
+/**
+ * Nudges a freshly opened panel into view when it opens below the fold. The
+ * panels deliberately do not flip up — the lists scroll instead — but a well
+ * near the bottom of a long editor can still push Apply past the viewport.
+ * Guarded: jsdom implements no scrollIntoView.
+ */
+function keepPickerInView(panel) {
+  if (typeof panel.scrollIntoView !== "function") return;
+  const box = panel.getBoundingClientRect();
+  const viewport = window.innerHeight || document.documentElement.clientHeight || 0;
+  if (box.bottom > viewport) panel.scrollIntoView({ block: "nearest" });
+}
+
 function buildFthoraPicker(panel, row) {
   const draft = panel.dataset.draftFthora || "";
+  const scroll = readPickerScroll(panel);
   panel.innerHTML = "";
 
   const body = document.createElement("div");
   body.className = "fthora-picker-body";
+  body.dataset.scroller = "fthora";
   body.appendChild(
     makeByzOption({ className: "fthora-option", data: { fthora: "" }, glyph: "", label: "None" })
   );
@@ -217,6 +375,8 @@ function buildFthoraPicker(panel, row) {
   }
   panel.appendChild(body);
   panel.appendChild(buildPickerFooter(panel, row));
+  centerPickerGlyphs(panel);
+  restorePickerScroll(panel, scroll);
 }
 
 function noteRowDegree(row) {
@@ -247,6 +407,7 @@ function byzGroupTitle(text) {
 
 function buildMartyriaPicker(panel, row) {
   const draft = readMartyriaDraft(panel);
+  const scroll = readPickerScroll(panel);
 
   panel.innerHTML = "";
 
@@ -261,6 +422,8 @@ function buildMartyriaPicker(panel, row) {
   panel.appendChild(
     buildPickerFooter(panel, row, draft ? resolveMartyriaGlyphs(draft.note, draft.genus, draft.ticks) : "")
   );
+  centerPickerGlyphs(panel);
+  restorePickerScroll(panel, scroll);
 }
 
 /**
@@ -298,6 +461,7 @@ function buildPickerFooter(panel, row, previewText) {
 function buildNotesColumn(degree, degreeCount, draft, showTicks) {
   const column = document.createElement("div");
   column.className = "martyria-notes-column";
+  column.dataset.scroller = "notes";
   column.appendChild(byzColumnTitle("Notes"));
   column.appendChild(
     makeByzOption({
@@ -341,6 +505,7 @@ function buildNotesColumn(degree, degreeCount, draft, showTicks) {
 function buildGenusColumn(draft) {
   const column = document.createElement("div");
   column.className = "martyria-genus-column";
+  column.dataset.scroller = "genus";
   column.appendChild(byzColumnTitle("Genus"));
 
   if (!draft) {
@@ -348,14 +513,19 @@ function buildGenusColumn(draft) {
     return column;
   }
 
-  // Every row previews itself on the selected letter, because that is the only
-  // form the user will ever see it in. The octave tick is left off: it marks a
-  // register, not a genus.
+  // Which side the marks in this list will stack on. The rows are then laid
+  // out around the note letter rather than around each composition's own ink,
+  // so the letter holds still and the mark's side reads at a glance.
+  column.classList.add("genus-" + martyriaMarkSide(draft.note));
+
+  // A row's subject is the mark, so a row shows the mark alone. Letter and mark
+  // meet once, in the footer preview, which is also the only place the octave
+  // tick appears — the tick marks a register, not a genus.
   function genusOption(id, label) {
     const option = makeByzOption({
       className: "martyria-genus-option",
       data: { genus: id },
-      glyph: resolveMartyriaGlyphs(draft.note, id, 0),
+      glyph: resolveGenusGlyph(draft.note, id),
       label: label,
     });
     if (draft.genus === id) option.classList.add("is-selected");
@@ -389,6 +559,8 @@ function toggleWellPicker(well) {
   else buildMartyriaPicker(panel, row);
   panel.classList.add("open");
   row.classList.add("picker-open");
+  revealPickerSelection(panel);
+  keepPickerInView(panel);
 }
 
 /**

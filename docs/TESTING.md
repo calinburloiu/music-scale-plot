@@ -278,7 +278,7 @@ Two consequences worth knowing:
 | API | Stub | Why |
 |---|---|---|
 | `canvas.getContext("2d")` | `RecordingContext2D` | jsdom has no canvas. Records every draw call with the drawing state active at the time. |
-| `ctx.measureText` | ink model: `length × fontSize × 0.6` advance, plus modelled bounding-box metrics | Deterministic stand-in for font metrics. Font-size sensitive, so the 24px UI font and 21px monospace font measure differently, as in a browser. Also models ink for Byzantine glyphs: zero-advance genus marks, and a mark-aware ascent/descent that grows for an `…Above` or `…Below` mark — see the ratio table in `canvas-stub.js` and `docs/BYZANTINE-SYMBOLS.md` §8. |
+| `ctx.measureText` | ink model: `length × fontSize × 0.6` advance, plus modelled bounding-box and font metrics, reported **from the anchor `textAlign`/`textBaseline` choose** | Deterministic stand-in for font metrics. Font-size sensitive, so the 24px UI font and 21px monospace font measure differently, as in a browser. Also models ink for Byzantine glyphs: zero-advance genus marks, a mark-aware ascent/descent that grows for an `…Above` or `…Below` mark, a fthora whose ink sits *entirely above* the baseline (a negative descent), and an asymmetric `fontBoundingBox…` strut. Like a real canvas it moves the bounding box with `textAlign` and `textBaseline`, so measuring without pinning them is a bug a test can catch — see the ratio table in `canvas-stub.js` and `docs/BYZANTINE-SYMBOLS.md` §8. |
 | `canvas.toDataURL` | records the call | Lets export tests check the exported size. |
 | `AudioContext` | `FakeAudioContext` | Records oscillators, gains and every scheduled parameter change. |
 | `HTMLAnchorElement.click` | records `{download, href}` | jsdom cannot navigate or download. |

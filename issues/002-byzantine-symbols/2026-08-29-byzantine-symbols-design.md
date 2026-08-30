@@ -255,7 +255,11 @@ Fthora is on the left of martyria, mirroring the chart.
 
 ### 5.3 The wells
 
-34 × 34 buttons. Filled: the resolved glyph in Neanes, ink-centred, solid border. Empty:
+34 × 34 buttons. Filled: the resolved glyph in Neanes, ink-centred — `inkCenteringShift()`
+measures how far the ink is from the middle of the box the browser gives it and
+`setGlyphBoxText()` applies that offset, because Neanes puts a fthora's ink a whole em above the
+baseline and hangs a genus mark below it, and a constant would be wrong for the next face. The
+picker rows use the same helper. Empty:
 dashed border and a pure-CSS mark that says which sign the slot takes — a slashed stroke for
 fthora, two unequal tiers for martyria. The marks are CSS boxes, so an empty well is legible
 before the webfont arrives.
@@ -279,15 +283,33 @@ tick-extended rows when §4 says to show them. Each row shows the bare letter an
 
 **Genus** (right) — `None`, then the compatible genera for the selected note in
 `MARTYRIA_COMPATIBILITY` order, then a horizontal rule, then the remaining genera in
-`BYZ_GENERA` order. Every row previews itself **composed on the currently selected letter**,
-because that is the only form the user will ever see it in. Until a note is selected the column
-is inert.
+`BYZ_GENERA` order. Until a note is selected the column is inert.
 
-**Footer** — a **Done** button. Picking a note or a genus writes this well and re-renders
-immediately; **Done** closes the panel and runs the ladder propagation of §4 across the other
-degrees.
+Each row shows **the genus mark on its own**, resolved by `resolveGenusGlyph(noteId, genusId)`
+— not the composition it makes with the letter. A row's subject is the mark, and composing
+every row on the same letter repeats that letter down the whole column, leaving the one thing
+that actually differs between rows as the small part of a mostly redundant glyph. The selected
+note still decides *which* mark: the register picks the `…Above` or `…Below` set, so the glyph
+a row shows is by construction the glyph the martyria will carry. `None` shows an empty box,
+because it contributes no mark.
 
-Both columns get a `max-height` and scroll.
+Letter and mark are composed in exactly two places: the **footer preview** and the well itself.
+
+Because a mark shown alone has lost the letter that would say which way it faces, the column
+carries that instead. `martyriaMarkSide(noteId)` reports the side; the column takes a
+`genus-above` or `genus-below` class, and each box seats its mark against the edge it will
+attach on — a mark that stacks above the letter rides the top of its box, one that stacks below
+sits at the bottom. So the register is legible from the layout without a letter in every row.
+
+**Footer** — a preview of the drafted martyria (letter, mark and octave tick together — the
+tick appears nowhere else), then **Cancel** and **Apply**. Picking a note or a genus moves the
+panel's own draft only; **Apply** writes it to the row and runs the ladder propagation of §4
+across the other degrees, while Cancel — or a click outside, or a second click on the well —
+discards it.
+
+Both columns get a `max-height` and scroll. A rebuild — which every pick triggers, so the marks
+can be re-resolved against the new letter — restores each column's scroll position rather than
+starting from the top, and opening a panel scrolls its committed choice into view.
 
 ---
 
@@ -398,6 +420,18 @@ The whole suite runs before every commit, not just the touched file.
   classic scripts only, no build step", with the `file://`/CORS reason recorded so the next
   reader does not 'improve' it into ES modules.
 - **`README.md`** — already carries the font NOTICE; no change needed.
+
+---
+
+## 9a. Amendments made during implementation
+
+This document is the design as agreed before the work. Two things beyond §5.5 changed while
+building, and are recorded here so the document does not mislead a later reader:
+
+| § | As designed | As built | Why |
+|---|---|---|---|
+| 5.5 | The picker's footer holds a **Done** button and every pick writes the well immediately | The footer holds **Cancel** and **Apply**; picks move a draft the panel owns, and only Apply commits | An immediate write has no way back, and the ladder would re-propagate on every click rather than on the choice the user actually made |
+| 2, #7 | "A scrolling panel cannot escape the editor", so pickers never flip up | The panels still never flip up, but one that opens below the fold is nudged into view (`keepPickerInView`) | The premise was wrong: a panel anchored to a well near the bottom of a long editor does push its Apply button past the viewport |
 
 ---
 
