@@ -242,6 +242,46 @@ test("resolving a martyria to glyphs", async (t) => {
     assert.equal(h.app.resolveMartyriaGlyphs("highKe", h.app.GENUS_NONE, 1), "");
   });
 
+  await t.test("keeps the tick after the letter, not before it", () => {
+    // SBMuFL documents `martyriaTick` as the ornament set *before* a martyria,
+    // and a review read that as "this is prepended wrongly". It is not the same
+    // use. Here the tick is the octave extension above high Κε (§4 of the
+    // design), and the two placements render differently: a high letter already
+    // carries its own octave stroke, so a tick after it reads as the second
+    // stroke of a double prime — the octave-above-the-octave the ladder means.
+    // Before the letter it is a separate ornament, and the letter's wide left
+    // side bearing (0.38em in Neanes) opens a visible gap that says "tick, then
+    // martyria" instead. The leading ornament is explicitly out of scope.
+    const h = loadApp();
+    t.after(() => h.close());
+    const tick = String.fromCharCode(0xe145);
+
+    const ticked = h.app.resolveMartyriaGlyphs("highKe", "alpha", 1);
+
+    assert.equal(ticked.at(-1), tick, "the tick belongs at the end of the composition");
+    assert.notEqual(ticked[0], tick, "putting it first would make it a leading ornament");
+  });
+
+  await t.test("leaves the genus mark next to the letter it attaches to", () => {
+    // The real constraint on the ordering, and the one that would break
+    // silently: the font stacks a mark on a letter with a mark-to-base lookup,
+    // which needs the mark to *follow its base*. Whatever else the composition
+    // carries must not come between them.
+    const h = loadApp();
+    t.after(() => h.close());
+
+    for (const noteId of ["lowPa", "midDi", "highKe"]) {
+      for (const ticks of [0, 1]) {
+        const composed = h.app.resolveMartyriaGlyphs(noteId, "alpha", ticks);
+        assert.equal(
+          composed.indexOf(h.app.resolveGenusGlyph(noteId, "alpha")),
+          1,
+          noteId + " with " + ticks + " tick(s) put something between the letter and its mark"
+        );
+      }
+    }
+  });
+
   await t.test("resolves nothing for an unknown note", () => {
     const h = loadApp();
     t.after(() => h.close());
