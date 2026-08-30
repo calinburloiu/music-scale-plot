@@ -107,6 +107,9 @@ body {
   gap: 0.65rem;
 }
 
+/* Every settings row after the first is spaced the same way; only the EDO row,
+   which appears and disappears under Interval Type, sits slightly closer. */
+.base-note-row,
 .interval-type-row { margin-top: 0.85rem; }
 .edo-settings-row  { margin-top: 0.65rem; align-items: flex-start; }
 
