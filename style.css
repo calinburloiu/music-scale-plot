@@ -456,18 +456,27 @@ body {
   position: relative;
 }
 
-/* A faint cross for the alteration, a single diagonal for the fthora, two
-   stacked bars for the martyria: three hints, so the empty wells stay tellable
-   apart. */
-.alteration-well.is-empty::before,
-.alteration-well.is-empty::after {
+/* A flat beside a sharp for the alteration, a single diagonal for the fthora,
+   two stacked bars for the martyria: three hints, so the empty wells stay
+   tellable apart.
+
+   The alteration's is the only one that draws a shape rather than stacking
+   bars: no arrangement of rectangles reads as "accidental", and the cross this
+   replaced read as "add". The pair is drawn rather than typed — ♭ and ♯ from a
+   UI font render as a lowercase b and a hash on most systems, and the font's
+   own geniki are zero-advance combining marks that would land on top of each
+   other. Masking rather than painting the SVG keeps the colour on
+   `--ink-faint` with the other two hints. */
+.alteration-well.is-empty::before {
+  --flat-and-sharp: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 16' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 1.4V14.6'/%3E%3Cpath d='M3 8.3c4.8-2.4 5.4 2.9 0 6.3'/%3E%3Cpath d='M15.3 3.4V15'/%3E%3Cpath d='M19.9 1.8V13.4'/%3E%3Cpath d='M13.3 7.8 21.9 6.4'/%3E%3Cpath d='M13.3 11.6 21.9 10.2'/%3E%3C/svg%3E");
   content: "";
   position: absolute;
+  width: 22px;
+  height: 15px;
   background: var(--ink-faint);
+  -webkit-mask: var(--flat-and-sharp) center / contain no-repeat;
+  mask: var(--flat-and-sharp) center / contain no-repeat;
 }
-
-.alteration-well.is-empty::before { width: 13px; height: 2px; }
-.alteration-well.is-empty::after  { width:  2px; height: 13px; }
 
 .fthora-well.is-empty::before {
   content: "";
