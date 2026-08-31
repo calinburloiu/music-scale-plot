@@ -217,7 +217,7 @@ test/
     ├── render.test.js              chart geometry, Generic and Byzantine alike
     ├── notation.test.js            the Notation setting and the editor's switch;
     │                               symbol state, readScaleData, font loading
-    └── byzantine-pickers.test.js   the fthora/martyria wells and their picker panels
+    └── byzantine-pickers.test.js   the three wells and their picker panels
 ```
 
 Put a test where a maintainer would look for it: by the *feature* it covers,
@@ -278,7 +278,7 @@ Two consequences worth knowing:
 | API | Stub | Why |
 |---|---|---|
 | `canvas.getContext("2d")` | `RecordingContext2D` | jsdom has no canvas. Records every draw call with the drawing state active at the time. |
-| `ctx.measureText` | ink model: `length × fontSize × 0.6` advance, plus modelled bounding-box and font metrics, reported **from the anchor `textAlign`/`textBaseline` choose** | Deterministic stand-in for font metrics. Font-size sensitive, so the 24px UI font and 21px monospace font measure differently, as in a browser. Also models ink for Byzantine glyphs: zero-advance genus marks, a mark-aware ascent/descent that grows for an `…Above` or `…Below` mark, a fthora whose ink sits *entirely above* the baseline (a negative descent), an asymmetric `fontBoundingBox…` strut, and the three octave blocks of note letters drawn at three different heights — the only thing that tells a low letter from its middle-octave twin. Like a real canvas it moves the bounding box with `textAlign` and `textBaseline`, so measuring without pinning them is a bug a test can catch — see the ratio table in `canvas-stub.js` and `docs/BYZANTINE-SYMBOLS.md` §10. |
+| `ctx.measureText` | ink model: `length × fontSize × 0.6` advance, plus modelled bounding-box and font metrics, reported **from the anchor `textAlign`/`textBaseline` choose** | Deterministic stand-in for font metrics. Font-size sensitive, so the 24px UI font and 21px monospace font measure differently, as in a browser. Also models ink for Byzantine glyphs: zero-advance genus marks and signs of alteration, a mark-aware ascent/descent that grows for an `…Above` or `…Below` mark, a fthora and every sign of alteration with ink sitting *entirely above* the baseline (a negative descent), the two geniki drawn a whole em higher than the numbered signs, an asymmetric `fontBoundingBox…` strut, and the three octave blocks of note letters drawn at three different heights — the only thing that tells a low letter from its middle-octave twin. Like a real canvas it moves the bounding box with `textAlign` and `textBaseline`, so measuring without pinning them is a bug a test can catch — see the ratio table in `canvas-stub.js` and `docs/BYZANTINE-SYMBOLS.md` §10. |
 | `canvas.toDataURL` | records the call | Lets export tests check the exported size. |
 | `AudioContext` | `FakeAudioContext` | Records oscillators, gains and every scheduled parameter change. |
 | `HTMLAnchorElement.click` | records `{download, href}` | jsdom cannot navigate or download. |
@@ -303,10 +303,11 @@ number.
 | `pickColor(h, row, hex)` | Open a row's dropdown and click a swatch. |
 | `noteRows(h)` / `intervalRows(h)` | The editor's rows, in order. |
 | `setNotation(h, value)` | Switch `#notation` (`"generic"` or `"byzantine"`) and dispatch `change`. |
-| `openWell(h, row, kind)` | Click a note row's `"fthora"` or `"martyria"` well; returns its picker panel. |
+| `openWell(h, row, kind)` | Click a note row's `"alteration"`, `"fthora"` or `"martyria"` well; returns its picker panel. |
+| `pickAlteration(h, row, alterationId, { dismiss })` | Open the alteration picker, click one option (`""` picks None) and dismiss the panel. |
 | `pickFthora(h, row, fthoraId, { dismiss })` | Open the fthora picker, click one option (`""` picks None) and dismiss the panel. |
 | `pickMartyria(h, row, { note, genus, ticks, dismiss })` | Open the martyria picker, click a note and/or genus option and dismiss the panel. |
-| `dismissPicker(h, row, how, kind)` | The four real ways out of a picker: `"apply"` commits (and, for a martyria, propagates the ladder); `"cancel"`, `"outside"` and `"well"` all discard the draft; `"none"` leaves the panel open to inspect. `pickFthora`/`pickMartyria` take the same word as `dismiss`, defaulting to `"apply"`. |
+| `dismissPicker(h, row, how, kind)` | The four real ways out of a picker: `"apply"` commits (and, for a martyria, propagates the ladder); `"cancel"`, `"outside"` and `"well"` all discard the draft; `"none"` leaves the panel open to inspect. `pickAlteration`/`pickFthora`/`pickMartyria` take the same word as `dismiss`, defaulting to `"apply"`. |
 
 Everything goes through real DOM events. Do not call the app's internal
 functions to *set up* state when a helper can drive the UI — a test that

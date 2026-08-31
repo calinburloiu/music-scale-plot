@@ -392,11 +392,13 @@ body {
 
 /* Both sets of controls live on every note row; CSS decides which are visible,
    so a switch discards nothing. */
+.note-row .alteration-well-wrapper,
 .note-row .fthora-well-wrapper,
 .note-row .martyria-well-wrapper { display: none; }
 
 #editor.notation-byzantine .note-row .note-name { display: none; }
 
+#editor.notation-byzantine .note-row .alteration-well-wrapper,
 #editor.notation-byzantine .note-row .fthora-well-wrapper,
 #editor.notation-byzantine .note-row .martyria-well-wrapper {
   display: block;
@@ -404,11 +406,13 @@ body {
   flex: 0 0 auto;
 }
 
-/* .note-name carried the right-alignment; the first visible well takes it on. */
-#editor.notation-byzantine .note-row .fthora-well-wrapper { margin-left: auto; }
+/* .note-name carried the right-alignment; the first visible well takes it on,
+   so this belongs to whichever well is leftmost. */
+#editor.notation-byzantine .note-row .alteration-well-wrapper { margin-left: auto; }
 
 /* --- Symbol wells --- */
 
+.alteration-well,
 .fthora-well,
 .martyria-well {
   width: 34px;
@@ -428,8 +432,19 @@ body {
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
+.alteration-well:hover,
 .fthora-well:hover,
 .martyria-well:hover { border-color: var(--ink); }
+
+/* A fthora or a sign of alteration carries far less ink than a martyria: the
+   widest of those two families spans 0.84em where a martyria spans 1.21, and
+   the tallest only 0.68em, so at the martyria's size they float in the middle
+   of their box. One factor lifts both families at once — the signs keep their
+   sizes relative to one another, and the widest of them now clears its box by
+   about 3px a side, the margin a martyria already has. The martyria fills its
+   box as it is, so it keeps the size above. */
+.alteration-well,
+.fthora-well { font-size: 31px; }
 
 /* Flexbox centres the glyph's line box and advance box. Neanes puts a fthora's
    ink a whole em above the baseline and hangs a genus mark below it, so the
@@ -442,21 +457,63 @@ body {
   transform: translate(var(--ink-dx, 0px), var(--ink-dy, 0px));
 }
 
-/* An empty well says which sign it takes, in pure CSS, so it is legible
-   before the webfont arrives. */
+/* An empty well says which sign it takes. The dashed border and the faint ink
+   are what keep the hint from reading as a filled well. */
+.alteration-well.is-empty,
 .fthora-well.is-empty,
 .martyria-well.is-empty {
   border-style: dashed;
   position: relative;
 }
 
+/* Two of the three hints are real signs from the well's own vocabulary, drawn
+   faint: the two geniki — the general flat and the general sharp — for the
+   alteration, and the enharmonic beside the soft chromatic Κε for the fthora.
+   The martyria keeps its two bars below, so the three stay tellable apart.
+
+   Placement is the same rule a *filled* well uses. Each pseudo-element stays
+   in normal flow, so the well's flex centring lands it exactly where it lands
+   `.glyph-ink`, and the transform is then whatever `inkCenteringShiftEm()`
+   returns for that glyph string — read out of the app itself, in em, and
+   written here because CSS cannot call it. Change a hint's glyphs and you must
+   read its shift out again.
+
+   The alteration's two signs need one pseudo-element each. They are
+   zero-advance combining marks, so as one string they would sit on top of each
+   other, and Neanes' space is 0.007em — nowhere near enough to part them; the
+   horizontal nudge is instead half an ink width plus half a 0.12em gap, applied
+   outwards. The fthores have ordinary advances, so their pair is one string
+   with the font's own spacing between them.
+
+   Unlike the martyria's bars these need the webfont, which `font-display:
+   block` withholds for up to three seconds on a cold load. The well is blank
+   until then — which is what it would show anyway. */
+.alteration-well.is-empty::before,
+.alteration-well.is-empty::after,
 .fthora-well.is-empty::before {
-  content: "";
-  position: absolute;
-  width: 15px;
-  height: 2px;
-  background: var(--ink-faint);
-  transform: rotate(-45deg);
+  display: block;
+  line-height: 1;
+  color: var(--ink-faint);
+}
+
+/* yfesisGeniki, then diesisGeniki. */
+.alteration-well.is-empty::before {
+  content: "\E204";
+  font-size: 31px;
+  transform: translate(-0.1795em, 0.3886em);
+}
+
+.alteration-well.is-empty::after {
+  content: "\E1F4";
+  font-size: 31px;
+  transform: translate(0.1795em, 0.5564em);
+}
+
+/* fthoraEnharmonic, then fthoraSoftChromaticKe. */
+.fthora-well.is-empty::before {
+  content: "\E1DC\E1DB";
+  font-size: 24px;
+  transform: translate(0.0151em, 0.4644em);
 }
 
 .martyria-well.is-empty::before,
@@ -472,6 +529,7 @@ body {
 
 /* --- Symbol pickers --- */
 
+.alteration-picker,
 .fthora-picker,
 .martyria-picker {
   display: none;
@@ -492,8 +550,10 @@ body {
 /* The lists are tall, so they scroll inside their panel — which never flips
    up: a scrolling panel cannot escape the editor. The footer stays put below
    the scroller, so Apply is always in reach. */
+.alteration-picker.open,
 .fthora-picker.open { display: block; }
 
+.alteration-picker-body,
 .fthora-picker-body {
   max-height: 320px;
   overflow-y: auto;
@@ -543,6 +603,11 @@ body {
    missing letter would have said: which way the mark faces. A mark that stacks
    above the letter rides the top of its box, one that stacks below sits at the
    bottom. `glyphBoxAlign()` supplies the matching offset. */
+/* The same lift the wells get, for the same reason: a list of fthores or of
+   signs of alteration set at the martyria's size is a column of specks. */
+.alteration-picker .byz-glyph,
+.fthora-picker .byz-glyph { font-size: 34px; }
+
 .martyria-genus-column.genus-above .byz-glyph { align-items: flex-start; }
 .martyria-genus-column.genus-below .byz-glyph { align-items: flex-end; }
 .martyria-genus-column .byz-glyph { height: 42px; padding: 4px 0; }

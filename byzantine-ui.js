@@ -4,17 +4,75 @@
 // read app.js's top-level constants (editor, ctx, …) at load time — only from
 // inside a function body, which runs after app.js has loaded.
 
-/** The two symbol wells and their picker panels, for one note row. */
+// ---------------------------------------------------------------------------
+// The wells.
+//
+// Every well but the martyria holds a single sign chosen from one flat
+// vocabulary, and they differ only in three things: the label they wear, the
+// data-* attribute they read and write, and the resolver that turns an id into
+// a glyph. Everything else — the draft, the footer, Apply/Cancel, scroll
+// restoration, the class names — is shared, so the differences are *described*
+// here rather than branched on in a dozen places. A new sign family is a row in
+// this table.
+//
+// The class names are derived from `kind`, not listed: a well of kind `k` is
+// `.k-well` inside `.k-well-wrapper`, its panel is `.k-picker` with a
+// `.k-picker-body`, and its rows are `.k-option` carrying `data-k`. The
+// martyria is not in the table — it drafts three fields across two columns and
+// propagates a ladder on apply, so it genuinely is a different thing — but it
+// is a well, so `BYZ_WELL_KINDS` and `byzSelector` include it.
+//
+// Table order is the order the wells appear on a note row, left to right.
+const BYZ_SIMPLE_WELLS = freezeTable([
+  {
+    kind: "alteration",
+    title: "Sign of alteration",
+    build: function (panel, row) {
+      buildAlterationPicker(panel, row);
+    },
+    resolve: resolveAlterationGlyph,
+  },
+  {
+    kind: "fthora",
+    title: "Fthora",
+    build: function (panel, row) {
+      buildFthoraPicker(panel, row);
+    },
+    resolve: resolveFthoraGlyph,
+  },
+]);
+
+const BYZ_WELL_KINDS = Object.freeze(BYZ_SIMPLE_WELLS.map((well) => well.kind).concat("martyria"));
+
+/** `.fthora-well, .martyria-well` and friends — one clause per well kind. */
+function byzSelector(suffix) {
+  return BYZ_WELL_KINDS.map((kind) => "." + kind + suffix).join(", ");
+}
+
+/** Where a simple well's draft lives on its panel: `fthora` → `draftFthora`. */
+function byzDraftAttr(kind) {
+  return "draft" + kind.charAt(0).toUpperCase() + kind.slice(1);
+}
+
+/** The descriptor for a panel's well, or null when the panel is a martyria's. */
+function panelWell(panel) {
+  return BYZ_SIMPLE_WELLS.find((well) => panel.classList.contains(well.kind + "-picker")) || null;
+}
+
+function wellWrapperHTML(kind, title) {
+  return (
+    '<div class="' + kind + '-well-wrapper">' +
+      '<button type="button" class="' + kind + '-well is-empty" title="' + title + '"></button>' +
+      '<div class="' + kind + '-picker"></div>' +
+    "</div>"
+  );
+}
+
+/** Every symbol well and its picker panel, for one note row. */
 function makeSymbolWellsHTML() {
   return (
-    '<div class="fthora-well-wrapper">' +
-      '<button type="button" class="fthora-well is-empty" title="Fthora"></button>' +
-      '<div class="fthora-picker"></div>' +
-    "</div>" +
-    '<div class="martyria-well-wrapper">' +
-      '<button type="button" class="martyria-well is-empty" title="Martyria"></button>' +
-      '<div class="martyria-picker"></div>' +
-    "</div>"
+    BYZ_SIMPLE_WELLS.map((well) => wellWrapperHTML(well.kind, well.title)).join("") +
+    wellWrapperHTML("martyria", "Martyria")
   );
 }
 
@@ -25,12 +83,15 @@ function makeSymbolWellsHTML() {
 // data-* attributes. Row add/remove bookkeeping then comes for free.
 // ---------------------------------------------------------------------------
 
-const NOTE_SYMBOL_ATTRS = ["fthora", "martyriaNote", "martyriaGenus", "martyriaTicks"];
+const NOTE_SYMBOL_ATTRS = BYZ_SIMPLE_WELLS.map((well) => well.kind).concat([
+  "martyriaNote",
+  "martyriaGenus",
+  "martyriaTicks",
+]);
 
 function readNoteSymbols(row) {
   const noteId = row.dataset.martyriaNote || "";
-  return {
-    fthora: row.dataset.fthora || "",
+  const symbols = {
     martyria: noteId
       ? {
           note: noteId,
@@ -39,6 +100,9 @@ function readNoteSymbols(row) {
         }
       : null,
   };
+  // A simple well's key here is its kind, which is also its data-* attribute.
+  for (const well of BYZ_SIMPLE_WELLS) symbols[well.kind] = row.dataset[well.kind] || "";
+  return symbols;
 }
 
 function writeMartyria(row, noteId, genusId, ticks) {
@@ -61,13 +125,22 @@ function clearMartyria(row) {
   refreshNoteRowWells(row);
 }
 
-function writeFthora(row, fthoraId) {
-  if (fthoraId) row.dataset.fthora = fthoraId;
-  else delete row.dataset.fthora;
+/** Commits one simple well's sign to its row. `id` empty clears the well. */
+function writeNoteSign(row, kind, id) {
+  if (id) row.dataset[kind] = id;
+  else delete row.dataset[kind];
   refreshNoteRowWells(row);
 }
 
-/** Repaints both wells of one row from its data-* attributes. */
+function writeFthora(row, fthoraId) {
+  writeNoteSign(row, "fthora", fthoraId);
+}
+
+function writeAlteration(row, alterationId) {
+  writeNoteSign(row, "alteration", alterationId);
+}
+
+/** Repaints every well of one row from its data-* attributes. */
 // The wells measure their own glyphs, and the chart's context is not theirs to
 // borrow: it carries the chart's font and alignment. One offscreen context,
 // made on first use because this file loads before there is a document to
@@ -146,8 +219,8 @@ function centerPickerGlyphs(panel) {
  *
  * Anything showing a whole martyria — a note row, the footer preview, the well
  * itself — takes the shared martyria baseline, so all three agree and none of
- * them normalises the register away. A fthora has no family to sit in, so it is
- * centred on its own ink.
+ * them normalises the register away. A fthora and a sign of alteration have no
+ * family to sit in, so each is centred on its own ink.
  */
 function glyphBoxPlacement(box) {
   const column = box.closest(".martyria-genus-column");
@@ -161,9 +234,9 @@ function glyphBoxPlacement(box) {
 function refreshNoteRowWells(row) {
   const symbols = readNoteSymbols(row);
 
-  const fthoraWell = row.querySelector(".fthora-well");
-  if (fthoraWell) {
-    fillWell(fthoraWell, symbols.fthora ? resolveFthoraGlyph(symbols.fthora) : "");
+  for (const well of BYZ_SIMPLE_WELLS) {
+    const el = row.querySelector("." + well.kind + "-well");
+    if (el) fillWell(el, symbols[well.kind] ? well.resolve(symbols[well.kind]) : "");
   }
 
   const martyriaWell = row.querySelector(".martyria-well");
@@ -222,7 +295,11 @@ function applyNoteSymbolAttrs(row, attrs) {
 // live on the row: the DOM is this app's data model, and a panel that is torn
 // down and rebuilt on every click needs its pending value to outlive its
 // contents.
-const PICKER_DRAFT_ATTRS = ["draftFthora", "draftNote", "draftGenus", "draftTicks"];
+const PICKER_DRAFT_ATTRS = BYZ_SIMPLE_WELLS.map((well) => byzDraftAttr(well.kind)).concat([
+  "draftNote",
+  "draftGenus",
+  "draftTicks",
+]);
 
 function clearPickerDraft(panel) {
   for (const key of PICKER_DRAFT_ATTRS) delete panel.dataset[key];
@@ -232,7 +309,8 @@ function clearPickerDraft(panel) {
 function seedPickerDraft(panel, row) {
   clearPickerDraft(panel);
   const symbols = readNoteSymbols(row);
-  if (panel.classList.contains("fthora-picker")) panel.dataset.draftFthora = symbols.fthora;
+  const well = panelWell(panel);
+  if (well) panel.dataset[byzDraftAttr(well.kind)] = symbols[well.kind];
   else if (symbols.martyria) {
     writeMartyriaDraft(panel, symbols.martyria.note, symbols.martyria.genus, symbols.martyria.ticks);
   }
@@ -266,8 +344,9 @@ function writeMartyriaDraft(panel, noteId, genusId, ticks) {
 /** True when applying the draft would actually change the row. */
 function pickerDraftIsDirty(panel, row) {
   const symbols = readNoteSymbols(row);
-  if (panel.classList.contains("fthora-picker")) {
-    return (panel.dataset.draftFthora || "") !== symbols.fthora;
+  const well = panelWell(panel);
+  if (well) {
+    return (panel.dataset[byzDraftAttr(well.kind)] || "") !== symbols[well.kind];
   }
   const draft = readMartyriaDraft(panel);
   const current = symbols.martyria;
@@ -298,7 +377,6 @@ function makeByzOption(spec) {
   return button;
 }
 
-/** One flat list: None, then the sixteen fthores in block order. */
 /**
  * Where each of a panel's scrollers sits. Picking rebuilds the panel — the
  * genus rows have to be re-resolved against the new letter — and a rebuild
@@ -347,8 +425,9 @@ function scrollTopToReveal(optionTop, optionHeight, viewHeight, scrollHeight, al
  * twenty-one otherwise hides the very letter the row holds. When there is
  * none, the notes list falls back to its middle octave: that is the register a
  * scale is written in unless it says otherwise, and it is a far better place to
- * start reading than "None" at the top. The fthora list has no octaves and
- * offers None as its first row, so it has nothing to fall back to and stays put.
+ * start reading than "None" at the top. Neither single-value list has octaves
+ * and both offer None as their first row, so they have nothing to fall back to
+ * and stay put.
  */
 function pickerRevealTarget(scroller) {
   const selected = scroller.querySelector(".is-selected");
@@ -389,8 +468,22 @@ function keepPickerInView(panel) {
   if (box.bottom > viewport) panel.scrollIntoView({ block: "nearest" });
 }
 
+/**
+ * None, then the fthores that belong on the row's martyria note, then a rule,
+ * then everything else — the same shape the genus column already has.
+ *
+ * A row with no martyria has nothing to be compatible with, so it gets the flat
+ * list of all sixteen and no rule, exactly as `buildGenusColumn` goes inert
+ * when the draft has no note.
+ *
+ * The note read here is the row's *committed* martyria, not a draft: only one
+ * picker is open at a time and applying a martyria closes every panel, so the
+ * next fthora open always re-reads current state. A committed fthora that is
+ * not compatible still renders selected — below the rule, where it was offered.
+ */
 function buildFthoraPicker(panel, row) {
   const draft = panel.dataset.draftFthora || "";
+  const noteId = row.dataset.martyriaNote || "";
   const scroll = readPickerScroll(panel);
   panel.innerHTML = "";
 
@@ -400,16 +493,80 @@ function buildFthoraPicker(panel, row) {
   body.appendChild(
     makeByzOption({ className: "fthora-option", data: { fthora: "" }, glyph: "", label: "None" })
   );
-  for (const fthora of BYZ_FTHORES) {
+
+  function fthoraOption(id) {
     const option = makeByzOption({
       className: "fthora-option",
-      data: { fthora: fthora.id },
-      glyph: resolveFthoraGlyph(fthora.id),
-      label: fthora.label,
+      data: { fthora: id },
+      glyph: resolveFthoraGlyph(id),
+      label: byzFthoraById(id).label,
     });
-    if (draft === fthora.id) option.classList.add("is-selected");
-    body.appendChild(option);
+    if (draft === id) option.classList.add("is-selected");
+    return option;
   }
+
+  if (noteId) {
+    for (const id of compatibleFthores(noteId)) body.appendChild(fthoraOption(id));
+
+    const separator = document.createElement("div");
+    separator.className = "byz-separator";
+    body.appendChild(separator);
+
+    for (const id of otherFthores(noteId)) body.appendChild(fthoraOption(id));
+  } else {
+    for (const fthora of BYZ_FTHORES) body.appendChild(fthoraOption(fthora.id));
+  }
+
+  panel.appendChild(body);
+  panel.appendChild(buildPickerFooter(panel, row));
+  centerPickerGlyphs(panel);
+  restorePickerScroll(panel, scroll);
+}
+
+/**
+ * None, then the ten signs of alteration under two headings.
+ *
+ * Flat, with no rule: every sign is offered on every note, so unlike the fthora
+ * list there is nothing to be compatible with and nothing to separate. The
+ * headings carry no `data-group`, so `pickerRevealTarget` finds no fallback and
+ * the list opens at the top on None — which is right here, because there is no
+ * register to prefer.
+ */
+function buildAlterationPicker(panel, row) {
+  const draft = panel.dataset.draftAlteration || "";
+  const scroll = readPickerScroll(panel);
+  panel.innerHTML = "";
+
+  const body = document.createElement("div");
+  body.className = "alteration-picker-body";
+  body.dataset.scroller = "alteration";
+  body.appendChild(
+    makeByzOption({
+      className: "alteration-option",
+      data: { alteration: "" },
+      glyph: "",
+      label: "None",
+    })
+  );
+
+  for (const group of [
+    { title: "Sharps", family: "diesis" },
+    { title: "Flats", family: "yfesis" },
+  ]) {
+    body.appendChild(byzGroupTitle(group.title));
+    for (const alteration of BYZ_ALTERATIONS) {
+      if (alteration.family !== group.family) continue;
+      const option = makeByzOption({
+        className: "alteration-option",
+        data: { alteration: alteration.id },
+        glyph: resolveAlterationGlyph(alteration.id),
+        label: alteration.label,
+      });
+      if (draft === alteration.id) option.classList.add("is-selected");
+      body.appendChild(option);
+    }
+  }
+
   panel.appendChild(body);
   panel.appendChild(buildPickerFooter(panel, row));
   centerPickerGlyphs(panel);
@@ -589,14 +746,15 @@ function buildGenusColumn(draft) {
 }
 
 function toggleWellPicker(well) {
-  const panel = well.parentElement.querySelector(".fthora-picker, .martyria-picker");
+  const panel = well.parentElement.querySelector(byzSelector("-picker"));
   const wasOpen = panel.classList.contains("open");
   closeAllDropdowns();
   if (wasOpen) return;
 
   const row = well.closest(".note-row");
   seedPickerDraft(panel, row);
-  if (panel.classList.contains("fthora-picker")) buildFthoraPicker(panel, row);
+  const descriptor = panelWell(panel);
+  if (descriptor) descriptor.build(panel, row);
   else buildMartyriaPicker(panel, row);
   panel.classList.add("open");
   row.classList.add("picker-open");
@@ -611,7 +769,7 @@ function toggleWellPicker(well) {
  * untouched, and an untouched scale has nothing to redraw.
  */
 function closeByzantinePickers() {
-  for (const panel of editor.querySelectorAll(".fthora-picker.open, .martyria-picker.open")) {
+  for (const panel of editor.querySelectorAll(byzSelector("-picker.open"))) {
     panel.classList.remove("open");
     clearPickerDraft(panel);
     const row = panel.closest(".note-row");
@@ -624,10 +782,11 @@ function selectByzantineOption(option) {
   const row = option.closest(".note-row");
   if (!row) return;
 
-  if (option.classList.contains("fthora-option")) {
-    const panel = row.querySelector(".fthora-picker");
-    panel.dataset.draftFthora = option.dataset.fthora;
-    buildFthoraPicker(panel, row);
+  const well = BYZ_SIMPLE_WELLS.find((w) => option.classList.contains(w.kind + "-option"));
+  if (well) {
+    const panel = row.querySelector("." + well.kind + "-picker");
+    panel.dataset[byzDraftAttr(well.kind)] = option.dataset[well.kind];
+    well.build(panel, row);
     return;
   }
 
@@ -657,8 +816,9 @@ function applyPickerDraft(panel) {
   const row = panel.closest(".note-row");
   if (!row) return;
 
-  if (panel.classList.contains("fthora-picker")) {
-    writeFthora(row, panel.dataset.draftFthora || "");
+  const well = panelWell(panel);
+  if (well) {
+    writeNoteSign(row, well.kind, panel.dataset[byzDraftAttr(well.kind)] || "");
   } else {
     const draft = readMartyriaDraft(panel);
     if (draft) writeMartyria(row, draft.note, draft.genus, draft.ticks);
@@ -676,7 +836,7 @@ function applyPickerDraft(panel) {
  * app.js's listener can stop.
  */
 function handleByzantineClick(e) {
-  const well = e.target.closest(".fthora-well, .martyria-well");
+  const well = e.target.closest(byzSelector("-well"));
   if (well) {
     e.stopPropagation();
     toggleWellPicker(well);
@@ -688,7 +848,7 @@ function handleByzantineClick(e) {
     e.stopPropagation();
     // A dead Apply is a dead click: it must not even dismiss the panel.
     if (!apply.disabled) {
-      applyPickerDraft(apply.closest(".fthora-picker, .martyria-picker"));
+      applyPickerDraft(apply.closest(byzSelector("-picker")));
     }
     return true;
   }
@@ -711,7 +871,7 @@ function handleByzantineClick(e) {
 
   // A click on the panel's own chrome must not reach the document listener,
   // which would close it.
-  if (e.target.closest(".fthora-picker, .martyria-picker")) {
+  if (e.target.closest(byzSelector("-picker"))) {
     e.stopPropagation();
     return true;
   }

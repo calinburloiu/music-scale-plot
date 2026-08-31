@@ -47,13 +47,13 @@ The page is split into two side-by-side panels using CSS flexbox:
 
 The **Notation** setting (`#notation`, `generic` or `byzantine`) sits at the top of the
 Settings panel, above the base-note row. It does not rebuild the editor: every note row
-carries both a name input and both symbol wells at all times (see **Scale Editor → Note
+carries both a name input and every symbol well at all times (see **Scale Editor → Note
 row**), and a `notation-byzantine` class on `#editor` is all that decides, in CSS, which
 half is visible. Switching notation therefore discards nothing.
 
-Every note row also carries the **fthora well** and the **martyria well**, each a small
-button that shows the resolved glyph (or sits empty) and opens its own picker panel when
-clicked. A picker edits a draft of its own: clicking inside it changes only what the panel
+Every note row also carries the **alteration well**, the **fthora well** and the **martyria
+well**, each a small button that shows the resolved glyph (or sits empty) and opens its own
+picker panel when clicked. A picker edits a draft of its own: clicking inside it changes only what the panel
 shows, **Apply** writes that draft to the row, and Cancel — or a click outside, or a second
 click on the well — discards it. See **Notation** below.
 
@@ -71,27 +71,28 @@ The scale is represented as a single JavaScript array of objects:
 ```js
 // Conceptual structure — not literal code
 scaleData = [
-  { type: "note", degree: 1, name: "C", fthora: "", martyria: null },
+  { type: "note", degree: 1, name: "C", alteration: "", fthora: "", martyria: null },
   { type: "interval", ratio: "9/8", label: "major tone" },
-  { type: "note", degree: 2, name: "D", fthora: "", martyria: null },
+  { type: "note", degree: 2, name: "D", alteration: "", fthora: "", martyria: null },
   ...
 ]
 ```
 
 This flat list mirrors the alternating note/interval rows in the editor UI. It is rebuilt from the DOM inputs on every change, keeping the DOM as the single source of truth (no separate state syncing needed for this small app).
 
-Each note item carries two extra fields for Byzantine notation, read off the row's `data-*`
+Each note item carries three extra fields for Byzantine notation, read off the row's `data-*`
 attributes by `readNoteSymbols()` (`byzantine-ui.js`):
 
+- `alteration` — an id from `BYZ_ALTERATIONS`, or `""` when the well is empty.
 - `fthora` — an id from `BYZ_FTHORES`, or `""` when the well is empty.
 - `martyria` — `{ note, genus, ticks }` (a `BYZ_NOTES` id, a `BYZ_GENERA` id or
   `GENUS_NONE`, and the octave-tick count), or `null` when the well is empty.
 
-A note row itself carries the symbol state as four `data-*` attributes (`NOTE_SYMBOL_ATTRS`
-in `byzantine-ui.js`): `data-fthora`, `data-martyria-note`, `data-martyria-genus` and
-`data-martyria-ticks`. Row add/remove and the ladder's rebuilds copy these attributes across
-along with everything else, so the DOM stays the single source of truth for Byzantine state
-too.
+A note row itself carries the symbol state as five `data-*` attributes (`NOTE_SYMBOL_ATTRS`
+in `byzantine-ui.js`, derived from the well descriptor table): `data-alteration`,
+`data-fthora`, `data-martyria-note`, `data-martyria-genus` and `data-martyria-ticks`. Row
+add/remove and the ladder's rebuilds copy these attributes across along with everything else,
+so the DOM stays the single source of truth for Byzantine state too.
 
 ## Scale Editor
 
@@ -101,11 +102,12 @@ The editor is a vertical list of rows, alternating between **note rows** and **i
 
 - Static label: `Note {degree}`
 - Text input: note name (optional, placeholder "name")
-- The **fthora well** and the **martyria well** (see **Notation**)
+- The **alteration well**, the **fthora well** and the **martyria well**, in that order (see
+  **Notation**)
 
-All four of these are always present on every row, in both notations — a notation switch
-never adds or removes DOM. CSS shows the name input in Generic notation and the two wells in
-Byzantine notation; the underlying values are untouched either way, so switching back and
+All five of these are always present on every row, in both notations — a notation switch
+never adds or removes DOM. CSS shows the name input in Generic notation and the three wells
+in Byzantine notation; the underlying values are untouched either way, so switching back and
 forth loses nothing.
 
 ### Interval row
@@ -132,12 +134,27 @@ the resolvers, the ladder, and how to add a second font — lives in
 [BYZANTINE-SYMBOLS.md](BYZANTINE-SYMBOLS.md); this section only orients where it fits into
 the app's design.
 
+**Three wells per note row.** A note row in Byzantine notation carries three independent
+signs, laid out left to right in the order the chart draws them: a **sign of alteration**
+(the accidental of pitch — diesis, yfesis, or one of the two geniki), a **fthora** (the
+accidental of genus), and a **martyria** (the note's name). Each is a `data-*` attribute on
+the row, so the DOM stays the data model and row add/remove bookkeeping comes free. Neither
+of the first two changes pitch: both are annotations the chart draws, and `readScaleData`
+carries them alongside the note's name.
+
 **Logical model vs. resolvers.** `byzantine.js` splits the two concerns a font-facing feature
-always has. The logical model — which 21 notes exist, which 12 genera, which 16 fthores, and
-which genera the modes table pairs with which note (`MARTYRIA_COMPATIBILITY`) — never
-mentions a codepoint. The resolvers (`resolveMartyriaGlyphs`, `resolveFthoraGlyph`) are the
+always has. The logical model — which 21 notes exist, which 12 genera, which 16 fthores,
+which 10 signs of alteration, and which of those belong on which note
+(`MARTYRIA_COMPATIBILITY`, `FTHORES_COMPATIBILITY`) — never mentions a codepoint. The
+resolvers (`resolveMartyriaGlyphs`, `resolveFthoraGlyph`, `resolveAlterationGlyph`) are the
 only code that does; they turn a logical choice into the glyph string the font needs. Nothing
 outside `byzantine.js` should ever construct a codepoint by hand.
+
+**The pickers.** Two of the three wells hold a single value from one flat vocabulary and
+differ only in their vocabulary, their resolver and the attribute they read and write; they
+are rows in `BYZ_SIMPLE_WELLS` (`byzantine-ui.js`) rather than parallel code paths, and the
+class names and selectors are derived from that table. The martyria's picker stays bespoke —
+two columns, a three-field draft, ladder propagation on apply.
 
 **The note ladder.** A martyria names an absolute degree, so raising or lowering a scale's
 base note must be able to walk every other degree's martyria up or down in lock-step. The
@@ -163,20 +180,23 @@ The chart is a vertical stack of rectangles drawn on an HTML5 `<canvas>`. The st
 5. All rectangles share the same fixed width.
 
 In Byzantine notation the canvas grows by two more bands, both measured from ink
-(`inkBox`/`maxInkExtent`), never assumed from a constant offset:
+(`inkBox`/`maxInkExtent`/`maxRunExtent`), never assumed from a constant offset:
 
-- **The fthora gutter** (`fthoraGutter`) — a band of its own along the leading edge (left
-  when vertical, top when horizontal), sized to the tallest/widest fthora ink plus one
-  `TEXT_MARGIN`, and `0` when no degree carries a fthora. On the horizontal line chart this
+- **The sign gutter** (`signGutter`) — a band of its own along the leading edge (left when
+  vertical, top when horizontal), sized to the tallest/widest **run** plus one `TEXT_MARGIN`,
+  and `0` when no degree carries a sign. A run is one degree's alteration and fthora together
+  (see Text layout below), so the maximum is taken over degrees: a scale where one degree
+  carries an alteration and another a fthora reserves one sign's width, not a pair's. On the
+  horizontal line chart this
   gutter also pushes the interval text and axis down by the same amount, so it is real clear
   space, not just reserved margin.
 - **The sign overhang** (`signOverhang`) — extra clearance at *both* ends of the stack, in
-  both orientations. A martyria or fthora is ink-centred on the separator it names, and the
+  both orientations. A martyria or a gutter run is ink-centred on the separator it names, and the
   outermost separators sit only `CANVAS_PADDING` from the canvas edge; whatever ink extends
   past that padding is reserved as overhang so the first and last sign are never clipped.
   Zero in Generic notation. The clearance is sized from `signExtent` — the wider (horizontal)
-  or taller (vertical) of the **martyria and the fthora** ink, so neither sign can be clipped
-  by the other one being narrower. The horizontal *line* chart spends the same `signExtent`
+  or taller (vertical) of the **martyria and the gutter run**, so neither can be clipped by
+  the other one being narrower. The horizontal *line* chart spends the same `signExtent`
   differently: it starts its axis half a sign *past* the padding (`halfSign`), which clears
   the extreme ink outright and so needs no overhang on top. All four chart paths therefore
   derive their end clearance from the one quantity.
@@ -200,12 +220,18 @@ For each interval (bottom to top):
 - Interval labels are placed at the vertical midpoint of each rectangle, to the right of the stack.
 - In Byzantine notation, the **martyria substitutes for the note name** at every position a
   name would otherwise go (`drawNoteLabel` dispatches to `drawByzantineMark` when the chart is
-  in Byzantine notation); the **fthora is drawn on the opposite side** from the note text in
-  each orientation — above the note band on the horizontal charts, on the far side of the
-  fthora gutter on the vertical ones. Both signs are positioned from measured ink
-  (`drawGlyphs`/`inkBox`) on both axes, not from the font's baseline/pen origin, because a
-  martyria's ink sits well above the baseline in Neanes and a fthora's sits well below it, and
-  a constant offset would break the moment the font changes.
+  in Byzantine notation); the degree's other signs are drawn on the **opposite side** from the
+  note text in each orientation — above the note band on the horizontal charts, on the far
+  side of the sign gutter on the vertical ones.
+- What the gutter holds is a **run**, not a single sign: the degree's alteration and then its
+  fthora, one `BYZ_SIGN_GAP` apart, the alteration first because it qualifies the fthora. A
+  degree carrying only one of the two draws it in the same place. `drawByzantineSigns` anchors
+  the run as a whole horizontally and each part independently vertically, which is what makes
+  one rule serve both orientations — see BYZANTINE-SYMBOLS.md §11.
+- Every sign is positioned from measured ink (`drawGlyphs`/`inkBox`) on both axes, not from
+  the font's baseline/pen origin, because a martyria's ink sits well above the baseline in
+  Neanes while a fthora's and an alteration's clear it entirely, and a constant offset would
+  break the moment the font changes.
 
 ### Canvas resolution
 

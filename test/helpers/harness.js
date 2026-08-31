@@ -315,7 +315,10 @@ function pickColor(harness, intervalRow, hex) {
   return option;
 }
 
-/** Clicks a well and returns its picker panel. `kind` is "fthora" or "martyria". */
+/**
+ * Clicks a well and returns its picker panel. `kind` is `"alteration"`,
+ * `"fthora"` or `"martyria"`.
+ */
 function openWell(harness, noteRow, kind) {
   fireClick(harness, noteRow.querySelector(`.${kind}-well`));
   return noteRow.querySelector(`.${kind}-picker`);
@@ -339,15 +342,23 @@ function dismissPicker(harness, noteRow, how, kind) {
 }
 
 /**
- * Opens the fthora picker, clicks one of its rows (`""` picks None) and
+ * Opens a single-value picker, clicks one of its rows (`""` picks None) and
  * dismisses the panel. Only `dismiss: "apply"` — the default — reaches the row.
  */
-function pickFthora(harness, noteRow, fthoraId, { dismiss = "apply" } = {}) {
-  const panel = openWell(harness, noteRow, "fthora");
-  const option = panel.querySelector(`.fthora-option[data-fthora="${fthoraId}"]`);
-  if (!option) throw new Error(`No fthora option "${fthoraId}" in the picker`);
+function pickSimpleSign(harness, noteRow, kind, id, { dismiss = "apply" } = {}) {
+  const panel = openWell(harness, noteRow, kind);
+  const option = panel.querySelector(`.${kind}-option[data-${kind}="${id}"]`);
+  if (!option) throw new Error(`No ${kind} option "${id}" in the picker`);
   fireClick(harness, option);
-  dismissPicker(harness, noteRow, dismiss, "fthora");
+  dismissPicker(harness, noteRow, dismiss, kind);
+}
+
+function pickFthora(harness, noteRow, fthoraId, options) {
+  pickSimpleSign(harness, noteRow, "fthora", fthoraId, options);
+}
+
+function pickAlteration(harness, noteRow, alterationId, options) {
+  pickSimpleSign(harness, noteRow, "alteration", alterationId, options);
 }
 
 /**
@@ -391,6 +402,7 @@ module.exports = {
   buildAbsoluteScale,
   pickColor,
   openWell,
+  pickAlteration,
   pickFthora,
   pickMartyria,
   dismissPicker,
