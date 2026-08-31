@@ -61,15 +61,19 @@ test("the Notation setting", async (t) => {
   });
 
   // A browser restores a <select>'s value across a soft reload, so the control
-  // can already say "byzantine" before a single listener has run. The editor
-  // must follow the control, not the markup's default.
-  await t.test("marks the editor at startup when the control already says Byzantine", () => {
-    const h = loadApp({ notation: "byzantine" });
+  // can already say "byzantine" before a single listener has run — while
+  // #editor comes back as the markup's Generic rows. The page starts from the
+  // markup's defaults rather than following the restored control, so the two
+  // can never disagree. See startup-reset.test.js for the rest of the reset.
+  await t.test("goes back to Generic at startup when the control was restored to Byzantine", () => {
+    const h = loadApp({ restored: { "#notation": "byzantine" } });
     t.after(() => h.close());
 
+    assert.equal(h.document.getElementById("notation").value, "generic");
+    assert.equal(h.app.getNotation(), "generic");
     assert.ok(
-      h.editor().classList.contains("notation-byzantine"),
-      "a restored Byzantine setting drew a Byzantine chart beside a Generic editor"
+      !h.editor().classList.contains("notation-byzantine"),
+      "the editor stayed marked Byzantine after the setting was reset to Generic"
     );
   });
 

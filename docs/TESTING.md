@@ -215,6 +215,8 @@ test/
     ├── scale-mode.test.js
     ├── color-label-sync.test.js
     ├── render.test.js              chart geometry, Generic and Byzantine alike
+    ├── startup-reset.test.js       the reset to defaults after a browser
+    │                               restored the form state
     ├── notation.test.js            the Notation setting and the editor's switch;
     │                               symbol state, readScaleData, font loading
     └── byzantine-pickers.test.js   the three wells and their picker panels
@@ -294,7 +296,8 @@ number.
 
 | Helper | Purpose |
 |---|---|
-| `loadApp(options)` | Fresh window. One per test — never share. `notation: "byzantine"` presets `#notation` *before* the scripts run, the way a browser restores a `<select>` across a soft reload. |
+| `loadApp(options)` | Fresh window. One per test — never share. `restored: { "#scale-mode": "absolute" }` writes values into the matching controls *before* the scripts run, the way Firefox restores form state across a soft reload. |
+| `restoreFormState(h, values)` | The other restore order: writes the values *after* load and fires `pageshow`, the way Chromium restores form state. |
 | `buildRelativeScale(h, intervals, extra)` | Build a scale in relative mode; `extra` takes `names`, `labels`, `colors`. |
 | `buildAbsoluteScale(h, absolutes, extra)` | Same for absolute mode. |
 | `setNoteCount(h, n)` | Click add/remove until the editor holds `n` notes. |

@@ -1147,6 +1147,34 @@ function updateEdoCentsLabel() {
   edoCentsLabel.textContent = centsPerDiv.toFixed(2) + " ￠ for each division";
 }
 
+/**
+ * Puts every setting back to the value its markup declares.
+ *
+ * A browser restores form-control state across a soft reload, but `#editor`
+ * comes back as the markup's own two rows and the app keeps no state of its own
+ * to restore alongside it. The page would then boot with the controls saying
+ * one thing and the DOM-as-data-model another — `#scale-mode` on "absolute"
+ * over rows that hold relative inputs, an EDO interval type with the EDO
+ * settings hidden and a ratio in the interval box — and every derived value
+ * follows whichever of the two its code happens to read.
+ *
+ * The defaults are read off the markup rather than repeated here, so
+ * `index.html` stays the single place a default is written down.
+ */
+function resetControlsToDefaults() {
+  const selects = [
+    notationSelect, baseNoteSelect, intervalTypeSelect,
+    scaleModeSelect, styleSelect, orientationSelect,
+  ];
+  for (const select of selects) {
+    const markupDefault = Array.from(select.options).find(o => o.defaultSelected) || select.options[0];
+    if (markupDefault) select.value = markupDefault.value;
+  }
+  for (const input of [edoDivisionsInput, zoomSlider]) {
+    input.value = input.defaultValue;
+  }
+}
+
 function onIntervalTypeChange() {
   const type = getIntervalType();
   edoSettingsRow.style.display = type === "edo" ? "" : "none";
@@ -1549,11 +1577,24 @@ edoDivisionsInput.addEventListener("input", onEdoDivisionsChange);
 scaleModeSelect.addEventListener("change", onScaleModeChange);
 notationSelect.addEventListener("change", onNotationChange);
 
-updateRemoveBtn();
-updateZoom();
-updateAllLabels();
-// The editor follows the control, not the markup's default: a browser restores
-// a <select>'s value across a soft reload, and a Byzantine chart beside a
-// Generic editor is the one state the two panels must never be left in.
-onNotationChange();
+/** Brings the whole page — settings, editor and chart — to the default state. */
+function initUI() {
+  resetControlsToDefaults();
+  updateZoom();
+  onNotationChange();
+  // Rebuilds #editor for the reset interval type and scale mode, and shows or
+  // hides the EDO row to match. Runs last, so the render it ends with is the
+  // one that reaches the canvas.
+  onIntervalTypeChange();
+}
+
+// Twice, because browsers disagree on when they write restored form state:
+// Firefox restores it while parsing, so the deferred scripts already see it,
+// while Chromium restores it *after* `load` — after every line here has run
+// against the markup's defaults, which would leave the controls holding the
+// user's old values over a freshly defaulted editor. `pageshow` is the first
+// event that fires once the restore is complete in either browser, and it
+// covers a bfcache restore too.
+initUI();
+window.addEventListener("pageshow", initUI);
 loadByzantineFont();
