@@ -246,6 +246,13 @@ is small and localized. What changes:
   picker panel) and `.byz-preview` (the drafted martyria in the picker
   footer). Miss these and the chart changes font while the editor keeps
   drawing the old one.
+- **The two rules that size fthores and signs of alteration** —
+  `.alteration-well, .fthora-well` and `.alteration-picker .byz-glyph,
+  .fthora-picker .byz-glyph`. They do not name the family, but the numbers on
+  them are derived from Neanes: those two families' widest sign covers 0.84em
+  where a martyria covers 1.21, so they are set larger to fill the same box.
+  A face with different proportions needs the ratio re-measured, exactly as
+  `BYZ_SIGN_GAP` does.
 
 Everything else is untouched: the six tables (§2), the two compatibility
 tables (§3), the ladder (§5), the pickers (`byzantine-ui.js`), `readScaleData`,
@@ -333,7 +340,9 @@ face, so a second font re-derives it and nothing else changes (§6).
 **Offsets are in em, never pixels.** `inkCenteringShiftEm()` measures once at
 `BYZ_FONT_SIZE` and divides. The ink metrics are exactly proportional to the
 font size — verified across 16–64px in Neanes; only the *strut* rounds to whole
-pixels — so one measurement serves the 22px well and the 24px picker row alike.
+pixels — so one measurement serves every box the editor draws, and there are
+now four sizes among them: the martyria's 22px well and 24px picker row, and
+the larger 31px and 34px the other two families are set at (§6).
 The alternative, reading `getComputedStyle(box).fontSize`, is what the old code
 did, and it reports **nothing at all** for a box that is not in the document
 yet. The scale-mode switch rebuilds every note row detached and fills its wells

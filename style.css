@@ -436,6 +436,16 @@ body {
 .fthora-well:hover,
 .martyria-well:hover { border-color: var(--ink); }
 
+/* A fthora or a sign of alteration carries far less ink than a martyria: the
+   widest of those two families spans 0.84em where a martyria spans 1.21, and
+   the tallest only 0.68em, so at the martyria's size they float in the middle
+   of their box. One factor lifts both families at once — the signs keep their
+   sizes relative to one another, and the widest of them now clears its box by
+   about 3px a side, the margin a martyria already has. The martyria fills its
+   box as it is, so it keeps the size above. */
+.alteration-well,
+.fthora-well { font-size: 31px; }
+
 /* Flexbox centres the glyph's line box and advance box. Neanes puts a fthora's
    ink a whole em above the baseline and hangs a genus mark below it, so the
    ink is in the middle of neither — `setGlyphBoxText()` measures the difference
@@ -574,6 +584,11 @@ body {
    missing letter would have said: which way the mark faces. A mark that stacks
    above the letter rides the top of its box, one that stacks below sits at the
    bottom. `glyphBoxAlign()` supplies the matching offset. */
+/* The same lift the wells get, for the same reason: a list of fthores or of
+   signs of alteration set at the martyria's size is a column of specks. */
+.alteration-picker .byz-glyph,
+.fthora-picker .byz-glyph { font-size: 34px; }
+
 .martyria-genus-column.genus-above .byz-glyph { align-items: flex-start; }
 .martyria-genus-column.genus-below .byz-glyph { align-items: flex-end; }
 .martyria-genus-column .byz-glyph { height: 42px; padding: 4px 0; }
