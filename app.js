@@ -341,6 +341,7 @@ function readScaleData() {
         type: "note",
         degree: degree,
         name: nameEl ? nameEl.value.trim() : "",
+        alteration: symbols.alteration,
         fthora: symbols.fthora,
         martyria: symbols.martyria,
       });

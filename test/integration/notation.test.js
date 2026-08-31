@@ -82,27 +82,31 @@ test("the Notation setting", async (t) => {
 });
 
 test("the symbol wells on a note row", async (t) => {
-  await t.test("gives every note row a fthora well and a martyria well", () => {
+  await t.test("gives every note row an alteration, a fthora and a martyria well", () => {
     const h = loadApp();
     t.after(() => h.close());
     setNoteCount(h, 4);
 
     for (const row of noteRows(h)) {
-      assert.ok(row.querySelector(".fthora-well"), "no fthora well");
-      assert.ok(row.querySelector(".martyria-well"), "no martyria well");
-      assert.ok(row.querySelector(".fthora-picker"), "no fthora picker panel");
-      assert.ok(row.querySelector(".martyria-picker"), "no martyria picker panel");
+      for (const kind of ["alteration", "fthora", "martyria"]) {
+        assert.ok(row.querySelector(`.${kind}-well`), `no ${kind} well`);
+        assert.ok(row.querySelector(`.${kind}-picker`), `no ${kind} picker panel`);
+      }
     }
   });
 
-  await t.test("puts the fthora well to the left of the martyria well, mirroring the chart", () => {
+  await t.test("orders the wells alteration, fthora, martyria — the chart's draw order", () => {
     const h = loadApp();
     t.after(() => h.close());
 
     const row = noteRows(h)[0];
-    const wells = [...row.querySelectorAll(".fthora-well-wrapper, .martyria-well-wrapper")];
-    assert.ok(wells[0].classList.contains("fthora-well-wrapper"));
-    assert.ok(wells[1].classList.contains("martyria-well-wrapper"));
+    const wells = [
+      ...row.querySelectorAll(".alteration-well-wrapper, .fthora-well-wrapper, .martyria-well-wrapper"),
+    ];
+    assert.deepEqual(
+      wells.map((w) => w.className),
+      ["alteration-well-wrapper", "fthora-well-wrapper", "martyria-well-wrapper"]
+    );
   });
 
   await t.test("keeps the name input on the row in both notations, so nothing is discarded", () => {
@@ -123,6 +127,7 @@ test("the symbol wells on a note row", async (t) => {
     setNoteCount(h, 3);
 
     const last = noteRows(h).at(-1);
+    assert.ok(last.querySelector(".alteration-well"));
     assert.ok(last.querySelector(".fthora-well"));
     assert.ok(last.querySelector(".martyria-well"));
   });
@@ -210,6 +215,24 @@ test("symbol state on a note row", async (t) => {
     );
     assert.equal(row.dataset.martyriaGenus, undefined);
     assert.equal(row.dataset.martyriaTicks, undefined);
+  });
+
+  await t.test("stores and clears an alteration independently of the other two wells", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+    const row = noteRows(h)[0];
+    h.app.writeMartyria(row, "midPa", "alpha", 0);
+    h.app.writeFthora(row, "diatonicPa");
+
+    h.app.writeAlteration(row, "yfesis8");
+    assert.equal(h.app.readNoteSymbols(row).alteration, "yfesis8");
+
+    h.app.writeAlteration(row, "");
+    assert.equal(h.app.readNoteSymbols(row).alteration, "");
+    assert.equal(row.dataset.alteration, undefined);
+    assert.equal(h.app.readNoteSymbols(row).fthora, "diatonicPa", "the fthora must survive");
+    assert.ok(h.app.readNoteSymbols(row).martyria, "and so must the martyria");
   });
 
   await t.test("stores and clears a fthora independently of the martyria", () => {
@@ -431,6 +454,7 @@ test("symbols across an editor rebuild", async (t) => {
     setNotation(h, "byzantine");
     h.app.writeMartyria(noteRows(h)[0], "midPa", "alpha", 0);
     h.app.writeFthora(noteRows(h)[0], "diatonicPa");
+    h.app.writeAlteration(noteRows(h)[0], "yfesis4");
 
     setNotation(h, "generic");
     setNotation(h, "byzantine");
@@ -438,6 +462,7 @@ test("symbols across an editor rebuild", async (t) => {
     const symbols = h.app.readNoteSymbols(noteRows(h)[0]);
     assert.equal(symbols.martyria.note, "midPa");
     assert.equal(symbols.fthora, "diatonicPa");
+    assert.equal(symbols.alteration, "yfesis4");
     assert.equal(
       noteRows(h)[0].querySelector(".martyria-well").textContent,
       h.app.resolveMartyriaGlyphs("midPa", "alpha", 0),
@@ -451,6 +476,7 @@ test("symbols across an editor rebuild", async (t) => {
     setNotation(h, "byzantine");
     h.app.writeMartyria(noteRows(h)[0], "midPa", "alpha", 1);
     h.app.writeFthora(noteRows(h)[1], "diatonicVou");
+    h.app.writeAlteration(noteRows(h)[1], "diesis6");
 
     h.document.getElementById("scale-mode").value = "absolute";
     h.document.getElementById("scale-mode").dispatchEvent(
@@ -463,10 +489,16 @@ test("symbols across an editor rebuild", async (t) => {
       ticks: 1,
     });
     assert.equal(h.app.readNoteSymbols(noteRows(h)[1]).fthora, "diatonicVou");
+    assert.equal(h.app.readNoteSymbols(noteRows(h)[1]).alteration, "diesis6");
     assert.equal(
       noteRows(h)[0].querySelector(".martyria-well").textContent,
       h.app.resolveMartyriaGlyphs("midPa", "alpha", 1),
       "the rebuilt well was not repainted"
+    );
+    assert.equal(
+      noteRows(h)[1].querySelector(".alteration-well").textContent,
+      h.app.resolveAlterationGlyph("diesis6"),
+      "the rebuilt alteration well was not repainted"
     );
   });
 
@@ -496,6 +528,7 @@ test("readScaleData and the note symbols", async (t) => {
 
     const notes = h.app.readScaleData().filter((item) => item.type === "note");
     assert.equal(notes[0].fthora, "");
+    assert.equal(notes[0].alteration, "");
     assert.equal(notes[0].martyria, null);
   });
 
@@ -505,12 +538,15 @@ test("readScaleData and the note symbols", async (t) => {
     setNotation(h, "byzantine");
     h.app.writeMartyria(noteRows(h)[0], "midPa", "alpha", 0);
     h.app.writeFthora(noteRows(h)[0], "diatonicPa");
+    h.app.writeAlteration(noteRows(h)[0], "diesis2");
     h.app.writeMartyria(noteRows(h)[1], "midVou", h.app.GENUS_NONE, 0);
 
     const notes = h.app.readScaleData().filter((item) => item.type === "note");
     assert.equal(notes[0].fthora, "diatonicPa");
+    assert.equal(notes[0].alteration, "diesis2");
     assert.deepEqual({ ...notes[0].martyria }, { note: "midPa", genus: "alpha", ticks: 0 });
     assert.equal(notes[1].fthora, "");
+    assert.equal(notes[1].alteration, "");
     assert.deepEqual({ ...notes[1].martyria }, { note: "midVou", genus: "none", ticks: 0 });
   });
 

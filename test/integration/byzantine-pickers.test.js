@@ -8,6 +8,7 @@ const {
   setNotation,
   noteRows,
   openWell,
+  pickAlteration,
   pickFthora,
   pickMartyria,
   setNoteCount,
@@ -248,6 +249,214 @@ test("the fthora picker's compatible list", async (t) => {
     assert.ok(
       children.indexOf(option) > ruleIndex,
       "spathi does not belong on Δι, so it sits below the rule"
+    );
+  });
+});
+
+test("the alteration picker", async (t) => {
+  await t.test("opens its own panel when its well is clicked, and closes on a second click", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    const panel = openWell(h, row, "alteration");
+    assert.ok(panel.classList.contains("open"), "the panel did not open");
+    assert.ok(
+      !row.querySelector(".fthora-picker").classList.contains("open"),
+      "the fthora panel must stay shut"
+    );
+
+    fireClick(h, row.querySelector(".alteration-well"));
+    assert.ok(!panel.classList.contains("open"), "the panel did not close");
+  });
+
+  await t.test("lists None, then the ten signs in block order", () => {
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "alteration");
+
+    const ids = [...panel.querySelectorAll(".alteration-option")].map((o) => o.dataset.alteration);
+    assert.equal(ids[0], "", "None must come first");
+    assert.deepEqual(ids.slice(1), Array.from(h.app.BYZ_ALTERATIONS).map((a) => a.id));
+  });
+
+  await t.test("groups the sharps and the flats under headings, with no rule between them", () => {
+    const h = byzantineApp(t);
+    const body = openWell(h, noteRows(h)[0], "alteration").querySelector(".alteration-picker-body");
+
+    const titles = [...body.querySelectorAll(".byz-group-title")].map((el) => el.textContent);
+    assert.deepEqual(titles, ["Sharps", "Flats"]);
+    assert.equal(
+      body.querySelectorAll(".byz-separator").length,
+      0,
+      "every sign is offered on every note, so there is nothing to separate"
+    );
+
+    const children = [...body.children];
+    const flatsIndex = children.findIndex((el) => el.textContent === "Flats");
+    // None carries an empty data-alteration, so filtering by it leaves the
+    // sharps alone — which is exactly the run under test.
+    const above = children.slice(0, flatsIndex).filter((el) => el.dataset.alteration);
+    assert.deepEqual(
+      above.map((el) => el.dataset.alteration),
+      ["diesis2", "diesis4", "diesis6", "diesis8", "diesisGeniki"],
+      "the five sharps sit under the Sharps heading"
+    );
+  });
+
+  await t.test("carries no data-group, so the list opens at the top on None", () => {
+    const h = byzantineApp(t);
+    const body = openWell(h, noteRows(h)[0], "alteration").querySelector(".alteration-picker-body");
+
+    assert.equal(
+      body.querySelectorAll("[data-group]").length,
+      0,
+      "there is no register to prefer, so nothing must be scrolled to"
+    );
+    assert.equal(h.app.pickerRevealTarget(body), null);
+  });
+
+  await t.test("shows each sign's glyph and its label", () => {
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "alteration");
+
+    const option = panel.querySelector('.alteration-option[data-alteration="yfesis4"]');
+    assert.equal(
+      option.querySelector(".byz-glyph").textContent,
+      h.app.resolveAlterationGlyph("yfesis4")
+    );
+    assert.equal(
+      option.querySelector(".byz-label").textContent,
+      h.app.byzAlterationById("yfesis4").label
+    );
+  });
+
+  await t.test("writes the drafted sign to the row on Apply, and repaints the well", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    pickAlteration(h, row, "diesis6");
+
+    assert.equal(row.dataset.alteration, "diesis6");
+    assert.equal(
+      row.querySelector(".alteration-well").textContent,
+      h.app.resolveAlterationGlyph("diesis6")
+    );
+    assert.ok(!row.querySelector(".alteration-well").classList.contains("is-empty"));
+  });
+
+  await t.test("clears the well when None is applied", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    pickAlteration(h, row, "diesis6");
+    pickAlteration(h, row, "");
+
+    assert.equal(row.dataset.alteration, undefined, "no stale attribute may be left behind");
+    assert.ok(row.querySelector(".alteration-well").classList.contains("is-empty"));
+  });
+
+  await t.test("marks the committed sign as selected when the picker reopens", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    pickAlteration(h, row, "yfesisGeniki");
+    const panel = openWell(h, row, "alteration");
+
+    assert.equal(
+      panel.querySelector(".alteration-option.is-selected").dataset.alteration,
+      "yfesisGeniki"
+    );
+  });
+
+  await t.test("discards the draft on Cancel, an outside click and a second well click", () => {
+    // A fresh editor per gesture: each starts from the same committed sign, and
+    // a leftover open panel from the previous one would change what the next
+    // click means.
+    for (const how of ["cancel", "outside", "well"]) {
+      const h = byzantineApp(t);
+      const row = noteRows(h)[0];
+      pickAlteration(h, row, "diesis2");
+      pickAlteration(h, row, "yfesis8", { dismiss: how });
+
+      assert.equal(row.dataset.alteration, "diesis2", `"${how}" must not commit the draft`);
+      assert.ok(
+        !row.querySelector(".alteration-picker").classList.contains("open"),
+        `"${how}" must close the panel`
+      );
+    }
+  });
+
+  await t.test("leaves Apply dead while the draft still matches the row", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    let panel = openWell(h, row, "alteration");
+    assert.ok(panel.querySelector(".byz-apply").disabled, "nothing to apply on a fresh row");
+
+    fireClick(h, panel.querySelector('.alteration-option[data-alteration="diesis4"]'));
+    assert.ok(!panel.querySelector(".byz-apply").disabled, "a moved draft is applicable");
+
+    fireClick(h, panel.querySelector('.alteration-option[data-alteration=""]'));
+    assert.ok(
+      panel.querySelector(".byz-apply").disabled,
+      "drafting back to the row's own value is not a change"
+    );
+  });
+
+  await t.test("does not touch the row's fthora or martyria", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    pickMartyria(h, row, { note: "midPa", genus: "alpha" });
+    pickFthora(h, row, "diatonicPa");
+    pickAlteration(h, row, "yfesis2");
+
+    const symbols = h.app.readNoteSymbols(row);
+    assert.equal(symbols.fthora, "diatonicPa");
+    assert.equal(symbols.martyria.note, "midPa");
+    assert.equal(symbols.alteration, "yfesis2");
+  });
+});
+
+test("opening one well", async (t) => {
+  await t.test("closes whichever of the other two was open", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    const kinds = ["alteration", "fthora", "martyria"];
+
+    for (const opened of kinds) {
+      openWell(h, row, opened);
+      for (const other of kinds) {
+        assert.equal(
+          row.querySelector(`.${other}-picker`).classList.contains("open"),
+          other === opened,
+          `opening the ${opened} well left the ${other} panel wrong`
+        );
+      }
+    }
+  });
+
+  await t.test("throws away the draft the closed panel was holding", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    const panel = openWell(h, row, "alteration");
+    fireClick(h, panel.querySelector('.alteration-option[data-alteration="diesis8"]'));
+    openWell(h, row, "fthora");
+
+    assert.equal(panel.dataset.draftAlteration, undefined, "the draft outlived its panel");
+    assert.equal(row.dataset.alteration, undefined, "and it must certainly not have been committed");
+  });
+
+  await t.test("swallows a click on the alteration panel's own chrome", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    const panel = openWell(h, row, "alteration");
+    fireClick(h, panel.querySelector(".byz-group-title"));
+
+    assert.ok(
+      panel.classList.contains("open"),
+      "the click reached the document listener and closed the panel"
     );
   });
 });

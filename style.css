@@ -392,11 +392,13 @@ body {
 
 /* Both sets of controls live on every note row; CSS decides which are visible,
    so a switch discards nothing. */
+.note-row .alteration-well-wrapper,
 .note-row .fthora-well-wrapper,
 .note-row .martyria-well-wrapper { display: none; }
 
 #editor.notation-byzantine .note-row .note-name { display: none; }
 
+#editor.notation-byzantine .note-row .alteration-well-wrapper,
 #editor.notation-byzantine .note-row .fthora-well-wrapper,
 #editor.notation-byzantine .note-row .martyria-well-wrapper {
   display: block;
@@ -404,11 +406,13 @@ body {
   flex: 0 0 auto;
 }
 
-/* .note-name carried the right-alignment; the first visible well takes it on. */
-#editor.notation-byzantine .note-row .fthora-well-wrapper { margin-left: auto; }
+/* .note-name carried the right-alignment; the first visible well takes it on,
+   so this belongs to whichever well is leftmost. */
+#editor.notation-byzantine .note-row .alteration-well-wrapper { margin-left: auto; }
 
 /* --- Symbol wells --- */
 
+.alteration-well,
 .fthora-well,
 .martyria-well {
   width: 34px;
@@ -428,6 +432,7 @@ body {
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
+.alteration-well:hover,
 .fthora-well:hover,
 .martyria-well:hover { border-color: var(--ink); }
 
@@ -444,11 +449,25 @@ body {
 
 /* An empty well says which sign it takes, in pure CSS, so it is legible
    before the webfont arrives. */
+.alteration-well.is-empty,
 .fthora-well.is-empty,
 .martyria-well.is-empty {
   border-style: dashed;
   position: relative;
 }
+
+/* A faint cross for the alteration, a single diagonal for the fthora, two
+   stacked bars for the martyria: three hints, so the empty wells stay tellable
+   apart. */
+.alteration-well.is-empty::before,
+.alteration-well.is-empty::after {
+  content: "";
+  position: absolute;
+  background: var(--ink-faint);
+}
+
+.alteration-well.is-empty::before { width: 13px; height: 2px; }
+.alteration-well.is-empty::after  { width:  2px; height: 13px; }
 
 .fthora-well.is-empty::before {
   content: "";
@@ -472,6 +491,7 @@ body {
 
 /* --- Symbol pickers --- */
 
+.alteration-picker,
 .fthora-picker,
 .martyria-picker {
   display: none;
@@ -492,8 +512,10 @@ body {
 /* The lists are tall, so they scroll inside their panel — which never flips
    up: a scrolling panel cannot escape the editor. The footer stays put below
    the scroller, so Apply is always in reach. */
+.alteration-picker.open,
 .fthora-picker.open { display: block; }
 
+.alteration-picker-body,
 .fthora-picker-body {
   max-height: 320px;
   overflow-y: auto;

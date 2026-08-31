@@ -25,6 +25,14 @@
 // Table order is the order the wells appear on a note row, left to right.
 const BYZ_SIMPLE_WELLS = freezeTable([
   {
+    kind: "alteration",
+    title: "Sign of alteration",
+    build: function (panel, row) {
+      buildAlterationPicker(panel, row);
+    },
+    resolve: resolveAlterationGlyph,
+  },
+  {
     kind: "fthora",
     title: "Fthora",
     build: function (panel, row) {
@@ -126,6 +134,10 @@ function writeNoteSign(row, kind, id) {
 
 function writeFthora(row, fthoraId) {
   writeNoteSign(row, "fthora", fthoraId);
+}
+
+function writeAlteration(row, alterationId) {
+  writeNoteSign(row, "alteration", alterationId);
 }
 
 /** Repaints every well of one row from its data-* attributes. */
@@ -502,6 +514,56 @@ function buildFthoraPicker(panel, row) {
     for (const id of otherFthores(noteId)) body.appendChild(fthoraOption(id));
   } else {
     for (const fthora of BYZ_FTHORES) body.appendChild(fthoraOption(fthora.id));
+  }
+
+  panel.appendChild(body);
+  panel.appendChild(buildPickerFooter(panel, row));
+  centerPickerGlyphs(panel);
+  restorePickerScroll(panel, scroll);
+}
+
+/**
+ * None, then the ten signs of alteration under two headings.
+ *
+ * Flat, with no rule: every sign is offered on every note, so unlike the fthora
+ * list there is nothing to be compatible with and nothing to separate. The
+ * headings carry no `data-group`, so `pickerRevealTarget` finds no fallback and
+ * the list opens at the top on None — which is right here, because there is no
+ * register to prefer.
+ */
+function buildAlterationPicker(panel, row) {
+  const draft = panel.dataset.draftAlteration || "";
+  const scroll = readPickerScroll(panel);
+  panel.innerHTML = "";
+
+  const body = document.createElement("div");
+  body.className = "alteration-picker-body";
+  body.dataset.scroller = "alteration";
+  body.appendChild(
+    makeByzOption({
+      className: "alteration-option",
+      data: { alteration: "" },
+      glyph: "",
+      label: "None",
+    })
+  );
+
+  for (const group of [
+    { title: "Sharps", family: "diesis" },
+    { title: "Flats", family: "yfesis" },
+  ]) {
+    body.appendChild(byzGroupTitle(group.title));
+    for (const alteration of BYZ_ALTERATIONS) {
+      if (alteration.family !== group.family) continue;
+      const option = makeByzOption({
+        className: "alteration-option",
+        data: { alteration: alteration.id },
+        glyph: resolveAlterationGlyph(alteration.id),
+        label: alteration.label,
+      });
+      if (draft === alteration.id) option.classList.add("is-selected");
+      body.appendChild(option);
+    }
   }
 
   panel.appendChild(body);
