@@ -8,22 +8,31 @@ orientation; this document is where you come to actually change something.
 
 ---
 
-## 1. What the two signs are
+## 1. What the three signs are
 
-A note row in Byzantine notation carries two independent glyphs instead of a
+A note row in Byzantine notation carries three independent glyphs instead of a
 typed name:
 
 - A **martyria** is the note's name — a signpost that tells the singer which
   degree of the scale they are on and which genus (diatonic, chromatic,
   enharmonic, …) it currently sits in. It is drawn from two glyphs stacked by
   the font itself: a note letter and, optionally, a genus mark riding on it.
-- A **fthora** is the psaltic accidental — a standalone sign that changes the
-  genus of the notes that follow it, drawn as one ordinary, normal-advance
-  glyph.
+- A **fthora** is the psaltic accidental of genus — a standalone sign that
+  changes the genus of the notes that follow it, drawn as one ordinary,
+  normal-advance glyph.
+- A **sign of alteration** is the accidental of pitch: a *diesis* raises a note
+  by so many moria, a *yfesis* lowers it, and the two *geniki* say "sharp" and
+  "flat" without naming a size. It is a zero-advance combining mark whose ink
+  sits entirely above the baseline.
 
-One goes on each side of a separator between two intervals: the martyria in
-place of the note name, the fthora on the opposite side (see
-`docs/ARCHITECTURE.md`'s Chart Rendering → Text layout).
+The martyria goes in place of the note name; the other two share the gutter on
+the opposite side of the separator, the alteration drawn to the left of the
+fthora it qualifies (see `docs/ARCHITECTURE.md`'s Chart Rendering → Text
+layout).
+
+An alteration **does not change pitch**. Like a fthora it is an annotation the
+chart draws; `getFrequencyForDegree()` and the cents model never see it, and
+the moria in the picker's labels are documentation, not arithmetic.
 
 For the typography that makes a martyria's two glyphs stack correctly — GSUB,
 GPOS, mark-to-base attachment, all of it — read
@@ -32,7 +41,7 @@ This document assumes that background and does not repeat it.
 
 ---
 
-## 2. The four tables (`byzantine.js`)
+## 2. The six tables (`byzantine.js`)
 
 None of them names a codepoint. Codepoints live only in the resolvers (§4).
 
@@ -47,14 +56,29 @@ None of them names a codepoint. Codepoints live only in the resolvers (§4).
   alone." It is the default for every new martyria.
 - **`BYZ_FTHORES`** — 16 standalone fthores (normal advance, not the
   zero-advance Above/Secondary/Tertiary/Below variants meant to ride a neume).
-- **`MARTYRIA_COMPATIBILITY`** — see §3.
+  Sixteen *contiguous* glyphs, which is what lets `resolveFthoraGlyph` index
+  the block by arithmetic — see the first departure in §3.
+- **`BYZ_ALTERATIONS`** — 10 signs of alteration: four numbered diesis, four
+  numbered yfesis, and the two geniki. Unlike every other vocabulary here it
+  spans **two** blocks, so a row names a `family` (`"diesis"` or `"yfesis"`)
+  as well as an `index`, and the resolver picks the base from the family. The
+  "no table names a codepoint" invariant is intact — this is the same shape
+  `BYZ_GENERA` already has, where the resolver picks a base from the register.
+- **`MARTYRIA_COMPATIBILITY`** and **`FTHORES_COMPATIBILITY`** — see §3.
 
 ---
 
-## 3. `MARTYRIA_COMPATIBILITY` is hand-maintained
+## 3. The two compatibility tables
 
-This is the one table in `byzantine.js` expected to be edited by hand, and the
-one most likely to need it: it encodes a musicological judgement call, not
+Both say "these signs belong on this note, the rest are unusual", and both are
+rendered the same way — the compatible list first, a `.byz-separator`, then
+everything else. They have **different provenance**, and that is the whole of
+what a maintainer needs to keep straight.
+
+### 3a. `MARTYRIA_COMPATIBILITY` is hand-maintained
+
+This is the table in `byzantine.js` expected to be edited by hand, and the one
+most likely to need it: it encodes a musicological judgement call, not
 something derivable from the font or from the other tables.
 
 It comes from
@@ -78,6 +102,44 @@ of known, non-duplicated genera, and pins one sample — `midDi`'s order — as 
 worked example. **Update that pinned sample** if the table's column order
 changes; it is meant to fail the moment `MARTYRIA_COMPATIBILITY` and
 `modes-table.html` drift apart.
+
+### 3b. `FTHORES_COMPATIBILITY` is derived from rules
+
+It is written out as a literal, for the same reasons the table above is — a
+literal is easier to eyeball and to diff, and it has a per-row exception a
+generator would have to special-case anyway — but it is not read off a source
+document. It follows four rules, given `value = BYZ_NOTES.indexOf(id) − 9`, so
+that `midPa` is 0:
+
+1. **Diatonic, by letter, in every register.** Ζω→`diatonicZo`, Πα→`diatonicPa`,
+   and so on; Νη takes `diatonicNiLow` for `lowNi`/`midNi` and
+   `diatonicNiHigh` for `highNi`.
+2. **Chromatic, by the parity of `value`.** Even → `hardChromaticPa` and
+   `softChromaticKe`; odd → `hardChromaticDi` and `softChromaticDi`. This is
+   the same rule Neanes' `LayoutService` uses for its root signs and the same
+   one `MARTYRIA_COMPATIBILITY` follows, which is the point: the two tables
+   cannot drift apart on the chromatic signs without one of them being wrong.
+3. **Enharmonic (acem), by letter:** Βου, Γα, Ζω.
+4. **Chroa, by letter:** `chroaZygos` and `chroaKliton` on Δι; `chroaSpathi` on
+   Γα and Κε.
+
+Each row is in `BYZ_FTHORES` block order, so a row stays stable when it gains
+an entry. A unit test pins the parity rule, so the literal cannot silently
+drift from rule 2.
+
+**Three deliberate departures** from
+[`FTHORA-COMPATIBILITY.md`](../issues/002-byzantine-symbols/FTHORA-COMPATIBILITY.md),
+the research this was built on. They are exactly what a future maintainer will
+otherwise "correct", so each is pinned by a test of its own:
+
+| The research says | We do | Why |
+|---|---|---|
+| `diesisGeniki` and `yfesisGeniki` are fthores, on Γα and Κε | They are **alteration** signs, and appear in neither compatibility table | SBMuFL files them under Signs of Alteration, and keeping them out leaves `BYZ_FTHORES` at sixteen contiguous glyphs — so `resolveFthoraGlyph`'s `BYZ_FTHORA_BASE + index` arithmetic survives untouched |
+| §6a leaves the two Νη signs open | **Strict by register:** `lowNi`/`midNi` → `diatonicNiLow`, `highNi` → `diatonicNiHigh` | Faithful to the one-octave span in Neanes' `getShift`. It costs nothing: the other Νη sign is still pickable, one line below the separator |
+| §6b leaves it open | **`hardChromaticDi` is not offered on Νη**, so it comes out of `midNi` | Tracks Neanes' own Fthora Note dropdown (Ζω′, Δι, Βου). `MARTYRIA_COMPATIBILITY` still lists it for `midNi`; the two tables are about different signs, and the divergence is on purpose |
+
+`BYZ_ALTERATIONS` has no compatibility table at all: every sign of alteration
+is offered on every note.
 
 ---
 
@@ -170,23 +232,24 @@ The whole point of splitting `byzantine.js` out this way is that a font swap
 is small and localized. What changes:
 
 - A second `@font-face` (in `style.css`) for the new font.
-- A second pair of resolvers — the equivalents of `resolveMartyriaGlyphs` and
-  `resolveFthoraGlyph` — encoding that font's own codepoint layout, and the
-  `BYZ_*_BASE` constants they add to. This is the *only* place a new codepoint
-  is ever written.
+- A second set of resolvers — the equivalents of `resolveMartyriaGlyphs`,
+  `resolveFthoraGlyph` and `resolveAlterationGlyph` — encoding that font's own
+  codepoint layout, and the `BYZ_*_BASE` constants they add to. This is the
+  *only* place a new codepoint is ever written.
 - `BYZ_FONT_FAMILY` (`byzantine.js`) — the family name, written once. Every
   font string the JavaScript uses is built from it by `byzantineFont()`: the
   chart's drawing and measuring font, and the face `loadByzantineFont()`
   preloads (§7). Nothing else in the JavaScript names a family.
 - **All three CSS rules that name the family**, because CSS cannot read a JS
-  constant: `.fthora-well, .martyria-well` (the two wells in the editor),
-  `.byz-glyph` (the previews on every option row of both picker panels) and
-  `.byz-preview` (the drafted martyria in the picker footer). Miss these and
-  the chart changes font while the editor keeps drawing the old one.
+  constant: `.alteration-well, .fthora-well, .martyria-well` (the three wells
+  in the editor), `.byz-glyph` (the previews on every option row of every
+  picker panel) and `.byz-preview` (the drafted martyria in the picker
+  footer). Miss these and the chart changes font while the editor keeps
+  drawing the old one.
 
-Everything else is untouched: the four tables (§2), `MARTYRIA_COMPATIBILITY`
-(§3), the ladder (§5), the pickers (`byzantine-ui.js`), `readScaleData`, and
-the chart in `app.js`. In particular, the register→mark-set rule (§4) is
+Everything else is untouched: the six tables (§2), the two compatibility
+tables (§3), the ladder (§5), the pickers (`byzantine-ui.js`), `readScaleData`,
+and the chart in `app.js`. In particular, the register→mark-set rule (§4) is
 resolver logic, not model logic — a new font's resolvers re-derive it for
 that font's own anchors; they do not inherit Neanes's answer.
 
@@ -198,9 +261,16 @@ from Neanes's still lands correctly with zero changes to the drawing code.
 **A new font's proportions need no chart changes.** All four chart paths size
 the room they keep at the ends of the stack from one quantity, `signExtent` in
 `render()` — the wider (horizontal) or taller (vertical) of the **martyria and
-the fthora** ink actually present in the scale. Whichever of the two signs a
-new face draws bigger, the clearance follows it, and a scale carrying only a
-fthora reserves room from the fthora.
+the gutter run** actually present in the scale, a run being a degree's
+alteration and fthora together (§11). Whichever a new face draws bigger, the
+clearance follows it, and a scale carrying only one sign reserves room from
+that sign.
+
+`BYZ_SIGN_GAP` in `app.js` — the space between an alteration and its fthora —
+is the one number here settled by eye rather than measured. At 40px it is 8px,
+against signs whose ink is about a third of an em wide; below about 6 the pair
+collides into a single shape and above about 12 it reads as two unrelated
+annotations. A face with very different proportions should be looked at.
 
 ---
 
@@ -313,8 +383,10 @@ using a real font — see `docs/TESTING.md` §5 for the general
 `measureText`/`measureTextInk` contract. The ratios that shape the model
 (`INK_LEFT_BEARING_RATIO`, `INK_WIDTH_RATIO`, `ASCENT_RATIO`, `DESCENT_RATIO`,
 `MARK_ABOVE_ASCENT_RATIO`, `MARK_BELOW_DESCENT_RATIO`, `FTHORA_ASCENT_RATIO`,
-`FTHORA_DESCENT_RATIO`, `FONT_ASCENT_RATIO`, `FONT_DESCENT_RATIO`,
-`LOW_REGISTER_DROP_RATIO`, `HIGH_REGISTER_RISE_RATIO`) and the
+`FTHORA_DESCENT_RATIO`, `ALTERATION_ASCENT_RATIO`, `ALTERATION_DESCENT_RATIO`,
+`GENIKI_ASCENT_RATIO`, `GENIKI_DESCENT_RATIO`, `FONT_ASCENT_RATIO`,
+`FONT_DESCENT_RATIO`, `LOW_REGISTER_DROP_RATIO`, `HIGH_REGISTER_RISE_RATIO`)
+and the
 codepoint ranges it treats as zero-advance marks live at the top of that file.
 It is a **documented model of the shape of a real SBMuFL font's metrics — not a
 measurement of Neanes itself.** Tests that need an expected ink box compute it
@@ -330,6 +402,13 @@ a simpler model would hide the bugs it is there to catch:
   is what `inkCenteringShift()` corrects. Every other glyph in the model
   straddles the baseline, so a fthora is the only case that proves the
   correction is measured rather than guessed.
+- **A sign of alteration has ink but no advance.** `E1F0`–`E20F` are modelled
+  zero-advance, with a negative descent like a fthora's. Both matter: measure
+  the advance instead of the ink and a run of these signs comes out zero wide,
+  collapsing the gutter it is supposed to size. The two geniki (`E1F4` and
+  `E204`) are drawn a whole em higher than the eight numbered signs and are
+  *interleaved* with them in the encoding rather than contiguous, so the stub
+  lists them explicitly instead of testing a range.
 - **The three octave blocks sit at three heights.** A low letter is modelled as
   the middle one pushed down by `LOW_REGISTER_DROP_RATIO`, a high one as the
   middle one reaching up by `HIGH_REGISTER_RISE_RATIO` for its octave stroke —
@@ -348,3 +427,33 @@ a simpler model would hide the bugs it is there to catch:
   which is exactly the state that hides a caller measuring without pinning them.
   `inkBox` pins both; if you write another measurement helper, pin them there
   too.
+
+---
+
+## 11. A gutter run
+
+The gutter beside the separators holds a **run** of signs, not one sign: a
+degree's alteration and then its fthora, `[alterationText, fthoraText]` with
+the empties dropped. The alteration comes first because it qualifies the
+fthora, which is how a psaltic accidental is written. A degree carrying only
+one of the two draws that one in the same place — a well the user filled must
+never draw nothing.
+
+Three helpers in `app.js` own the layout:
+
+- `glyphRunExtent(parts, font)` — the run's ink width (parts plus one
+  `BYZ_SIGN_GAP` between each) and its height (the tallest part's). It
+  measures **ink, never the advance**, which is 0 for every alteration.
+- `maxRunExtent(runs, font)` — the widest and tallest run. The maximum is over
+  *whole runs*, i.e. over degrees, not per sign: a scale where one degree
+  carries an alteration and another a fthora needs a gutter one sign wide, not
+  one sized for a pair that never occurs.
+- `drawByzantineSigns(parts, x, y, align, vAlign)` — anchors the **run as a
+  whole** horizontally and **each part independently** vertically at the same
+  `y`. That single rule is what serves both orientations: a horizontal chart
+  anchors `"bottom"` at the gutter's inner edge, so the pair's ink bottoms sit
+  on one line; a vertical chart anchors `"right"` there, so the fthora keeps
+  exactly the position it had before there was anything to its left.
+
+`drawByzantineMark` is still the single-sign primitive underneath, and is what
+`drawNoteLabel` uses to draw a martyria — a martyria is one sign, not a run.
