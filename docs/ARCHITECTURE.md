@@ -261,6 +261,40 @@ User types in editor  ──►  `input` event on container
 
 Add/Remove note buttons modify the DOM (insert or remove rows) and then trigger the same render path.
 
+### Startup and reload
+
+Because the DOM is the data model, the app has no state to restore on load — it
+reads whatever the markup and the controls hold. That works on a cold load, when
+every control is at its `index.html` default, but not across a reload: a browser
+restores each `<select>`'s value and each `<input>`'s text from session history,
+while everything the app *derived* from those values comes back at the markup
+default. The editor's row layout, the cents labels, the EDO settings row, the
+swatches' palette, the zoom and the editor's notation class are all derived.
+
+`syncDerivedStateToControls()` closes that gap: it recomputes every derived
+thing from the values the controls actually hold. It runs at load, and again on
+`pageshow`, because a browser applies the restore **after** `load` — the
+deferred scripts have already initialised against the defaults by then — and
+fires no `input` or `change` for those writes, so `pageshow` is the app's only
+notice that its controls changed underneath it. Every step is idempotent, so a
+cold load and a back/forward-cache restore (`event.persisted`) both cost one
+redraw and nothing else.
+
+This is why the change handlers are split. `onIntervalTypeChange()` and
+`onChartStyleChange()` each pair a derived-state update with an action that only
+belongs to a *user's* change — resetting the scale, redrawing the chart — and
+only the first half is safe to re-run on a reload; `applyIntervalTypeToSettings()`
+and `applyChartStyleToSwatches()` are those halves. `syncEditorToScaleMode()`
+rebuilds the editor only when its rows are not already in the mode `#scale-mode`
+asks for, because `onScaleModeChange()` converts the rows it finds and would
+blank a scale it was handed in the right shape.
+
+What this does *not* do is persist the scale. A browser can only restore inputs
+that exist in the markup, so added rows, and an absolute editor's values, are
+gone after a refresh whatever the app does. Surviving a reload with the scale
+intact would mean storing it (in `localStorage` or the URL) — a separate
+feature, not a matter of staying in sync.
+
 ## Styling
 
 - Clean, minimal design with a light background.

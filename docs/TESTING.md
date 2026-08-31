@@ -217,6 +217,9 @@ test/
     ├── render.test.js              chart geometry, Generic and Byzantine alike
     ├── notation.test.js            the Notation setting and the editor's switch;
     │                               symbol state, readScaleData, font loading
+    ├── settings-restore.test.js    what a browser restores across a reload, and
+    │                               the load-time and `pageshow` syncs that keep
+    │                               the model with it
     └── byzantine-pickers.test.js   the three wells and their picker panels
 ```
 
@@ -294,7 +297,7 @@ number.
 
 | Helper | Purpose |
 |---|---|
-| `loadApp(options)` | Fresh window. One per test — never share. `notation: "byzantine"` presets `#notation` *before* the scripts run, the way a browser restores a `<select>` across a soft reload. |
+| `loadApp(options)` | Fresh window. One per test — never share. `controls: { "scale-mode": "absolute" }` presets any settings control, by element id, *before* the scripts run; `notation: "byzantine"` is shorthand for the same on `#notation`. |
 | `buildRelativeScale(h, intervals, extra)` | Build a scale in relative mode; `extra` takes `names`, `labels`, `colors`. |
 | `buildAbsoluteScale(h, absolutes, extra)` | Same for absolute mode. |
 | `setNoteCount(h, n)` | Click add/remove until the editor holds `n` notes. |
@@ -303,6 +306,7 @@ number.
 | `pickColor(h, row, hex)` | Open a row's dropdown and click a swatch. |
 | `noteRows(h)` / `intervalRows(h)` | The editor's rows, in order. |
 | `setNotation(h, value)` | Switch `#notation` (`"generic"` or `"byzantine"`) and dispatch `change`. |
+| `restoreFromHistory(h, values, opts)` | Model a soft reload: write restored values into the controls, by element id, firing no `input`/`change`, then dispatch `pageshow` — the order a browser actually uses. `{ persisted: true }` models a back/forward-cache restore, where the live page comes back intact. |
 | `openWell(h, row, kind)` | Click a note row's `"alteration"`, `"fthora"` or `"martyria"` well; returns its picker panel. |
 | `pickAlteration(h, row, alterationId, { dismiss })` | Open the alteration picker, click one option (`""` picks None) and dismiss the panel. |
 | `pickFthora(h, row, fthoraId, { dismiss })` | Open the fthora picker, click one option (`""` picks None) and dismiss the panel. |

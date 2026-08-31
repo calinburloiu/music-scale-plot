@@ -1147,10 +1147,17 @@ function updateEdoCentsLabel() {
   edoCentsLabel.textContent = centsPerDiv.toFixed(2) + " ￠ for each division";
 }
 
-function onIntervalTypeChange() {
+// Everything the EDO settings row derives from the interval type. Split out of
+// the change handler because startup needs it without the reset: a reload
+// restores the interval inputs' text, and resetting would throw it away.
+function applyIntervalTypeToSettings() {
   const type = getIntervalType();
   edoSettingsRow.style.display = type === "edo" ? "" : "none";
   if (type === "edo") updateEdoCentsLabel();
+}
+
+function onIntervalTypeChange() {
+  applyIntervalTypeToSettings();
   resetScaleToDefault();
 }
 
@@ -1344,11 +1351,19 @@ function remapSwatchColors(fromPalette, toPalette) {
   }
 }
 
-function onChartStyleChange() {
+// Moves every swatch onto the palette the current chart style draws with. Both
+// palettes are index-aligned, so a colour keeps its slot; a colour from neither
+// palette is left alone. Idempotent, because the source palette can hold no
+// colour that is already in the target one.
+function applyChartStyleToSwatches() {
   const newStyle = styleSelect.value;
   const fromPalette = newStyle === "lines" ? PALETTE_LIGHT : PALETTE_DARK;
   const toPalette = newStyle === "lines" ? PALETTE_DARK : PALETTE_LIGHT;
   remapSwatchColors(fromPalette, toPalette);
+}
+
+function onChartStyleChange() {
+  applyChartStyleToSwatches();
   render();
 }
 
@@ -1549,11 +1564,65 @@ edoDivisionsInput.addEventListener("input", onEdoDivisionsChange);
 scaleModeSelect.addEventListener("change", onScaleModeChange);
 notationSelect.addEventListener("change", onNotationChange);
 
-updateRemoveBtn();
-updateZoom();
-updateAllLabels();
-// The editor follows the control, not the markup's default: a browser restores
-// a <select>'s value across a soft reload, and a Byzantine chart beside a
-// Generic editor is the one state the two panels must never be left in.
-onNotationChange();
+/**
+ * Which layout the editor's rows are actually built in, as opposed to which one
+ * `#scale-mode` asks for. Only an absolute editor gives its note rows an
+ * absolute interval input.
+ */
+function getEditorScaleMode() {
+  return editor.querySelector(".absolute-interval") ? "absolute" : "relative";
+}
+
+/**
+ * Rebuilds the editor if its rows are not in the mode the control asks for.
+ *
+ * Guarded rather than unconditional because `onScaleModeChange()` converts the
+ * rows it finds: run on an editor already in the right mode it would read the
+ * values it is about to overwrite out of inputs that do not exist, and blank
+ * the scale.
+ */
+function syncEditorToScaleMode() {
+  if (getEditorScaleMode() === getScaleMode()) return;
+  onScaleModeChange();
+}
+
+/**
+ * Brings everything the app derives from its controls in line with the values
+ * those controls actually hold.
+ *
+ * A browser restores a `<select>`'s value and an `<input>`'s text when it
+ * reloads a page, but it restores none of what the app derived from them: the
+ * editor's row layout, the cents labels, the EDO settings row, the swatches'
+ * palette, the zoom and the editor's notation class all come back as
+ * index.html ships them. Left alone, the controls then describe one app and
+ * the model is another — an editor labelled "Absolute Intervals" whose rows
+ * are relative, so every absolute value reads empty and the chart is blank; an
+ * EDO type with no divisions input; a white line on a white ground; cents
+ * labels describing intervals nobody can see.
+ *
+ * Every step is idempotent, so running this against controls that are already
+ * in sync changes nothing.
+ */
+function syncDerivedStateToControls() {
+  updateZoom();
+  applyIntervalTypeToSettings();
+  applyChartStyleToSwatches();
+  // Rebuilding the editor recreates the swatches, but it copies their colours
+  // across, so the remap above still holds afterwards.
+  syncEditorToScaleMode();
+  updateRemoveBtn();
+  updateAllLabels();
+  onNotationChange(); // renders, so it goes last
+}
+
+syncDerivedStateToControls();
 loadByzantineFont();
+
+// The reload story does not end at load. A browser restores the controls'
+// values *after* `load` — the deferred scripts have already initialised the app
+// against index.html's defaults by then — and it fires no `input` or `change`
+// for those writes, so `pageshow` is the only notice the app gets that its
+// controls just changed underneath it. A back/forward-cache restore
+// (`persisted`) hands the live page back untouched and has nothing to re-sync,
+// but the sync is idempotent, so it costs one redraw and needs no special case.
+window.addEventListener("pageshow", syncDerivedStateToControls);

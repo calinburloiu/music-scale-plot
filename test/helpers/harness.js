@@ -63,7 +63,12 @@ function buildExportEpilogue(names) {
  *   `document.fonts` at all, as in jsdom's default state and in old browsers, or to
  *   `"reject"` to have the face fail to load, as a missing or corrupt file would
  * @param {string} [options.notation] value to put in `#notation` *before* the scripts
- *   run, the way a browser restores a `<select>` across a soft reload
+ *   run, the way a browser restores a `<select>` across a soft reload; shorthand
+ *   for `controls: { notation: ... }`
+ * @param {Object<string,string>} [options.controls] values to put into settings
+ *   controls, keyed by element id, *before* the scripts run — the way a browser
+ *   restores every `<select>` and `<input>` across a soft reload while the rest
+ *   of the markup comes back at its default
  * @returns {object} harness
  */
 function loadApp(options = {}) {
@@ -141,10 +146,14 @@ function loadApp(options = {}) {
     downloads.push({ download: this.download, href: this.href });
   };
 
-  // Set before any script runs, so the app sees a control that already carries
-  // a value — exactly what a browser hands it after a soft reload.
-  if (options.notation !== undefined) {
-    document.getElementById("notation").value = options.notation;
+  // Set before any script runs, so the app sees controls that already carry
+  // values — exactly what a browser hands it after a soft reload.
+  const presetControls = { ...options.controls };
+  if (options.notation !== undefined) presetControls.notation = options.notation;
+  for (const [id, value] of Object.entries(presetControls)) {
+    const control = document.getElementById(id);
+    if (!control) throw new Error(`loadApp: no control with id "${id}" in index.html`);
+    control.value = value;
   }
 
   const files = scriptPaths(html).map((file) => ({
@@ -240,6 +249,37 @@ function selectOption(harness, selectId, value) {
 /** Switches the Notation setting and dispatches the `change` event. */
 function setNotation(harness, value) {
   return selectOption(harness, "notation", value);
+}
+
+/**
+ * Models what a browser does to a page it restores from session history — a
+ * soft reload, or a back/forward step onto a page that was not kept alive.
+ *
+ * The markup is parsed fresh and the deferred scripts run against it, so the
+ * app initialises from index.html's defaults. Only *afterwards*, between `load`
+ * and `pageshow`, does the browser write the saved values straight into the
+ * controls. It fires no `input` and no `change` for those writes, so `pageshow`
+ * is the app's only notice that its controls just changed underneath it.
+ *
+ * @param {object} harness
+ * @param {Object<string,string>} [values] restored values, keyed by element id;
+ *   a control not listed keeps whatever the markup gave it
+ * @param {object} [options]
+ * @param {boolean} [options.persisted=false] `true` models a back/forward-cache
+ *   restore, where the live page — DOM, JavaScript state and all — is handed
+ *   back intact and there is nothing to re-sync
+ */
+function restoreFromHistory(harness, values = {}, { persisted = false } = {}) {
+  for (const [id, value] of Object.entries(values)) {
+    const control = harness.document.getElementById(id);
+    if (!control) throw new Error(`restoreFromHistory: no control with id "${id}" in index.html`);
+    control.value = value;
+  }
+  const PageTransitionEvent = harness.window.PageTransitionEvent || harness.window.Event;
+  const event = new PageTransitionEvent("pageshow", { persisted });
+  if (event.persisted !== persisted) event.persisted = persisted;
+  harness.window.dispatchEvent(event);
+  return harness;
 }
 
 function noteRows(harness) {
@@ -395,6 +435,7 @@ module.exports = {
   typeInto,
   selectOption,
   setNotation,
+  restoreFromHistory,
   noteRows,
   intervalRows,
   setNoteCount,
