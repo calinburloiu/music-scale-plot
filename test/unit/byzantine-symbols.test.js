@@ -411,6 +411,24 @@ test("the fthora compatibility table", async (t) => {
     ]);
   });
 
+  await t.test("keeps *every* row in block order, not just the worked samples", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // The four samples above are read by eye; this is the guard that catches a
+    // row nobody thought to pin. Block order is what keeps a row stable when it
+    // gains an entry, so it is a property of the whole table, not of four of it.
+    const blockOrder = Array.from(h.app.BYZ_FTHORES).map((f) => f.id);
+    for (const note of Array.from(h.app.BYZ_NOTES)) {
+      const list = h.app.compatibleFthores(note.id);
+      equalArray(
+        list,
+        blockOrder.filter((id) => list.includes(id)),
+        `${note.id} is not in BYZ_FTHORES block order`
+      );
+    }
+  });
+
   await t.test("has nothing to offer a note it does not know", () => {
     const h = loadApp();
     t.after(() => h.close());
