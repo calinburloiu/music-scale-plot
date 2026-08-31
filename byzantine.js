@@ -2,8 +2,8 @@
 //
 // Nothing in this file's tables names a codepoint, an octave block or an
 // above/below variant. All SBMuFL knowledge lives in the resolvers further
-// down. A different font encoding is a second pair of resolvers and touches
-// nothing else. See docs/BYZANTINE-SYMBOLS.md.
+// down. A different font encoding is a second set of these resolvers and
+// touches nothing else. See docs/BYZANTINE-SYMBOLS.md.
 
 const BYZ_OCTAVES = ["low", "mid", "high"];
 
@@ -18,8 +18,8 @@ const BYZ_LETTERS = [
 ];
 
 // Freezes a vocabulary table: every row, then the array itself. Every table
-// in this file (BYZ_NOTES, and BYZ_GENERA / BYZ_FTHORES / MARTYRIA_COMPATIBILITY
-// that follow it) is immutable data — a shared reference no caller should be
+// in this file (BYZ_NOTES, and the BYZ_GENERA / BYZ_FTHORES / BYZ_ALTERATIONS
+// vocabularies that follow it) is immutable data — a shared reference no caller should be
 // able to mutate out from under the others.
 function freezeTable(rows) {
   rows.forEach((row) => Object.freeze(row));
@@ -90,6 +90,28 @@ const BYZ_FTHORES = freezeTable([
   { id: "chroaZygos", index: 13, label: "Zygos (Muştar)" },
   { id: "chroaKliton", index: 14, label: "Kliton (Nişabur)" },
   { id: "chroaSpathi", index: 15, label: "Spathi (Hisar)" },
+]);
+
+// Ten signs of alteration: the four numbered diesis (sharp) and four numbered
+// yfesis (flat) signs, plus the two *geniki* — the general sharp and flat that
+// name no size. Two families of five, each in its own SBMuFL block, so a row
+// names a family and an offset and the resolver picks the base: the same
+// discipline BYZ_GENERA follows, and the reason no codepoint appears here.
+//
+// The numbered signs move a note by that many moria, which is what their labels
+// say. The app does not act on it — an alteration is an annotation the chart
+// draws, exactly as a fthora is, and the pitch model is untouched.
+const BYZ_ALTERATIONS = freezeTable([
+  { id: "diesis2", family: "diesis", index: 0, label: "Diesis 2 (+2 moria)" },
+  { id: "diesis4", family: "diesis", index: 1, label: "Diesis 4 (+4 moria)" },
+  { id: "diesis6", family: "diesis", index: 2, label: "Diesis 6 (+6 moria)" },
+  { id: "diesis8", family: "diesis", index: 3, label: "Diesis 8 (+8 moria)" },
+  { id: "diesisGeniki", family: "diesis", index: 4, label: "General sharp (diesis geniki)" },
+  { id: "yfesis2", family: "yfesis", index: 0, label: "Yfesis 2 (−2 moria)" },
+  { id: "yfesis4", family: "yfesis", index: 1, label: "Yfesis 4 (−4 moria)" },
+  { id: "yfesis6", family: "yfesis", index: 2, label: "Yfesis 6 (−6 moria)" },
+  { id: "yfesis8", family: "yfesis", index: 3, label: "Yfesis 8 (−8 moria)" },
+  { id: "yfesisGeniki", family: "yfesis", index: 4, label: "General flat (yfesis geniki)" },
 ]);
 
 // Per note, the genera the modes table pairs with it: de-duplicated, in the
@@ -179,6 +201,10 @@ function byzFthoraById(id) {
   return BYZ_FTHORES.find((fthora) => fthora.id === id) || null;
 }
 
+function byzAlterationById(id) {
+  return BYZ_ALTERATIONS.find((alteration) => alteration.id === id) || null;
+}
+
 /** The genera the modes table pairs with this note, in the table's order. */
 function compatibleGenera(noteId) {
   return MARTYRIA_COMPATIBILITY[noteId] || [];
@@ -205,7 +231,7 @@ function otherFthores(noteId) {
 // SBMuFL resolvers — the only code that knows a codepoint.
 //
 // Swapping to a different encoding (the Byzantine Music Unicode block, say) is
-// a second pair of these two functions. Nothing above this line changes.
+// a second set of these functions. Nothing above this line changes.
 // ---------------------------------------------------------------------------
 
 const BYZ_NOTE_BASE = 0xe130;        // martyriaNoteZoLow; three contiguous blocks of seven
@@ -213,6 +239,8 @@ const BYZ_GENUS_BELOW_BASE = 0xe150; // marks that hang under the letter
 const BYZ_GENUS_ABOVE_BASE = 0xe170; // marks that sit over the letter
 const BYZ_TICK = 0xe145;             // martyriaTick — a spacing glyph, not a mark
 const BYZ_FTHORA_BASE = 0xe1d0;      // fthoraDiatonicNiLow
+const BYZ_DIESIS_BASE = 0xe1f0;      // diesis2 … diesisGenikiAbove
+const BYZ_YFESIS_BASE = 0xe200;      // yfesis2 … yfesisGenikiAbove
 
 /**
  * The glyph string for one martyria: letter, then genus mark, then ticks.
@@ -273,6 +301,23 @@ function martyriaMarkSide(noteId) {
 function resolveFthoraGlyph(fthoraId) {
   const fthora = byzFthoraById(fthoraId);
   return fthora ? String.fromCharCode(BYZ_FTHORA_BASE + fthora.index) : "";
+}
+
+/**
+ * A sign of alteration on its own — a zero-advance mark whose ink clears the
+ * baseline outright, like a fthora's, so everything that places it does so from
+ * measured ink.
+ *
+ * Each family has its own block, hence two bases rather than one. The fifth
+ * member of each is the *Above* variant of the geniki: the Below variant's ink
+ * crosses the baseline, where every other sign of the family sits clear of it,
+ * so taking Above keeps the whole family one shape.
+ */
+function resolveAlterationGlyph(alterationId) {
+  const alteration = byzAlterationById(alterationId);
+  if (!alteration) return "";
+  const base = alteration.family === "yfesis" ? BYZ_YFESIS_BASE : BYZ_DIESIS_BASE;
+  return String.fromCharCode(base + alteration.index);
 }
 
 // ---------------------------------------------------------------------------

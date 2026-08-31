@@ -22,9 +22,10 @@
 const CHAR_WIDTH_RATIO = 0.6;
 const DEFAULT_FONT_SIZE = 10;
 
-// The ink model. A genus mark has no advance, an …Above mark raises the
-// modelled ascent and a …Below mark deepens the descent, so the stub has the
-// same shape as a real SBMuFL font. See docs/TESTING.md §5.
+// The ink model. A genus mark and a sign of alteration have no advance, an
+// …Above mark raises the modelled ascent and a …Below mark deepens the
+// descent, so the stub has the same shape as a real SBMuFL font. See
+// docs/TESTING.md §5.
 const INK_LEFT_BEARING_RATIO = 0.05;
 const INK_WIDTH_RATIO = 0.6;
 const ASCENT_RATIO = 0.75;
@@ -38,6 +39,16 @@ const MARK_BELOW_DESCENT_RATIO = 0.6;
 // baseline only, and it is the case ink-centring exists for.
 const FTHORA_ASCENT_RATIO = 1.1;
 const FTHORA_DESCENT_RATIO = -0.65;
+
+// The signs of alteration are cut the same way — zero advance, ink entirely
+// above the baseline, so the descent is negative here too. The two geniki are
+// drawn a whole em higher than the eight numbered signs, and they are
+// *interleaved* with them in the encoding (U+E1F4 and U+E204 close their
+// family's block), so membership is explicit rather than a range test.
+const ALTERATION_ASCENT_RATIO = 0.68;
+const ALTERATION_DESCENT_RATIO = -0.2;
+const GENIKI_ASCENT_RATIO = 1.23;
+const GENIKI_DESCENT_RATIO = -0.64;
 
 // The strut: the ascent and descent the *face* declares, which decide where a
 // line box puts its baseline. Asymmetric, as a real face is — so the baseline
@@ -65,6 +76,9 @@ const MARK_ABOVE_FIRST = 0xe170;
 const MARK_ABOVE_LAST = 0xe17b;
 const FTHORA_FIRST = 0xe1d0;
 const FTHORA_LAST = 0xe1df;
+const ALTERATION_FIRST = 0xe1f0;
+const ALTERATION_LAST = 0xe20f;
+const GENIKI_CODES = [0xe1f4, 0xe204];
 
 /** 0 low, 1 middle, 2 high — or -1 when the codepoint is not a note letter. */
 function letterOctave(code) {
@@ -73,6 +87,7 @@ function letterOctave(code) {
 }
 
 function isZeroAdvance(code) {
+  if (code >= ALTERATION_FIRST && code <= ALTERATION_LAST) return true;
   return code >= MARK_BELOW_FIRST && code <= MARK_ABOVE_LAST;
 }
 
@@ -113,6 +128,12 @@ function measureTextInk(text, font) {
     if (code >= FTHORA_FIRST && code <= FTHORA_LAST) {
       charTop = -size * FTHORA_ASCENT_RATIO;
       charBottom = size * FTHORA_DESCENT_RATIO;
+    } else if (GENIKI_CODES.includes(code)) {
+      charTop = -size * GENIKI_ASCENT_RATIO;
+      charBottom = size * GENIKI_DESCENT_RATIO;
+    } else if (code >= ALTERATION_FIRST && code <= ALTERATION_LAST) {
+      charTop = -size * ALTERATION_ASCENT_RATIO;
+      charBottom = size * ALTERATION_DESCENT_RATIO;
     } else if (code >= MARK_ABOVE_FIRST && code <= MARK_ABOVE_LAST) {
       charTop = -size * MARK_ABOVE_ASCENT_RATIO;
     } else if (code >= MARK_BELOW_FIRST && code <= MARK_BELOW_LAST) {
@@ -265,6 +286,10 @@ module.exports = {
   MARK_BELOW_DESCENT_RATIO,
   FTHORA_ASCENT_RATIO,
   FTHORA_DESCENT_RATIO,
+  ALTERATION_ASCENT_RATIO,
+  ALTERATION_DESCENT_RATIO,
+  GENIKI_ASCENT_RATIO,
+  GENIKI_DESCENT_RATIO,
   FONT_ASCENT_RATIO,
   FONT_DESCENT_RATIO,
   anchorInk,

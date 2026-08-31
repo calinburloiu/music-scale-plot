@@ -544,6 +544,121 @@ test("resolving a fthora to a glyph", async (t) => {
   });
 });
 
+test("the sign-of-alteration vocabulary", async (t) => {
+  await t.test("holds ten signs: two families of five, in SBMuFL block order", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    equalArray(
+      Array.from(h.app.BYZ_ALTERATIONS).map((a) => a.id),
+      [
+        "diesis2",
+        "diesis4",
+        "diesis6",
+        "diesis8",
+        "diesisGeniki",
+        "yfesis2",
+        "yfesis4",
+        "yfesis6",
+        "yfesis8",
+        "yfesisGeniki",
+      ]
+    );
+  });
+
+  await t.test("numbers each sign by its offset within its own family's block", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    for (const family of ["diesis", "yfesis"]) {
+      const members = Array.from(h.app.BYZ_ALTERATIONS).filter((a) => a.family === family);
+      assert.equal(members.length, 5, `${family} must have five members`);
+      equalArray(members.map((a) => a.index), [0, 1, 2, 3, 4], `${family} offsets`);
+    }
+  });
+
+  await t.test("labels every sign, and says how many moria the numbered ones move", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const byId = (id) => Array.from(h.app.BYZ_ALTERATIONS).find((a) => a.id === id);
+    assert.match(byId("diesis4").label, /\+4 moria/);
+    assert.match(byId("yfesis6").label, /−6 moria/);
+    for (const a of Array.from(h.app.BYZ_ALTERATIONS)) {
+      assert.ok(a.label && a.label.length > 0, `${a.id} has no label`);
+    }
+  });
+
+  await t.test("names no codepoint: every row is a family and an offset", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    for (const a of Array.from(h.app.BYZ_ALTERATIONS)) {
+      assert.deepEqual(
+        Object.keys(a).sort(),
+        ["family", "id", "index", "label"],
+        `${a.id} carries something other than a family and an offset`
+      );
+    }
+  });
+
+  await t.test("is frozen: the vocabulary table cannot be mutated", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const table = h.app.BYZ_ALTERATIONS;
+    assert.ok(Object.isFrozen(table), "BYZ_ALTERATIONS itself must be frozen");
+    for (const row of Array.from(table)) assert.ok(Object.isFrozen(row), `${row.id} must be frozen`);
+  });
+
+  await t.test("finds a sign by its id, and nothing for one it does not know", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.byzAlterationById("yfesis8").index, 3);
+    assert.equal(h.app.byzAlterationById("nope"), null);
+  });
+});
+
+test("resolving a sign of alteration to a glyph", async (t) => {
+  await t.test("indexes each family's own block", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.resolveAlterationGlyph("diesis2"), String.fromCharCode(0xe1f0));
+    assert.equal(h.app.resolveAlterationGlyph("diesis8"), String.fromCharCode(0xe1f3));
+    assert.equal(h.app.resolveAlterationGlyph("yfesis2"), String.fromCharCode(0xe200));
+    assert.equal(h.app.resolveAlterationGlyph("yfesis8"), String.fromCharCode(0xe203));
+  });
+
+  await t.test("takes the Above variant for the two geniki", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // diesisGenikiAbove / yfesisGenikiAbove: the Below variant's ink crosses
+    // the baseline, and every other sign in the family clears it.
+    assert.equal(h.app.resolveAlterationGlyph("diesisGeniki"), String.fromCharCode(0xe1f4));
+    assert.equal(h.app.resolveAlterationGlyph("yfesisGeniki"), String.fromCharCode(0xe204));
+  });
+
+  await t.test("gives every sign in the table a glyph of its own", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const glyphs = Array.from(h.app.BYZ_ALTERATIONS).map((a) => h.app.resolveAlterationGlyph(a.id));
+    assert.equal(glyphs.filter((g) => g === "").length, 0, "every sign must resolve");
+    assert.equal(new Set(glyphs).size, glyphs.length, "no two signs may share a glyph");
+  });
+
+  await t.test("resolves nothing for an unknown or empty id", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.resolveAlterationGlyph("diesis3"), "");
+    assert.equal(h.app.resolveAlterationGlyph(""), "");
+  });
+});
+
 test("the note ladder", async (t) => {
   await t.test("numbers the 21 letters 0 to 20 in pitch order", () => {
     const h = loadApp();
@@ -681,6 +796,62 @@ test("the ink model in the canvas stub", async (t) => {
     assert.ok(
       measureTextInk("", font).width > measureTextInk("", font).width,
       "martyriaTick is not a mark"
+    );
+  });
+
+  await t.test("gives a sign of alteration no advance, like every other mark", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = '40px "Neanes"';
+
+    for (const id of Array.from(h.app.BYZ_ALTERATIONS).map((a) => a.id)) {
+      const glyph = h.app.resolveAlterationGlyph(id);
+      assert.equal(
+        measureTextInk(glyph, font).width,
+        0,
+        `${id} must not move the pen — the chart measures ink, never the advance`
+      );
+    }
+  });
+
+  await t.test("puts a sign of alteration's ink entirely above the baseline", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = '40px "Neanes"';
+
+    for (const id of Array.from(h.app.BYZ_ALTERATIONS).map((a) => a.id)) {
+      const ink = measureTextInk(h.app.resolveAlterationGlyph(id), font);
+      assert.ok(
+        ink.actualBoundingBoxDescent < 0,
+        `${id}: the ink must clear the baseline, so the descent is negative`
+      );
+      assert.ok(
+        ink.actualBoundingBoxAscent > -ink.actualBoundingBoxDescent,
+        `${id}: the ink must have height`
+      );
+    }
+  });
+
+  await t.test("draws the two geniki higher than the numbered signs, at both edges", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = '40px "Neanes"';
+
+    const numbered = measureTextInk(h.app.resolveAlterationGlyph("diesis4"), font);
+    const geniki = measureTextInk(h.app.resolveAlterationGlyph("diesisGeniki"), font);
+
+    assert.ok(
+      geniki.actualBoundingBoxAscent > numbered.actualBoundingBoxAscent,
+      "the geniki's ink must reach higher"
+    );
+    assert.ok(
+      -geniki.actualBoundingBoxDescent > -numbered.actualBoundingBoxDescent,
+      "and start higher: a box that centres one family member cannot fit the other"
+    );
+    assert.ok(
+      geniki.actualBoundingBoxAscent + geniki.actualBoundingBoxDescent >
+        numbered.actualBoundingBoxAscent + numbered.actualBoundingBoxDescent,
+      "the geniki are the taller sign, so they are what a gutter has to clear"
     );
   });
 
