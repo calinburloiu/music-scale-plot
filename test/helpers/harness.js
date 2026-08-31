@@ -62,8 +62,9 @@ function buildExportEpilogue(names) {
  * @param {boolean|string} [options.fonts=true] set to `false` to boot with no
  *   `document.fonts` at all, as in jsdom's default state and in old browsers, or to
  *   `"reject"` to have the face fail to load, as a missing or corrupt file would
- * @param {string} [options.notation] value to put in `#notation` *before* the scripts
- *   run, the way a browser restores a `<select>` across a soft reload
+ * @param {Object<string,string>} [options.restored] CSS selector to value, written
+ *   into every matching control *before* the scripts run — the way a browser
+ *   restores form state across a soft reload
  * @returns {object} harness
  */
 function loadApp(options = {}) {
@@ -141,11 +142,9 @@ function loadApp(options = {}) {
     downloads.push({ download: this.download, href: this.href });
   };
 
-  // Set before any script runs, so the app sees a control that already carries
-  // a value — exactly what a browser hands it after a soft reload.
-  if (options.notation !== undefined) {
-    document.getElementById("notation").value = options.notation;
-  }
+  // Written before any script runs — Firefox restores form state while parsing,
+  // so the app can boot against controls that already carry the user's values.
+  applyRestoredState(document, options.restored);
 
   const files = scriptPaths(html).map((file) => ({
     file,
@@ -205,6 +204,25 @@ function loadApp(options = {}) {
   };
 
   return harness;
+}
+
+/** Writes each `selector: value` pair into every control it matches. */
+function applyRestoredState(document, restored) {
+  for (const [selector, value] of Object.entries(restored || {})) {
+    const matches = [...document.querySelectorAll(selector)];
+    if (matches.length === 0) throw new Error(`No control matches "${selector}"`);
+    for (const element of matches) element.value = value;
+  }
+}
+
+/**
+ * Replays a Chromium-style form-state restore: the browser writes the user's
+ * values into the controls *after* `load` — so every script has already run
+ * against the markup's defaults — and only then fires `pageshow`.
+ */
+function restoreFormState(harness, restored) {
+  applyRestoredState(harness.document, restored);
+  harness.window.dispatchEvent(new harness.window.Event("pageshow"));
 }
 
 // --------------------------------------------------------------------------
@@ -389,6 +407,7 @@ function pickMartyria(harness, noteRow, { note, genus, ticks = 0, dismiss = "app
 
 module.exports = {
   loadApp,
+  restoreFormState,
   fireInput,
   fireChange,
   fireClick,

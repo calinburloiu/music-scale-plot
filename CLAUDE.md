@@ -30,6 +30,7 @@ Key concepts:
 - **Rendering**: `render()` draws vertically stacked rectangles on a `<canvas>`, heights proportional to cents (`PX_PER_CENT`). Canvas uses `devicePixelRatio` scaling; `displayZoom` only affects CSS display size, not the backing store used for PNG export.
 - **Audio**: single shared `AudioContext`, single active oscillator. `getFrequencyForDegree()` multiplies ratios cumulatively from the base note (A=220Hz × 2^(semitones/12)).
 - **Color sync** (`syncIntervalColors`): intervals with matching parsed values share a color — editing one interval's value or color propagates to all others with the same value. The palette dropdown is built per-row from `PALETTE`.
+- **Startup** (`initUI`): the page has no persistence, so every load resets the settings to their markup defaults and rebuilds the default two-note scale. A browser restores form-control state across a soft reload while `#editor`'s structure comes back as the markup's, which is what put the controls and the DOM-as-data-model out of step. `initUI()` runs at load time *and* on `pageshow`, because Firefox restores before the scripts run and Chromium after `load`.
 - **Notation** (`#notation`, `generic` or `byzantine`): switching notation never rebuilds the editor — every note row always carries both a name input and all three symbol wells (alteration, fthora, martyria); CSS decides which half shows. See `docs/BYZANTINE-SYMBOLS.md` for the symbol model, the two compatibility tables, the note ladder, and what adding a second font would touch.
 
 ## Testing — mandatory TDD
