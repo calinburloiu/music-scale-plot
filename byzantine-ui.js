@@ -365,7 +365,6 @@ function makeByzOption(spec) {
   return button;
 }
 
-/** One flat list: None, then the sixteen fthores in block order. */
 /**
  * Where each of a panel's scrollers sits. Picking rebuilds the panel — the
  * genus rows have to be re-resolved against the new letter — and a rebuild
@@ -456,8 +455,22 @@ function keepPickerInView(panel) {
   if (box.bottom > viewport) panel.scrollIntoView({ block: "nearest" });
 }
 
+/**
+ * None, then the fthores that belong on the row's martyria note, then a rule,
+ * then everything else — the same shape the genus column already has.
+ *
+ * A row with no martyria has nothing to be compatible with, so it gets the flat
+ * list of all sixteen and no rule, exactly as `buildGenusColumn` goes inert
+ * when the draft has no note.
+ *
+ * The note read here is the row's *committed* martyria, not a draft: only one
+ * picker is open at a time and applying a martyria closes every panel, so the
+ * next fthora open always re-reads current state. A committed fthora that is
+ * not compatible still renders selected — below the rule, where it was offered.
+ */
 function buildFthoraPicker(panel, row) {
   const draft = panel.dataset.draftFthora || "";
+  const noteId = row.dataset.martyriaNote || "";
   const scroll = readPickerScroll(panel);
   panel.innerHTML = "";
 
@@ -467,16 +480,30 @@ function buildFthoraPicker(panel, row) {
   body.appendChild(
     makeByzOption({ className: "fthora-option", data: { fthora: "" }, glyph: "", label: "None" })
   );
-  for (const fthora of BYZ_FTHORES) {
+
+  function fthoraOption(id) {
     const option = makeByzOption({
       className: "fthora-option",
-      data: { fthora: fthora.id },
-      glyph: resolveFthoraGlyph(fthora.id),
-      label: fthora.label,
+      data: { fthora: id },
+      glyph: resolveFthoraGlyph(id),
+      label: byzFthoraById(id).label,
     });
-    if (draft === fthora.id) option.classList.add("is-selected");
-    body.appendChild(option);
+    if (draft === id) option.classList.add("is-selected");
+    return option;
   }
+
+  if (noteId) {
+    for (const id of compatibleFthores(noteId)) body.appendChild(fthoraOption(id));
+
+    const separator = document.createElement("div");
+    separator.className = "byz-separator";
+    body.appendChild(separator);
+
+    for (const id of otherFthores(noteId)) body.appendChild(fthoraOption(id));
+  } else {
+    for (const fthora of BYZ_FTHORES) body.appendChild(fthoraOption(fthora.id));
+  }
+
   panel.appendChild(body);
   panel.appendChild(buildPickerFooter(panel, row));
   centerPickerGlyphs(panel);

@@ -131,6 +131,127 @@ test("the fthora picker", async (t) => {
   });
 });
 
+test("the fthora picker's compatible list", async (t) => {
+  await t.test("offers the row's note's own fthores first, then the rest", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    pickMartyria(h, row, { note: "midDi" });
+
+    const panel = openWell(h, row, "fthora");
+    const ids = [...panel.querySelectorAll(".fthora-option")].map((o) => o.dataset.fthora);
+
+    assert.equal(ids[0], "", "None must still come first");
+    assert.deepEqual(
+      ids.slice(1),
+      Array.from(h.app.compatibleFthores("midDi")).concat(Array.from(h.app.otherFthores("midDi"))),
+      "compatible first, then the uncommon ones"
+    );
+  });
+
+  await t.test("separates the two runs with a rule", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    pickMartyria(h, row, { note: "midDi" });
+
+    const body = openWell(h, row, "fthora").querySelector(".fthora-picker-body");
+    const children = [...body.children];
+    const ruleIndex = children.findIndex((el) => el.classList.contains("byz-separator"));
+    assert.ok(ruleIndex > 0, "there is no separator");
+
+    const before = children.slice(0, ruleIndex).filter((el) => el.classList.contains("fthora-option"));
+    const after = children.slice(ruleIndex).filter((el) => el.classList.contains("fthora-option"));
+    assert.deepEqual(
+      before.map((el) => el.dataset.fthora).slice(1),
+      Array.from(h.app.compatibleFthores("midDi")),
+      "None, then this note's fthores, above the rule"
+    );
+    assert.deepEqual(
+      after.map((el) => el.dataset.fthora),
+      Array.from(h.app.otherFthores("midDi")),
+      "everything else below it"
+    );
+  });
+
+  await t.test("still offers all sixteen signs, whatever the note", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    for (const note of ["midNi", "lowGa", "highKe"]) {
+      pickMartyria(h, row, { note: note });
+      const panel = openWell(h, row, "fthora");
+      const ids = [...panel.querySelectorAll(".fthora-option")].map((o) => o.dataset.fthora);
+      assert.equal(panel.querySelectorAll(".byz-separator").length, 1, `${note}: one rule, always`);
+      assert.deepEqual(
+        [...ids].slice(1).sort(),
+        Array.from(h.app.BYZ_FTHORES).map((f) => f.id).sort(),
+        `${note}: no sign may be lost or offered twice`
+      );
+      fireClick(h, row.querySelector(".fthora-picker .byz-cancel"));
+    }
+  });
+
+  await t.test("draws no rule at all when the row carries no martyria", () => {
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "fthora");
+
+    assert.equal(
+      panel.querySelectorAll(".byz-separator").length,
+      0,
+      "with no note there is nothing to be compatible with, so there are no two runs"
+    );
+  });
+
+  await t.test("goes back to the flat list when the martyria is cleared", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    pickMartyria(h, row, { note: "midDi" });
+    pickMartyria(h, row, { note: "" });
+
+    const panel = openWell(h, row, "fthora");
+    assert.equal(panel.querySelectorAll(".byz-separator").length, 0);
+    assert.deepEqual(
+      [...panel.querySelectorAll(".fthora-option")].map((o) => o.dataset.fthora).slice(1),
+      Array.from(h.app.BYZ_FTHORES).map((f) => f.id)
+    );
+  });
+
+  await t.test("re-partitions the list when the row's martyria changes", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    pickMartyria(h, row, { note: "midDi" });
+    let panel = openWell(h, row, "fthora");
+    let first = [...panel.querySelectorAll(".fthora-option")][1].dataset.fthora;
+    assert.equal(first, "diatonicDi");
+    fireClick(h, row.querySelector(".fthora-picker .byz-cancel"));
+
+    pickMartyria(h, row, { note: "midGa" });
+    panel = openWell(h, row, "fthora");
+    first = [...panel.querySelectorAll(".fthora-option")][1].dataset.fthora;
+    assert.equal(first, "diatonicGa", "the picker reads the row's committed martyria each time");
+  });
+
+  await t.test("marks a committed but incompatible fthora as selected below the rule", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    pickFthora(h, row, "chroaSpathi");
+    pickMartyria(h, row, { note: "midDi" });
+
+    const body = openWell(h, row, "fthora").querySelector(".fthora-picker-body");
+    const option = body.querySelector('.fthora-option[data-fthora="chroaSpathi"]');
+    assert.ok(option.classList.contains("is-selected"), "the committed sign must still read as chosen");
+
+    const children = [...body.children];
+    const ruleIndex = children.findIndex((el) => el.classList.contains("byz-separator"));
+    assert.ok(ruleIndex > 0, "there is no separator");
+    assert.ok(
+      children.indexOf(option) > ruleIndex,
+      "spathi does not belong on Δι, so it sits below the rule"
+    );
+  });
+});
+
 test("the martyria picker: the Notes column", async (t) => {
   await t.test("lists None, then the 21 letters in three labelled octave groups", () => {
     const h = byzantineApp(t);
