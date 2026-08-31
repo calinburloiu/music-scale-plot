@@ -343,48 +343,52 @@ function openWell(harness, noteRow, kind) {
 }
 
 /**
- * Dismisses the picker open in `noteRow` with one of the four real gestures:
- * `"apply"` commits, `"cancel"`, `"outside"` and `"well"` all discard. `"none"`
- * leaves the panel open for the test to inspect.
+ * Leaves the picker open in `noteRow` without picking anything: `"outside"` and
+ * `"well"` are the two gestures that discard, `"none"` leaves the panel open
+ * for the test to inspect.
+ *
+ * There is no `"apply"` and no `"cancel"` — clicking a row *is* the commit, so
+ * the only way not to commit is not to click one.
  */
 function dismissPicker(harness, noteRow, how, kind) {
   if (how === "none") return;
-  // A closed panel keeps its markup, so both panels of a row can hold an Apply
-  // button. Always press the one belonging to the picker under test.
-  const button = (cls) => noteRow.querySelector(`.${kind}-picker ${cls}`);
-  if (how === "apply") fireClick(harness, button(".byz-apply"));
-  else if (how === "cancel") fireClick(harness, button(".byz-cancel"));
-  else if (how === "outside") fireClick(harness, harness.document.body);
+  if (how === "outside") fireClick(harness, harness.document.body);
   else if (how === "well") fireClick(harness, noteRow.querySelector(`.${kind}-well`));
   else throw new Error(`Unknown dismissal "${how}"`);
 }
 
 /**
- * Opens a single-value picker, clicks one of its rows (`""` picks None) and
- * dismisses the panel. Only `dismiss: "apply"` — the default — reaches the row.
+ * Opens a single-value picker and clicks one of its rows (`""` picks None),
+ * which writes the sign to the row and closes the panel in one gesture.
  */
-function pickSimpleSign(harness, noteRow, kind, id, { dismiss = "apply" } = {}) {
+function pickSimpleSign(harness, noteRow, kind, id) {
   const panel = openWell(harness, noteRow, kind);
   const option = panel.querySelector(`.${kind}-option[data-${kind}="${id}"]`);
   if (!option) throw new Error(`No ${kind} option "${id}" in the picker`);
   fireClick(harness, option);
-  dismissPicker(harness, noteRow, dismiss, kind);
 }
 
-function pickFthora(harness, noteRow, fthoraId, options) {
-  pickSimpleSign(harness, noteRow, "fthora", fthoraId, options);
+function pickFthora(harness, noteRow, fthoraId) {
+  pickSimpleSign(harness, noteRow, "fthora", fthoraId);
 }
 
-function pickAlteration(harness, noteRow, alterationId, options) {
-  pickSimpleSign(harness, noteRow, "alteration", alterationId, options);
+function pickAlteration(harness, noteRow, alterationId) {
+  pickSimpleSign(harness, noteRow, "alteration", alterationId);
 }
 
 /**
- * Drives the martyria picker: opens it, drafts a note and/or a genus, then
- * dismisses the panel. Only `dismiss: "apply"` — the default — writes the draft
- * to the row and propagates the ladder; the other gestures are cancels.
+ * Drives the martyria picker the way the UI is used: open it, click a letter in
+ * the Notes column, then click a genus — the second click is what commits the
+ * pair and runs the ladder.
+ *
+ * `genus` therefore defaults to None rather than being skipped: a letter alone
+ * never reaches the row. `note: ""` is the exception — it clears the well and
+ * closes the panel on its own, because there is no genus left to confirm.
+ *
+ * `dismiss` stops after the letter and leaves by that gesture instead, which is
+ * how a test drafts something and throws it away.
  */
-function pickMartyria(harness, noteRow, { note, genus, ticks = 0, dismiss = "apply" } = {}) {
+function pickMartyria(harness, noteRow, { note, genus, ticks = 0, dismiss } = {}) {
   openWell(harness, noteRow, "martyria");
 
   if (note !== undefined) {
@@ -393,16 +397,19 @@ function pickMartyria(harness, noteRow, { note, genus, ticks = 0, dismiss = "app
     if (!option) throw new Error(`No note option "${note}" (ticks ${ticks}) in the picker`);
     if (option.disabled) throw new Error(`Note option "${note}" is disabled for this degree`);
     fireClick(harness, option);
+    if (note === "") return;
   }
 
-  if (genus !== undefined) {
-    // Drafting a note rebuilds the panel, so the genus option must be re-queried.
-    const option = noteRow.querySelector(`.martyria-genus-option[data-genus="${genus}"]`);
-    if (!option) throw new Error(`No genus option "${genus}" in the picker`);
-    fireClick(harness, option);
+  if (dismiss !== undefined) {
+    dismissPicker(harness, noteRow, dismiss, "martyria");
+    return;
   }
 
-  dismissPicker(harness, noteRow, dismiss, "martyria");
+  // Picking a letter rebuilds the panel, so the genus option must be re-queried.
+  const genusId = genus === undefined ? harness.app.GENUS_NONE : genus;
+  const option = noteRow.querySelector(`.martyria-genus-option[data-genus="${genusId}"]`);
+  if (!option) throw new Error(`No genus option "${genusId}" in the picker`);
+  fireClick(harness, option);
 }
 
 module.exports = {

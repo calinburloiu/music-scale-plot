@@ -154,20 +154,21 @@ pen position instead of on the letter — a visibly broken martyria.
 
 `byzantine.js` is the **only** place that rule is allowed to live, in three
 functions that share it: `resolveMartyriaGlyphs` composes letter and mark,
-`resolveGenusGlyph` returns the mark on its own (what a picker row shows), and
-`martyriaMarkSide` reports which side it will stack on (what the picker lays
-its rows out around). All three choose the `…Above` marks for the low register
-(whose letters expose `martyriaTop`) and the `…Below` marks for the middle and
-high registers (whose letters expose `martyriaBottom`). Nothing else in the
-codebase — not the picker, not the ladder, not `app.js` — may encode this rule
-a second time.
+`resolveGenusGlyph` returns the mark on its own, and `martyriaMarkSide` reports
+which side it will stack on. All three choose the `…Above` marks for the low
+register (whose letters expose `martyriaTop`) and the `…Below` marks for the
+middle and high registers (whose letters expose `martyriaBottom`). Nothing else
+in the codebase — not the picker, not the ladder, not `app.js` — may encode this
+rule a second time.
 
-A picker row offers a *genus*, so it shows that genus's mark alone, via
-`resolveGenusGlyph`. Letter and mark are only ever composed in two places: the
-footer preview of the open picker, and the well itself. Because a lone mark has
-no letter to say which way it faces, the genus column seats it against the edge
-it would attach on — `martyriaMarkSide` picks the edge, `glyphBoxAlign` in
-`byzantine-ui.js` applies it.
+A genus picker row is the click that commits the pair, so it previews the pair:
+the drafted letter carrying that genus's mark, composed by
+`resolveMartyriaGlyphs` like everything else that shows a whole martyria. The
+letter is repainted over itself in grey so the mark still reads as the row's
+subject (§8). `resolveGenusGlyph` and `martyriaMarkSide` therefore have no
+caller in the UI any more; they stay because they are how this file *states* the
+register rule, and the unit tests use them to prove a composition carries the
+mark its register demands.
 
 ---
 
@@ -211,18 +212,22 @@ of per-note lookups.
   a row's *note*; each row keeps whatever genus it already had (or the
   `GENUS_NONE` sentinel if it had none), and fthores are never touched by the
   ladder at all.
-- **Only Apply confirms; every other way out cancels.** An open picker edits a
-  *draft* held on the panel element (`draftFthora`, `draftNote`, `draftGenus`,
-  `draftTicks`), seeded from the row by `seedPickerDraft` when the panel opens.
-  Clicking an option moves that draft and rebuilds the panel around it:
-  `selectByzantineOption` writes nothing to the row and never renders, so the
-  well goes on showing the committed symbol and the chart never flickers
-  through half-made states. `applyPickerDraft` is the only path that writes the
-  row, propagates the ladder and renders. `closeByzantinePickers` merely closes
-  and drops the draft, so Cancel, a click outside, a second click on the well
-  and another picker opening are one and the same cancel. Apply is disabled
-  while `pickerDraftIsDirty` is false, which makes a picker opened and closed
-  unchanged a no-op in every direction.
+- **Clicking a row is the commit; every other way out cancels.** There is no
+  Apply and no Cancel. `selectByzantineOption` writes the row, propagates the
+  ladder where there is one, closes every panel and renders — all on the click
+  that chose the row. `closeByzantinePickers` merely closes, so a click outside,
+  a second click on the well and another picker opening are one and the same
+  cancel, and a picker opened and closed again is a no-op in every direction.
+
+  The martyria is the one picker that still holds a *draft* on its panel element
+  (`draftNote`, `draftGenus`, `draftTicks`, seeded from the row by
+  `seedPickerDraft`), because it commits a pair across two columns: a click in
+  the Notes column only moves the draft and rebuilds the panel, so the Genus
+  column can re-resolve its previews around the new letter, and it resets the
+  drafted genus to `GENUS_NONE` — a genus picked for the previous letter is not
+  a choice the user made for this one. The genus click is what reaches the row.
+  Picking None in the Notes column is its own commit, having no genus left to
+  confirm; without that, an empty well would be unreachable.
 
 ---
 
@@ -240,11 +245,10 @@ is small and localized. What changes:
   font string the JavaScript uses is built from it by `byzantineFont()`: the
   chart's drawing and measuring font, and the face `loadByzantineFont()`
   preloads (§7). Nothing else in the JavaScript names a family.
-- **All three CSS rules that name the family**, because CSS cannot read a JS
+- **Both CSS rules that name the family**, because CSS cannot read a JS
   constant: `.alteration-well, .fthora-well, .martyria-well` (the three wells
-  in the editor), `.byz-glyph` (the previews on every option row of every
-  picker panel) and `.byz-preview` (the drafted martyria in the picker
-  footer). Miss these and the chart changes font while the editor keeps
+  in the editor) and `.byz-glyph` (the previews on every option row of every
+  picker panel). Miss these and the chart changes font while the editor keeps
   drawing the old one.
 - **The two rules that size fthores and signs of alteration** —
   `.alteration-well, .fthora-well` and `.alteration-picker .byz-glyph,
@@ -316,10 +320,10 @@ guard on it.
 
 ## 8. Where a sign sits in a box
 
-Three places show a whole martyria — a note row in the picker, the picker's
-footer preview, and the well on the note row — and they must agree, because the
-user reads them against each other. `glyphBoxPlacement()` (`byzantine-ui.js`)
-routes all three to the same placement, so there is one mechanism and not three.
+Three places show a whole martyria — a Notes row in the picker, a Genus row in
+the picker, and the well on the note row — and they must agree, because the user
+reads them against each other. `glyphBoxPlacement()` (`byzantine-ui.js`) routes
+all three to the same placement, so there is one mechanism and not three.
 
 **Every martyria shares one baseline.** `martyriaInkRange()` (`byzantine.js`)
 measures the vertical range the *whole vocabulary* spans in the current face —
@@ -338,11 +342,20 @@ it is the difference between working and not:
   drags the **letter** off the spot the reader is judging the mark's side
   against; the shared baseline holds the letter still and lets the mark move.
 
-The genus list is the exception, and deliberately so: a mark shown *without* its
-letter has lost the thing that says which way it faces, so those boxes pin the
-mark to an edge (`"top"` for the low register's `…Above` marks, `"bottom"`
-otherwise) — see `martyriaMarkSide()` in §4. A fthora and a sign of alteration
+The genus list is on the same baseline, which is the point of it: every row
+draws the *same* letter with a different mark, so the letter is the fixed point
+and the mark is the only thing that moves. A fthora and a sign of alteration
 belong to no such family, so each is centred on its own ink.
+
+**A genus row's letter is drawn twice.** The row previews a whole martyria but
+is about the mark, so the composition is painted first and the letter alone is
+painted over it in `--ink-faint`, covering its own black copy and leaving the
+mark black. The obvious alternative — colour the mark on its own — is not
+available: a mark is a combining glyph the font attaches to the letter's anchor,
+and two elements have no shaping between them, so a mark in a span of its own
+would land at the pen position unattached. The two layers sit inside one
+`.glyph-ink`, so they share its offset; the mark carries no advance, so the
+letter lands exactly on itself and there is no fringe.
 
 The range is measured once per font string and cached. It is a fact about the
 face, so a second font re-derives it and nothing else changes (§6).

@@ -453,8 +453,28 @@ body {
    has not filled it. Wells, picker rows and the picker's preview all use it. */
 .glyph-ink {
   display: block;
+  position: relative;
   line-height: 1;
   transform: translate(var(--ink-dx, 0px), var(--ink-dy, 0px));
+}
+
+/* A genus row previews a whole martyria but is *about* the mark, so the letter
+   is drawn twice: the composition below, then the letter alone on top of it in
+   grey, covering its own black copy and leaving the mark black. The mark cannot
+   simply be coloured on its own — the font attaches it to the letter's anchor,
+   and two elements have no shaping between them — so this is what a two-tone
+   composed glyph costs.
+
+   The two layers share `.glyph-ink`'s offset and start at the same corner of the
+   same line box, and the mark carries no advance, so the letter lands exactly on
+   itself. */
+.glyph-layer { display: block; }
+
+.glyph-muted {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--ink-faint);
 }
 
 /* An empty well says which sign it takes. The dashed border and the faint ink
@@ -548,8 +568,7 @@ body {
 }
 
 /* The lists are tall, so they scroll inside their panel — which never flips
-   up: a scrolling panel cannot escape the editor. The footer stays put below
-   the scroller, so Apply is always in reach. */
+   up: a scrolling panel cannot escape the editor. */
 .alteration-picker.open,
 .fthora-picker.open { display: block; }
 
@@ -599,27 +618,19 @@ body {
   line-height: 1;
 }
 
-/* A genus row shows its mark alone, so the box has to carry the one thing the
-   missing letter would have said: which way the mark faces. A mark that stacks
-   above the letter rides the top of its box, one that stacks below sits at the
-   bottom. `glyphBoxAlign()` supplies the matching offset. */
 /* The same lift the wells get, for the same reason: a list of fthores or of
    signs of alteration set at the martyria's size is a column of specks. */
 .alteration-picker .byz-glyph,
 .fthora-picker .byz-glyph { font-size: 34px; }
 
-.martyria-genus-column.genus-above .byz-glyph { align-items: flex-start; }
-.martyria-genus-column.genus-below .byz-glyph { align-items: flex-end; }
-.martyria-genus-column .byz-glyph { height: 42px; padding: 4px 0; }
-
 .byz-option.is-selected .byz-glyph { border-color: var(--ink-faint); }
 .byz-option:disabled .byz-glyph { background: none; }
 
-/* The None row, and the preview before anything is drafted, hold no sign. A
-   solid empty box reads as a glyph that failed to load; a dashed one says
-   "empty", the same way an empty well does. */
-.byz-glyph:empty,
-.byz-preview:empty {
+/* The None row of a single-value list holds no sign. A solid empty box reads as
+   a glyph that failed to load; a dashed one says "empty", the same way an empty
+   well does. (The Genus column's None is not empty: it previews the letter on
+   its own, which is exactly what picking it commits.) */
+.byz-glyph:empty {
   border-style: dashed;
   background: none;
 }
@@ -667,60 +678,6 @@ body {
   height: 1px;
   margin: 0.4rem 0.5rem;
   background: var(--rule);
-}
-
-.byz-picker-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.4rem;
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--rule);
-}
-
-/* The well keeps showing the committed symbol while a picker is open, so this
-   is where the pending one — letter, genus and octave tick together — shows. */
-.byz-preview {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  margin-right: auto;
-  border: 1px solid var(--rule);
-  border-radius: 3px;
-  background: var(--paper-fade);
-  font-family: "Neanes", serif;
-  font-size: 24px;
-  line-height: 1;
-  color: var(--ink);
-}
-
-.byz-apply,
-.byz-cancel {
-  flex: 0 0 auto;
-  padding: 0.4rem 0.9rem;
-  border: 1px solid var(--rule);
-  border-radius: 3px;
-  background: var(--paper-fade);
-  color: var(--ink);
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.8rem;
-  cursor: pointer;
-}
-
-.byz-apply { border-color: var(--ink-soft); font-weight: 600; }
-
-.byz-apply:hover:not(:disabled),
-.byz-cancel:hover { border-color: var(--ink); }
-
-.byz-apply:disabled {
-  opacity: 0.4;
-  border-color: var(--rule);
-  font-weight: 400;
-  cursor: default;
 }
 
 .byz-label {
