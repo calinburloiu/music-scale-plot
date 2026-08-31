@@ -457,8 +457,8 @@ body {
   transform: translate(var(--ink-dx, 0px), var(--ink-dy, 0px));
 }
 
-/* An empty well says which sign it takes, in pure CSS, so it is legible
-   before the webfont arrives. */
+/* An empty well says which sign it takes. The dashed border and the faint ink
+   are what keep the hint from reading as a filled well. */
 .alteration-well.is-empty,
 .fthora-well.is-empty,
 .martyria-well.is-empty {
@@ -466,35 +466,54 @@ body {
   position: relative;
 }
 
-/* A flat beside a sharp for the alteration, a single diagonal for the fthora,
-   two stacked bars for the martyria: three hints, so the empty wells stay
-   tellable apart.
+/* Two of the three hints are real signs from the well's own vocabulary, drawn
+   faint: the two geniki — the general flat and the general sharp — for the
+   alteration, and the enharmonic beside the soft chromatic Κε for the fthora.
+   The martyria keeps its two bars below, so the three stay tellable apart.
 
-   The alteration's is the only one that draws a shape rather than stacking
-   bars: no arrangement of rectangles reads as "accidental", and the cross this
-   replaced read as "add". The pair is drawn rather than typed — ♭ and ♯ from a
-   UI font render as a lowercase b and a hash on most systems, and the font's
-   own geniki are zero-advance combining marks that would land on top of each
-   other. Masking rather than painting the SVG keeps the colour on
-   `--ink-faint` with the other two hints. */
-.alteration-well.is-empty::before {
-  --flat-and-sharp: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 16' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 1.4V14.6'/%3E%3Cpath d='M3 8.3c4.8-2.4 5.4 2.9 0 6.3'/%3E%3Cpath d='M15.3 3.4V15'/%3E%3Cpath d='M19.9 1.8V13.4'/%3E%3Cpath d='M13.3 7.8 21.9 6.4'/%3E%3Cpath d='M13.3 11.6 21.9 10.2'/%3E%3C/svg%3E");
-  content: "";
-  position: absolute;
-  width: 22px;
-  height: 15px;
-  background: var(--ink-faint);
-  -webkit-mask: var(--flat-and-sharp) center / contain no-repeat;
-  mask: var(--flat-and-sharp) center / contain no-repeat;
+   Placement is the same rule a *filled* well uses. Each pseudo-element stays
+   in normal flow, so the well's flex centring lands it exactly where it lands
+   `.glyph-ink`, and the transform is then whatever `inkCenteringShiftEm()`
+   returns for that glyph string — read out of the app itself, in em, and
+   written here because CSS cannot call it. Change a hint's glyphs and you must
+   read its shift out again.
+
+   The alteration's two signs need one pseudo-element each. They are
+   zero-advance combining marks, so as one string they would sit on top of each
+   other, and Neanes' space is 0.007em — nowhere near enough to part them; the
+   horizontal nudge is instead half an ink width plus half a 0.12em gap, applied
+   outwards. The fthores have ordinary advances, so their pair is one string
+   with the font's own spacing between them.
+
+   Unlike the martyria's bars these need the webfont, which `font-display:
+   block` withholds for up to three seconds on a cold load. The well is blank
+   until then — which is what it would show anyway. */
+.alteration-well.is-empty::before,
+.alteration-well.is-empty::after,
+.fthora-well.is-empty::before {
+  display: block;
+  line-height: 1;
+  color: var(--ink-faint);
 }
 
+/* yfesisGeniki, then diesisGeniki. */
+.alteration-well.is-empty::before {
+  content: "\E204";
+  font-size: 31px;
+  transform: translate(-0.1795em, 0.3886em);
+}
+
+.alteration-well.is-empty::after {
+  content: "\E1F4";
+  font-size: 31px;
+  transform: translate(0.1795em, 0.5564em);
+}
+
+/* fthoraEnharmonic, then fthoraSoftChromaticKe. */
 .fthora-well.is-empty::before {
-  content: "";
-  position: absolute;
-  width: 15px;
-  height: 2px;
-  background: var(--ink-faint);
-  transform: rotate(-45deg);
+  content: "\E1DC\E1DB";
+  font-size: 24px;
+  transform: translate(0.0151em, 0.4644em);
 }
 
 .martyria-well.is-empty::before,

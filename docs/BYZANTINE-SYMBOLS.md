@@ -253,6 +253,14 @@ is small and localized. What changes:
   where a martyria covers 1.21, so they are set larger to fill the same box.
   A face with different proportions needs the ratio re-measured, exactly as
   `BYZ_SIGN_GAP` does.
+- **The empty-well hints** — `.alteration-well.is-empty::before/::after` and
+  `.fthora-well.is-empty::before`. These are the one place outside the
+  resolvers where a codepoint is written by hand, and they are the price of
+  showing the *real* signs an empty well takes rather than an abstract mark:
+  CSS `content` takes a codepoint and nothing else. Each also carries the em
+  offset `inkCenteringShiftEm()` returns for its glyph string, since CSS
+  cannot call it. A new face needs both re-read — its codepoints and its
+  shifts. The martyria's hint is drawn from plain rectangles and is exempt.
 
 Everything else is untouched: the six tables (§2), the two compatibility
 tables (§3), the ladder (§5), the pickers (`byzantine-ui.js`), `readScaleData`,
