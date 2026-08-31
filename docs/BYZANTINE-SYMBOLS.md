@@ -275,9 +275,11 @@ that sign.
 
 `BYZ_SIGN_GAP` in `app.js` — the space between an alteration and its fthora —
 is the one number here settled by eye rather than measured. At 40px it is 8px,
-against signs whose ink is about a third of an em wide; below about 6 the pair
-collides into a single shape and above about 12 it reads as two unrelated
-annotations. A face with very different proportions should be looked at.
+against signs whose ink is about a third of an em wide. Four values were looked
+at in a browser: at 2 and 4 the pair collides into a single shape, at 12 it
+reads as two unrelated annotations, and 8 keeps it one unit. That is a sample,
+not a measured band — a face with very different proportions should be looked
+at again the same way.
 
 ---
 
@@ -331,8 +333,8 @@ it is the difference between working and not:
 The genus list is the exception, and deliberately so: a mark shown *without* its
 letter has lost the thing that says which way it faces, so those boxes pin the
 mark to an edge (`"top"` for the low register's `…Above` marks, `"bottom"`
-otherwise) — see `martyriaMarkSide()` in §4. A fthora belongs to no such family
-and is centred on its own ink.
+otherwise) — see `martyriaMarkSide()` in §4. A fthora and a sign of alteration
+belong to no such family, so each is centred on its own ink.
 
 The range is measured once per font string and cached. It is a fact about the
 face, so a second font re-derives it and nothing else changes (§6).

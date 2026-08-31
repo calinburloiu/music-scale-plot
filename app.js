@@ -454,6 +454,11 @@ function alterationTextOf(noteItem) {
  * psaltic accidental is written. A degree carrying only one of the two draws
  * that one alone, in the same place: a well the user filled must never draw
  * nothing.
+ *
+ * This order is the chart's half of an invariant whose other half is
+ * `BYZ_SIMPLE_WELLS` in byzantine-ui.js, which orders the wells on a note row:
+ * the chart draws the signs left to right in the order the editor collects
+ * them. Reorder one and reorder the other.
  */
 function signRunOf(noteItem) {
   return [alterationTextOf(noteItem), fthoraTextOf(noteItem)].filter(Boolean);

@@ -12,6 +12,7 @@ const {
   measureTextWidth,
   setNotation,
   noteRows,
+  pickAlteration,
   pickFthora,
 } = require("../helpers/harness.js");
 const { closeTo } = require("../helpers/assertions.js");
@@ -461,18 +462,19 @@ function byzantineChart(t, symbols, options = {}) {
   setNotation(h, "byzantine");
   buildRelativeScale(h, options.intervals || ["9/8"]);
 
-  // Symbols are written straight onto the rows rather than picked. These are
-  // chart-geometry tests, and each one names the exact arrangement it wants;
-  // driving the martyria picker would propagate the ladder over the rest of
-  // the scale and overwrite that arrangement. The picker has its own suite.
+  // The martyria alone is written straight onto the row rather than picked:
+  // these are chart-geometry tests, each naming the exact arrangement it
+  // wants, and applying a martyria propagates the ladder over the rest of the
+  // scale and overwrites that arrangement. The two single-value wells carry no
+  // such side effect, so they go through their pickers like a user would.
   noteRows(h).forEach((row, i) => {
     const spec = symbols[i];
     if (!spec) return;
     if (spec.note) {
       h.app.writeMartyria(row, spec.note, spec.genus || h.app.GENUS_NONE, spec.ticks || 0);
     }
+    if (spec.alteration) pickAlteration(h, row, spec.alteration);
     if (spec.fthora) pickFthora(h, row, spec.fthora);
-    if (spec.alteration) h.app.writeAlteration(row, spec.alteration);
   });
 
   if (options.style) selectOption(h, "chart-style", options.style);
@@ -1244,7 +1246,7 @@ test("alterations on the chart", async (t) => {
 
     await t.test(`anchors a lone alteration at the gutter's inner edge in ${shape.name}`, () => {
       const h = byzantineChart(t, [{ ...VOU, alteration: "diesis4" }, VOU], shape.options);
-      const { CANVAS_PADDING, TEXT_MARGIN } = h.app;
+      const { CANVAS_PADDING } = h.app;
 
       const text = h.app.resolveAlterationGlyph("diesis4");
       const run = h.app.glyphRunExtent([text], byzFontOf(h));

@@ -219,8 +219,8 @@ function centerPickerGlyphs(panel) {
  *
  * Anything showing a whole martyria — a note row, the footer preview, the well
  * itself — takes the shared martyria baseline, so all three agree and none of
- * them normalises the register away. A fthora has no family to sit in, so it is
- * centred on its own ink.
+ * them normalises the register away. A fthora and a sign of alteration have no
+ * family to sit in, so each is centred on its own ink.
  */
 function glyphBoxPlacement(box) {
   const column = box.closest(".martyria-genus-column");
@@ -425,8 +425,9 @@ function scrollTopToReveal(optionTop, optionHeight, viewHeight, scrollHeight, al
  * twenty-one otherwise hides the very letter the row holds. When there is
  * none, the notes list falls back to its middle octave: that is the register a
  * scale is written in unless it says otherwise, and it is a far better place to
- * start reading than "None" at the top. The fthora list has no octaves and
- * offers None as its first row, so it has nothing to fall back to and stays put.
+ * start reading than "None" at the top. Neither single-value list has octaves
+ * and both offer None as their first row, so they have nothing to fall back to
+ * and stay put.
  */
 function pickerRevealTarget(scroller) {
   const selected = scroller.querySelector(".is-selected");
