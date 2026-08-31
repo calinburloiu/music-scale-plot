@@ -472,6 +472,7 @@ function byzantineChart(t, symbols, options = {}) {
       h.app.writeMartyria(row, spec.note, spec.genus || h.app.GENUS_NONE, spec.ticks || 0);
     }
     if (spec.fthora) pickFthora(h, row, spec.fthora);
+    if (spec.alteration) h.app.writeAlteration(row, spec.alteration);
   });
 
   if (options.style) selectOption(h, "chart-style", options.style);
@@ -1088,6 +1089,287 @@ test("Byzantine notation, horizontal lines", async (t) => {
       const glyphs = martyriaOf(h, spec);
       assert.equal(text.filter((s) => s === glyphs).length, 1, `${spec.note} drawn once`);
     }
+  });
+});
+
+// The four chart shapes, so a run's geometry is checked in each of them
+// rather than in whichever one happened to be convenient.
+// `horizontal` also says how the gutter is anchored: a horizontal chart's
+// gutter runs along the top, so a run is bottom-anchored there and centred on
+// the separator; a vertical chart's runs down the left, so it is right-anchored
+// and ink-centred on the separator instead.
+const CHART_SHAPES = [
+  { name: "vertical boxes", horizontal: false, options: {} },
+  { name: "horizontal boxes", horizontal: true, options: { orientation: "horizontal" } },
+  { name: "vertical lines", horizontal: false, options: { style: "lines" } },
+  {
+    name: "horizontal lines",
+    horizontal: true,
+    options: { style: "lines", orientation: "horizontal" },
+  },
+];
+
+test("laying out a run of signs", async (t) => {
+  await t.test("measures a lone sign as its own ink", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = byzFontOf(h);
+    const text = h.app.resolveFthoraGlyph("diatonicPa");
+    const box = h.app.inkBox(h.ctx, text, font);
+
+    const extent = h.app.glyphRunExtent([text], font);
+    closeTo(extent.width, box.right - box.left, 1e-9);
+    closeTo(extent.height, box.bottom - box.top, 1e-9);
+  });
+
+  await t.test("sums the parts' ink and one gap between them", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = byzFontOf(h);
+    const parts = [h.app.resolveAlterationGlyph("diesis4"), h.app.resolveFthoraGlyph("diatonicPa")];
+
+    const expected = parts
+      .map((text) => {
+        const box = h.app.inkBox(h.ctx, text, font);
+        return box.right - box.left;
+      })
+      .reduce((a, b) => a + b);
+
+    closeTo(h.app.glyphRunExtent(parts, font).width, expected + h.app.BYZ_SIGN_GAP, 1e-9);
+  });
+
+  await t.test("never measures the advance, which is zero for every alteration", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = byzFontOf(h);
+
+    const text = h.app.resolveAlterationGlyph("diesis4");
+    assert.equal(h.app.inkBox(h.ctx, text, font).adv, 0, "the model must give it no advance");
+    assert.ok(
+      h.app.glyphRunExtent([text], font).width > 0,
+      "measuring the advance would give a zero-wide run and collapse the gutter"
+    );
+  });
+
+  await t.test("takes its height from the tallest part", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = byzFontOf(h);
+    const alteration = h.app.resolveAlterationGlyph("diesisGeniki");
+    const fthora = h.app.resolveFthoraGlyph("diatonicPa");
+
+    const heights = [alteration, fthora].map((text) => {
+      const box = h.app.inkBox(h.ctx, text, font);
+      return box.bottom - box.top;
+    });
+
+    closeTo(h.app.glyphRunExtent([alteration, fthora], font).height, Math.max(...heights), 1e-9);
+  });
+
+  await t.test("skips the empty parts, so a lone sign gets no gap", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = byzFontOf(h);
+    const text = h.app.resolveFthoraGlyph("diatonicPa");
+
+    closeTo(
+      h.app.glyphRunExtent(["", text], font).width,
+      h.app.glyphRunExtent([text], font).width,
+      1e-9
+    );
+    closeTo(h.app.glyphRunExtent([], font).width, 0, 1e-9);
+    closeTo(h.app.glyphRunExtent([], font).height, 0, 1e-9);
+  });
+
+  await t.test("takes the widest and tallest run, degree by degree", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const font = byzFontOf(h);
+    const alteration = h.app.resolveAlterationGlyph("diesis4");
+    const fthora = h.app.resolveFthoraGlyph("diatonicPa");
+
+    const spread = h.app.maxRunExtent([[alteration], [fthora]], font);
+    const paired = h.app.maxRunExtent([[alteration, fthora]], font);
+
+    closeTo(
+      spread.width,
+      Math.max(
+        h.app.glyphRunExtent([alteration], font).width,
+        h.app.glyphRunExtent([fthora], font).width
+      ),
+      1e-9,
+      "two degrees carrying one sign each never make a pair"
+    );
+    assert.ok(paired.width > spread.width, "a degree carrying both is the wider run");
+  });
+});
+
+test("alterations on the chart", async (t) => {
+  const PAIR = { note: "midPa", genus: "alpha", alteration: "diesis4", fthora: "diatonicPa" };
+  const VOU = { note: "midVou" };
+
+  /** The ink rectangle of one drawn sign, in canvas coordinates. */
+  function inkOf(h, text) {
+    return signInkBoxes(h).find((sign) => sign.text === text);
+  }
+
+  for (const shape of CHART_SHAPES) {
+    await t.test(`draws the alteration left of the fthora in ${shape.name}`, () => {
+      const h = byzantineChart(t, [PAIR, VOU], shape.options);
+      const alteration = inkOf(h, h.app.resolveAlterationGlyph("diesis4"));
+      const fthora = inkOf(h, h.app.resolveFthoraGlyph("diatonicPa"));
+
+      assert.ok(alteration, "the alteration was never drawn");
+      assert.ok(fthora, "the fthora was never drawn");
+      closeTo(
+        fthora.left - alteration.right,
+        h.app.BYZ_SIGN_GAP,
+        1e-6,
+        "the pair must read as one unit, one gap apart"
+      );
+    });
+
+    await t.test(`draws the alteration before the fthora in ${shape.name}`, () => {
+      const h = byzantineChart(t, [PAIR, VOU], shape.options);
+      const drawn = h.ctx.drawnText();
+
+      assert.ok(drawn.includes(h.app.resolveAlterationGlyph("diesis4")), "no alteration was drawn");
+      assert.ok(drawn.includes(h.app.resolveFthoraGlyph("diatonicPa")), "no fthora was drawn");
+      assert.ok(
+        drawn.indexOf(h.app.resolveAlterationGlyph("diesis4")) <
+          drawn.indexOf(h.app.resolveFthoraGlyph("diatonicPa")),
+        "an alteration qualifies the fthora after it, so it is drawn first"
+      );
+    });
+
+    await t.test(`anchors a lone alteration at the gutter's inner edge in ${shape.name}`, () => {
+      const h = byzantineChart(t, [{ ...VOU, alteration: "diesis4" }, VOU], shape.options);
+      const { CANVAS_PADDING, TEXT_MARGIN } = h.app;
+
+      const text = h.app.resolveAlterationGlyph("diesis4");
+      const run = h.app.glyphRunExtent([text], byzFontOf(h));
+      const inner = CANVAS_PADDING + (shape.horizontal ? run.height : run.width);
+      const sign = inkOf(h, text);
+
+      // Exactly where a lone fthora sits: a well the user filled must draw its
+      // sign in the fthora's place, not somewhere of its own.
+      if (shape.horizontal) closeTo(sign.bottom, inner, 1e-6, "ink bottom edge");
+      else closeTo(sign.right, inner, 1e-6, "ink right edge");
+    });
+
+    await t.test(`lines a lone alteration up with its own martyria in ${shape.name}`, () => {
+      const spec = { ...VOU, alteration: "diesis4" };
+      const h = byzantineChart(t, [spec, VOU], shape.options);
+
+      const sign = inkOf(h, h.app.resolveAlterationGlyph("diesis4"));
+      const martyria = inkOf(h, martyriaOf(h, spec));
+
+      if (shape.horizontal) {
+        closeTo(
+          (sign.left + sign.right) / 2,
+          (martyria.left + martyria.right) / 2,
+          1e-6,
+          "both are centred on the same separator"
+        );
+      } else {
+        closeTo(
+          (sign.top + sign.bottom) / 2,
+          (martyria.top + martyria.bottom) / 2,
+          1e-6,
+          "both are ink-centred on the same separator"
+        );
+      }
+    });
+
+    await t.test(`keeps every sign's ink inside the canvas in ${shape.name}`, () => {
+      assertSignsFitTheCanvas(byzantineChart(t, [PAIR, VOU], shape.options));
+    });
+  }
+
+  await t.test("sizes the left gutter from the widest run, not the widest fthora", () => {
+    const paired = byzantineChart(t, [PAIR, VOU]);
+    const fthoraOnly = byzantineChart(t, [{ ...PAIR, alteration: "" }, VOU]);
+    const { CANVAS_PADDING, TEXT_MARGIN } = paired.app;
+
+    const run = paired.app.glyphRunExtent(
+      [paired.app.resolveAlterationGlyph("diesis4"), paired.app.resolveFthoraGlyph("diatonicPa")],
+      byzFontOf(paired)
+    );
+
+    closeTo(
+      paired.ctx.callsOf("fillRect")[0].args[0],
+      CANVAS_PADDING + run.width + TEXT_MARGIN,
+      1e-6,
+      "the boxes start clear of a gutter sized for the pair"
+    );
+    assert.ok(
+      parseFloat(paired.canvas().style.width) > parseFloat(fthoraOnly.canvas().style.width),
+      "the canvas must grow for the wider gutter"
+    );
+  });
+
+  await t.test("sizes the top gutter from the tallest run", () => {
+    const h = byzantineChart(t, [{ ...PAIR, alteration: "diesisGeniki" }, VOU], {
+      orientation: "horizontal",
+    });
+    const { CANVAS_PADDING, TEXT_MARGIN } = h.app;
+
+    const run = h.app.glyphRunExtent(
+      [h.app.resolveAlterationGlyph("diesisGeniki"), h.app.resolveFthoraGlyph("diatonicPa")],
+      byzFontOf(h)
+    );
+
+    closeTo(
+      h.ctx.callsOf("fillRect")[0].args[1],
+      CANVAS_PADDING + run.height + TEXT_MARGIN,
+      1e-6,
+      "the boxes start below a gutter sized for the taller of the pair"
+    );
+  });
+
+  await t.test("reserves no gutter for a pair that no single degree carries", () => {
+    const spread = byzantineChart(t, [
+      { ...VOU, alteration: "diesis4" },
+      { note: "midGa", fthora: "diatonicPa" },
+    ]);
+    const { CANVAS_PADDING, TEXT_MARGIN } = spread.app;
+
+    const widest = Math.max(
+      inkWidth(spread, spread.app.resolveAlterationGlyph("diesis4")),
+      inkWidth(spread, spread.app.resolveFthoraGlyph("diatonicPa"))
+    );
+
+    closeTo(
+      spread.ctx.callsOf("fillRect")[0].args[0],
+      CANVAS_PADDING + widest + TEXT_MARGIN,
+      1e-6,
+      "one sign per degree is one sign wide — the gutter must not reserve a gap and a second sign"
+    );
+  });
+
+  await t.test("opens no gutter at all when no degree carries either sign", () => {
+    const h = byzantineChart(t, [{ note: "midPa" }, VOU]);
+
+    closeTo(
+      h.ctx.callsOf("fillRect")[0].args[0],
+      h.app.CANVAS_PADDING,
+      1e-9,
+      "the canvas must not grow for signs it never draws"
+    );
+  });
+
+  await t.test("draws nothing extra in Generic notation", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+    h.app.writeAlteration(noteRows(h)[0], "diesis4");
+    h.ctx.reset();
+    h.app.render();
+
+    assert.ok(
+      !h.ctx.drawnText().includes(h.app.resolveAlterationGlyph("diesis4")),
+      "a Generic chart draws no Byzantine sign"
+    );
   });
 });
 

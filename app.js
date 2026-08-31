@@ -443,6 +443,22 @@ function fthoraTextOf(noteItem) {
   return noteItem.fthora ? resolveFthoraGlyph(noteItem.fthora) : "";
 }
 
+function alterationTextOf(noteItem) {
+  return noteItem.alteration ? resolveAlterationGlyph(noteItem.alteration) : "";
+}
+
+/**
+ * The signs a degree shows in the gutter, in reading order.
+ *
+ * The alteration comes first because it qualifies the fthora, which is how a
+ * psaltic accidental is written. A degree carrying only one of the two draws
+ * that one alone, in the same place: a well the user filled must never draw
+ * nothing.
+ */
+function signRunOf(noteItem) {
+  return [alterationTextOf(noteItem), fthoraTextOf(noteItem)].filter(Boolean);
+}
+
 /** The widest and tallest ink among `texts`, ignoring the empty ones. */
 function maxInkExtent(texts, font) {
   let width = 0;
@@ -465,6 +481,78 @@ function maxInkExtent(texts, font) {
 function byzantineNoteBandHeight(maxMartyriaInkHeight) {
   if (maxMartyriaInkHeight <= 0) return 0;
   return Math.max(maxMartyriaInkHeight, NOTE_TEXT_HEIGHT);
+}
+
+// The space between an alteration and the fthora it qualifies. At the chart's
+// 40px font that is about 0.2em, against signs whose ink is roughly a third of
+// an em wide — close enough that the pair reads as one annotation rather than
+// two. Settled by eye; nothing computes it.
+const BYZ_SIGN_GAP = 8;
+
+/**
+ * The ink extent of a run of glyph strings laid out left to right, gaps
+ * included. Its height is the tallest part's, since the parts share a line.
+ *
+ * Ink, never the advance: every sign of alteration is a zero-advance combining
+ * mark, so measuring advances would give a zero-wide run and collapse the
+ * gutter it is supposed to size.
+ */
+function glyphRunExtent(parts, font) {
+  let width = 0;
+  let height = 0;
+  let drawn = 0;
+  for (const text of parts) {
+    if (!text) continue;
+    const box = inkBox(ctx, text, font);
+    if (drawn > 0) width += BYZ_SIGN_GAP;
+    width += box.right - box.left;
+    height = Math.max(height, box.bottom - box.top);
+    drawn++;
+  }
+  return { width: width, height: height };
+}
+
+/**
+ * The widest and tallest run among `runs`.
+ *
+ * The maximum is taken over whole runs — over *degrees* — not per sign: a
+ * scale where one degree carries an alteration and another a fthora needs a
+ * gutter one sign wide, not a gutter for a pair that never occurs.
+ */
+function maxRunExtent(runs, font) {
+  let width = 0;
+  let height = 0;
+  for (const run of runs) {
+    const extent = glyphRunExtent(run, font);
+    width = Math.max(width, extent.width);
+    height = Math.max(height, extent.height);
+  }
+  return { width: width, height: height };
+}
+
+/**
+ * Draws a run of signs: the run as a whole is anchored horizontally by
+ * `align`, and each part is anchored vertically by `vAlign` at the same `y`.
+ *
+ * That one rule serves both orientations. A horizontal chart anchors the run
+ * `"bottom"` at the gutter's inner edge, so the pair's ink bottoms sit on one
+ * line; a vertical chart anchors it `"right"` there, so the fthora keeps the
+ * place it had before there was anything to its left.
+ */
+function drawByzantineSigns(parts, x, y, align, vAlign) {
+  const run = parts.filter(Boolean);
+  if (run.length === 0) return;
+
+  const font = byzantineFont(BYZ_FONT_SIZE);
+  let penX = x;
+  if (align === "center") penX = x - glyphRunExtent(run, font).width / 2;
+  else if (align === "right") penX = x - glyphRunExtent(run, font).width;
+
+  for (const text of run) {
+    drawByzantineMark(text, penX, y, "left", vAlign);
+    const box = inkBox(ctx, text, font);
+    penX += box.right - box.left + BYZ_SIGN_GAP;
+  }
 }
 
 function drawByzantineMark(text, x, y, align, vAlign) {
@@ -493,7 +581,7 @@ function drawNoteLabel(text, x, y, spec) {
 
 function drawLinesHorizontal(intervals, stackLength, signExtent, intervalTextBlockH, font, monoFont, byz) {
   // `signExtent` is the widest ink centred on an end separator — a note name
-  // in Generic notation, the wider of the martyria and the fthora in
+  // in Generic notation, the wider of the martyria and the gutter run in
   // Byzantine. Half of it at each end keeps the first and last one whole.
   const halfSign = signExtent / 2;
   const axisCenterY = CANVAS_PADDING + byz.gutter + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH / 2;
@@ -562,10 +650,10 @@ function drawLinesHorizontal(intervals, stackLength, signExtent, intervalTextBlo
 
     if (j === 0) {
       drawNoteLabel(iv.noteBelow, lx, noteTextY, noteSpec);
-      if (byz.on) drawByzantineMark(iv.fthoraBelow, lx, byz.anchor, "center", "bottom");
+      if (byz.on) drawByzantineSigns(iv.signsBelow, lx, byz.anchor, "center", "bottom");
     }
     drawNoteLabel(iv.noteAbove, lx + w, noteTextY, noteSpec);
-    if (byz.on) drawByzantineMark(iv.fthoraAbove, lx + w, byz.anchor, "center", "bottom");
+    if (byz.on) drawByzantineSigns(iv.signsAbove, lx + w, byz.anchor, "center", "bottom");
     lx += w;
   }
 }
@@ -639,10 +727,10 @@ function drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, m
 
     if (j === 0) {
       drawNoteLabel(iv.noteBelow, noteTextX, ly, noteSpec);
-      if (byz.on) drawByzantineMark(iv.fthoraBelow, byz.anchor, ly, "right", "middle");
+      if (byz.on) drawByzantineSigns(iv.signsBelow, byz.anchor, ly, "right", "middle");
     }
     drawNoteLabel(iv.noteAbove, noteTextX, segTopY, noteSpec);
-    if (byz.on) drawByzantineMark(iv.fthoraAbove, byz.anchor, segTopY, "right", "middle");
+    if (byz.on) drawByzantineSigns(iv.signsAbove, byz.anchor, segTopY, "right", "middle");
     ly = segTopY;
   }
 }
@@ -675,8 +763,8 @@ function render() {
         displayInterval: interval.displayInterval,
         noteBelow: isByzantine ? martyriaTextOf(note) : note.name,
         noteAbove: nextNote ? (isByzantine ? martyriaTextOf(nextNote) : nextNote.name) : "",
-        fthoraBelow: isByzantine ? fthoraTextOf(note) : "",
-        fthoraAbove: nextNote && isByzantine ? fthoraTextOf(nextNote) : "",
+        signsBelow: isByzantine ? signRunOf(note) : [],
+        signsAbove: nextNote && isByzantine ? signRunOf(nextNote) : [],
         color: interval.color || "#FFFFFF",
       });
       i += 2;
@@ -702,8 +790,10 @@ function render() {
   let maxNoteWidth = 0;
   // The tallest martyria's ink, and 0 when no degree carries one.
   let maxNoteHeight = 0;
-  let maxFthoraWidth = 0;
-  let maxFthoraHeight = 0;
+  // The widest and tallest gutter run, over degrees; 0 when no degree carries
+  // a sign at all.
+  let maxRunWidth = 0;
+  let maxRunHeight = 0;
 
   if (isByzantine) {
     // Measured every render: no measurement taken before the Neanes face
@@ -715,12 +805,12 @@ function render() {
     maxNoteWidth = notes.width;
     maxNoteHeight = notes.height;
 
-    const fthores = maxInkExtent(
-      intervals.flatMap((iv) => [iv.fthoraBelow, iv.fthoraAbove]),
+    const runs = maxRunExtent(
+      intervals.flatMap((iv) => [iv.signsBelow, iv.signsAbove]),
       byzFont
     );
-    maxFthoraWidth = fthores.width;
-    maxFthoraHeight = fthores.height;
+    maxRunWidth = runs.width;
+    maxRunHeight = runs.height;
   } else {
     ctx.font = font;
     for (const iv of intervals) {
@@ -753,23 +843,23 @@ function render() {
   const chartStyle = styleSelect.value;
   const isLines = chartStyle === "lines";
 
-  const fthoraGutter = !isByzantine
+  const signGutter = !isByzantine
     ? 0
     : isHorizontal
-      ? (maxFthoraHeight > 0 ? maxFthoraHeight + TEXT_MARGIN : 0)
-      : (maxFthoraWidth > 0 ? maxFthoraWidth + TEXT_MARGIN : 0);
+      ? (maxRunHeight > 0 ? maxRunHeight + TEXT_MARGIN : 0)
+      : (maxRunWidth > 0 ? maxRunWidth + TEXT_MARGIN : 0);
   // The gutter is a band of its own along the left (vertical) or top
-  // (horizontal) edge of the canvas. The fthora's ink is right- or
+  // (horizontal) edge of the canvas. A degree's run is right- or
   // bottom-aligned at the band's far edge, one text margin clear of whatever
   // the chart lays out after it — the boxes, or the line chart's interval text.
-  const fthoraAnchor = CANVAS_PADDING + fthoraGutter - TEXT_MARGIN;
+  const signAnchor = CANVAS_PADDING + signGutter - TEXT_MARGIN;
   // The widest ink that any chart centres on an end separator: a martyria, a
-  // fthora, or — in Generic notation, where there are no signs — a note name.
-  // The stack runs along x when horizontal, so there it is the ink's width
-  // that matters, and its height when vertical.
+  // gutter run, or — in Generic notation, where there are no signs — a note
+  // name. The stack runs along x when horizontal, so there it is the ink's
+  // width that matters, and its height when vertical.
   const signExtent = isHorizontal
-    ? Math.max(maxNoteWidth, maxFthoraWidth)
-    : Math.max(maxNoteHeight, maxFthoraHeight);
+    ? Math.max(maxNoteWidth, maxRunWidth)
+    : Math.max(maxNoteHeight, maxRunHeight);
   // Three of the four charts start their stack one CANVAS_PADDING from the
   // edge, so they reserve only whatever ink overflows that padding, at both
   // ends, and the first and last sign are never clipped. (The horizontal line
@@ -778,8 +868,8 @@ function render() {
   const noteBandH = isByzantine ? byzantineNoteBandHeight(maxNoteHeight) : NOTE_TEXT_HEIGHT;
   const byz = {
     on: isByzantine,
-    gutter: fthoraGutter,
-    anchor: fthoraAnchor,
+    gutter: signGutter,
+    anchor: signAnchor,
     overhang: signOverhang,
   };
 
@@ -792,17 +882,17 @@ function render() {
     // needs no overhang of its own on top of the padding.
     const halfSign = signExtent / 2;
     displayWidth = CANVAS_PADDING + halfSign + stackLength + halfSign + CANVAS_PADDING;
-    displayHeight = CANVAS_PADDING + fthoraGutter + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + noteBandH + CANVAS_PADDING;
+    displayHeight = CANVAS_PADDING + signGutter + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + noteBandH + CANVAS_PADDING;
   } else if (isLines && !isHorizontal) {
-    displayWidth = CANVAS_PADDING + fthoraGutter + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + maxNoteWidth + CANVAS_PADDING;
+    displayWidth = CANVAS_PADDING + signGutter + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH + TEXT_MARGIN + maxNoteWidth + CANVAS_PADDING;
     displayHeight = CANVAS_PADDING * 2 + signOverhang * 2 + stackLength;
   } else if (isHorizontal) {
     const textAreaHeight = noteBandH + TEXT_MARGIN * 2;
     displayWidth = CANVAS_PADDING * 2 + signOverhang * 2 + stackLength + maxTextWidth;
-    displayHeight = CANVAS_PADDING + fthoraGutter + RECT_WIDTH + TEXT_MARGIN + textAreaHeight + CANVAS_PADDING;
+    displayHeight = CANVAS_PADDING + signGutter + RECT_WIDTH + TEXT_MARGIN + textAreaHeight + CANVAS_PADDING;
   } else {
     const textAreaWidth = maxTextWidth + TEXT_MARGIN * 2;
-    displayWidth = CANVAS_PADDING + fthoraGutter + RECT_WIDTH + TEXT_MARGIN + textAreaWidth + CANVAS_PADDING;
+    displayWidth = CANVAS_PADDING + signGutter + RECT_WIDTH + TEXT_MARGIN + textAreaWidth + CANVAS_PADDING;
     displayHeight = CANVAS_PADDING * 2 + signOverhang * 2 + stackLength;
   }
 
@@ -820,7 +910,7 @@ function render() {
     drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont, byz);
   } else if (isHorizontal) {
     const baseX = CANVAS_PADDING + signOverhang;
-    const baseY = CANVAS_PADDING + fthoraGutter;
+    const baseY = CANVAS_PADDING + signGutter;
     const textY = baseY + RECT_WIDTH + TEXT_MARGIN;
     const noteSpec = {
       byzantine: isByzantine,
@@ -872,16 +962,16 @@ function render() {
 
       if (j === 0) {
         drawNoteLabel(iv.noteBelow, x, textY, noteSpec);
-        if (isByzantine) drawByzantineMark(iv.fthoraBelow, x, fthoraAnchor, "center", "bottom");
+        if (isByzantine) drawByzantineSigns(iv.signsBelow, x, signAnchor, "center", "bottom");
       }
 
       drawNoteLabel(iv.noteAbove, x + w, textY, noteSpec);
-      if (isByzantine) drawByzantineMark(iv.fthoraAbove, x + w, fthoraAnchor, "center", "bottom");
+      if (isByzantine) drawByzantineSigns(iv.signsAbove, x + w, signAnchor, "center", "bottom");
 
       x += w;
     }
   } else {
-    const baseX = CANVAS_PADDING + fthoraGutter;
+    const baseX = CANVAS_PADDING + signGutter;
     const baseY = CANVAS_PADDING + signOverhang + stackLength;
     const noteSpec = {
       byzantine: isByzantine,
@@ -937,11 +1027,11 @@ function render() {
 
       if (j === 0) {
         drawNoteLabel(iv.noteBelow, textX, y, noteSpec);
-        if (isByzantine) drawByzantineMark(iv.fthoraBelow, fthoraAnchor, y, "right", "middle");
+        if (isByzantine) drawByzantineSigns(iv.signsBelow, signAnchor, y, "right", "middle");
       }
 
       drawNoteLabel(iv.noteAbove, textX, rectY, noteSpec);
-      if (isByzantine) drawByzantineMark(iv.fthoraAbove, fthoraAnchor, rectY, "right", "middle");
+      if (isByzantine) drawByzantineSigns(iv.signsAbove, signAnchor, rectY, "right", "middle");
 
       y = rectY;
     }
