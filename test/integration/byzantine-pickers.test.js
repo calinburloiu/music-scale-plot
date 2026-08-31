@@ -13,6 +13,7 @@ const {
   pickMartyria,
   setNoteCount,
   fireClick,
+  dismissPicker,
   measureTextInk,
 } = require("../helpers/harness.js");
 
@@ -60,7 +61,7 @@ test("the fthora picker", async (t) => {
     assert.equal(option.querySelector(".byz-label").textContent, h.app.byzFthoraById("diatonicPa").label);
   });
 
-  await t.test("writes the pick to the row and closes the panel on Apply", () => {
+  await t.test("writes the pick to the row and closes the panel in one click", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
 
@@ -75,6 +76,15 @@ test("the fthora picker", async (t) => {
     );
   });
 
+  await t.test("offers no Apply and no Cancel, because the click is the gesture", () => {
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "fthora");
+
+    assert.equal(panel.querySelector(".byz-picker-footer"), null, "the footer should be gone");
+    assert.equal(panel.querySelector(".byz-apply"), null);
+    assert.equal(panel.querySelector(".byz-cancel"), null);
+  });
+
   await t.test("clears the slot when None is picked", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
@@ -86,7 +96,7 @@ test("the fthora picker", async (t) => {
     assert.ok(row.querySelector(".fthora-well").classList.contains("is-empty"));
   });
 
-  await t.test("redraws the chart when a fthora is applied", () => {
+  await t.test("redraws the chart when a fthora is picked", () => {
     const h = byzantineApp(t);
     h.ctx.reset();
 
@@ -187,7 +197,7 @@ test("the fthora picker's compatible list", async (t) => {
         Array.from(h.app.BYZ_FTHORES).map((f) => f.id).sort(),
         `${note}: no sign may be lost or offered twice`
       );
-      fireClick(h, row.querySelector(".fthora-picker .byz-cancel"));
+      dismissPicker(h, row, "outside", "fthora");
     }
   });
 
@@ -224,7 +234,7 @@ test("the fthora picker's compatible list", async (t) => {
     let panel = openWell(h, row, "fthora");
     let first = [...panel.querySelectorAll(".fthora-option")][1].dataset.fthora;
     assert.equal(first, "diatonicDi");
-    fireClick(h, row.querySelector(".fthora-picker .byz-cancel"));
+    dismissPicker(h, row, "outside", "fthora");
 
     pickMartyria(h, row, { note: "midGa" });
     panel = openWell(h, row, "fthora");
@@ -329,7 +339,7 @@ test("the alteration picker", async (t) => {
     );
   });
 
-  await t.test("writes the drafted sign to the row on Apply, and repaints the well", () => {
+  await t.test("writes the sign to the row on the click that chose it, and repaints the well", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
 
@@ -343,7 +353,7 @@ test("the alteration picker", async (t) => {
     assert.ok(!row.querySelector(".alteration-well").classList.contains("is-empty"));
   });
 
-  await t.test("clears the well when None is applied", () => {
+  await t.test("clears the well when None is picked", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
 
@@ -367,17 +377,19 @@ test("the alteration picker", async (t) => {
     );
   });
 
-  await t.test("discards the draft on Cancel, an outside click and a second well click", () => {
+  await t.test("keeps the committed sign when the panel is dismissed without a pick", () => {
     // A fresh editor per gesture: each starts from the same committed sign, and
     // a leftover open panel from the previous one would change what the next
     // click means.
-    for (const how of ["cancel", "outside", "well"]) {
+    for (const how of ["outside", "well"]) {
       const h = byzantineApp(t);
       const row = noteRows(h)[0];
       pickAlteration(h, row, "diesis2");
-      pickAlteration(h, row, "yfesis8", { dismiss: how });
 
-      assert.equal(row.dataset.alteration, "diesis2", `"${how}" must not commit the draft`);
+      openWell(h, row, "alteration");
+      dismissPicker(h, row, how, "alteration");
+
+      assert.equal(row.dataset.alteration, "diesis2", `"${how}" must change nothing`);
       assert.ok(
         !row.querySelector(".alteration-picker").classList.contains("open"),
         `"${how}" must close the panel`
@@ -385,21 +397,13 @@ test("the alteration picker", async (t) => {
     }
   });
 
-  await t.test("leaves Apply dead while the draft still matches the row", () => {
+  await t.test("offers no Apply and no Cancel either", () => {
     const h = byzantineApp(t);
-    const row = noteRows(h)[0];
+    const panel = openWell(h, noteRows(h)[0], "alteration");
 
-    let panel = openWell(h, row, "alteration");
-    assert.ok(panel.querySelector(".byz-apply").disabled, "nothing to apply on a fresh row");
-
-    fireClick(h, panel.querySelector('.alteration-option[data-alteration="diesis4"]'));
-    assert.ok(!panel.querySelector(".byz-apply").disabled, "a moved draft is applicable");
-
-    fireClick(h, panel.querySelector('.alteration-option[data-alteration=""]'));
-    assert.ok(
-      panel.querySelector(".byz-apply").disabled,
-      "drafting back to the row's own value is not a change"
-    );
+    assert.equal(panel.querySelector(".byz-picker-footer"), null);
+    assert.equal(panel.querySelector(".byz-apply"), null);
+    assert.equal(panel.querySelector(".byz-cancel"), null);
   });
 
   await t.test("does not touch the row's fthora or martyria", () => {
@@ -435,16 +439,16 @@ test("opening one well", async (t) => {
     }
   });
 
-  await t.test("throws away the draft the closed panel was holding", () => {
+  await t.test("throws away the draft the closed martyria panel was holding", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
 
-    const panel = openWell(h, row, "alteration");
-    fireClick(h, panel.querySelector('.alteration-option[data-alteration="diesis8"]'));
+    const panel = openWell(h, row, "martyria");
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midPa"]'));
     openWell(h, row, "fthora");
 
-    assert.equal(panel.dataset.draftAlteration, undefined, "the draft outlived its panel");
-    assert.equal(row.dataset.alteration, undefined, "and it must certainly not have been committed");
+    assert.equal(panel.dataset.draftNote, undefined, "the draft outlived its panel");
+    assert.equal(row.dataset.martyriaNote, undefined, "and it must certainly not have been committed");
   });
 
   await t.test("swallows a click on the alteration panel's own chrome", () => {
@@ -591,7 +595,7 @@ test("the martyria picker: the Genus column", async (t) => {
     assert.deepEqual(after.map((el) => el.dataset.genus), Array.from(h.app.otherGenera("midDi")));
   });
 
-  await t.test("shows every genus as the bare mark it contributes", () => {
+  await t.test("previews every genus as the whole martyria it would commit", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
     openWell(h, row, "martyria");
@@ -599,13 +603,13 @@ test("the martyria picker: the Genus column", async (t) => {
 
     const option = row.querySelector('.martyria-genus-option[data-genus="zygos"]');
     assert.equal(
-      option.querySelector(".byz-glyph").textContent,
-      h.app.resolveGenusGlyph("midDi", "zygos"),
-      "a row's subject is the mark, so the mark is what it shows"
+      option.querySelector(".byz-glyph").dataset.glyph,
+      h.app.resolveMartyriaGlyphs("midDi", "zygos", 0),
+      "a row is a preview of the pair, so it shows the drafted letter carrying the mark"
     );
   });
 
-  await t.test("re-resolves the marks when a different letter is picked", () => {
+  await t.test("re-composes on the new letter when a different one is picked", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
     openWell(h, row, "martyria");
@@ -614,15 +618,41 @@ test("the martyria picker: the Genus column", async (t) => {
 
     const option = row.querySelector('.martyria-genus-option[data-genus="delta"]');
     assert.equal(
-      option.querySelector(".byz-glyph").textContent,
-      h.app.resolveGenusGlyph("lowDi", "delta"),
-      "the low register takes the Above mark set, so the mark itself must change"
+      option.querySelector(".byz-glyph").dataset.glyph,
+      h.app.resolveMartyriaGlyphs("lowDi", "delta", 0),
+      "the low register takes the Above mark set, so the composition itself must change"
+    );
+  });
+
+  await t.test("puts the genus back to None when a different letter is picked", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    openWell(h, row, "martyria");
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midDi"]'));
+    fireClick(h, row.querySelector('.martyria-genus-option[data-genus="zygos"]'));
+
+    // Committing closed the panel; reopen it and change the letter.
+    openWell(h, row, "martyria");
+    assert.equal(
+      row.querySelector(".martyria-genus-option.is-selected").dataset.genus,
+      "zygos",
+      "the committed genus is where the list starts"
+    );
+
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midGa"]'));
+
+    const selected = row.querySelectorAll(".martyria-genus-option.is-selected");
+    assert.equal(selected.length, 1);
+    assert.equal(
+      selected[0].dataset.genus,
+      h.app.GENUS_NONE,
+      "a genus chosen for the old letter is not a choice made for the new one"
     );
   });
 });
 
 test("picking a martyria", async (t) => {
-  await t.test("writes the letter on Apply, with no genus", () => {
+  await t.test("writes the letter once None is chosen in the Genus column", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
 
@@ -635,7 +665,7 @@ test("picking a martyria", async (t) => {
     });
   });
 
-  await t.test("keeps the panel open after a letter is drafted, so the genus can follow", () => {
+  await t.test("keeps the panel open after a letter is picked, so the genus can follow", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
 
@@ -643,6 +673,36 @@ test("picking a martyria", async (t) => {
     fireClick(h, row.querySelector('.martyria-note-option[data-note="midPa"]'));
 
     assert.ok(row.querySelector(".martyria-picker").classList.contains("open"));
+  });
+
+  await t.test("leaves the row untouched while only a letter has been picked", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    openWell(h, row, "martyria");
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midPa"]'));
+
+    assert.equal(
+      h.app.readNoteSymbols(row).martyria,
+      null,
+      "the Notes column narrows the Genus column; it does not commit"
+    );
+  });
+
+  await t.test("offers no Apply and no Cancel, and no separate preview", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    const panel = openWell(h, row, "martyria");
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midPa"]'));
+
+    assert.equal(panel.querySelector(".byz-picker-footer"), null);
+    assert.equal(panel.querySelector(".byz-apply"), null);
+    assert.equal(panel.querySelector(".byz-cancel"), null);
+    assert.equal(
+      panel.querySelector(".byz-preview"),
+      null,
+      "every genus row is a preview now, so the single one below them is gone"
+    );
   });
 
   await t.test("adds the genus without disturbing the letter", () => {
@@ -662,14 +722,18 @@ test("picking a martyria", async (t) => {
     );
   });
 
-  await t.test("keeps the genus when the letter is changed", () => {
+  await t.test("drops the genus when the letter is changed", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
     pickMartyria(h, row, { note: "midPa", genus: "alpha" });
 
     pickMartyria(h, row, { note: "midVou" });
 
-    assert.equal(h.app.readNoteSymbols(row).martyria.genus, "alpha");
+    assert.equal(
+      h.app.readNoteSymbols(row).martyria.genus,
+      "none",
+      "picking a letter resets the Genus column, and None is what was then confirmed"
+    );
   });
 
   await t.test("clears the well when None is picked, without touching the fthora", () => {
@@ -684,6 +748,20 @@ test("picking a martyria", async (t) => {
     assert.equal(h.app.readNoteSymbols(row).fthora, "diatonicPa");
   });
 
+  // None is the one row in the Notes column that has no genus to confirm, so it
+  // is its own commit: leaving it drafted would make an empty well unreachable.
+  await t.test("closes the panel when None is picked in the Notes column", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    pickMartyria(h, row, { note: "midPa", genus: "alpha" });
+
+    const panel = openWell(h, row, "martyria");
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note=""]'));
+
+    assert.equal(h.app.readNoteSymbols(row).martyria, null, "the well is cleared at once");
+    assert.ok(!panel.classList.contains("open"), "and the panel closes behind it");
+  });
+
   await t.test("ignores a genus click while no letter is selected", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
@@ -694,25 +772,25 @@ test("picking a martyria", async (t) => {
     assert.equal(h.app.readNoteSymbols(row).martyria, null);
   });
 
-  await t.test("redraws the chart when the draft is applied", () => {
+  await t.test("redraws the chart when the genus is picked", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
     openWell(h, row, "martyria");
     fireClick(h, row.querySelector('.martyria-note-option[data-note="midPa"]'));
     h.ctx.reset();
 
-    fireClick(h, row.querySelector(".martyria-picker .byz-apply"));
+    fireClick(h, row.querySelector('.martyria-genus-option[data-genus="alpha"]'));
 
     assert.ok(h.ctx.callsOf("fillRect").length > 0, "the chart was never redrawn");
   });
 
-  await t.test("closes the panel when Apply is pressed", () => {
+  await t.test("closes the panel when the genus is picked", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
     openWell(h, row, "martyria");
     fireClick(h, row.querySelector('.martyria-note-option[data-note="midPa"]'));
 
-    fireClick(h, row.querySelector(".martyria-picker .byz-apply"));
+    fireClick(h, row.querySelector('.martyria-genus-option[data-genus="alpha"]'));
 
     assert.ok(!row.querySelector(".martyria-picker").classList.contains("open"));
   });
@@ -747,50 +825,19 @@ test("picking a martyria", async (t) => {
 
     fireClick(h, panel.querySelector('.martyria-note-option[data-note="lowZo"]'));
 
-    assert.equal(
-      panel.querySelector(".byz-preview").textContent,
-      "",
-      "an illegal position must not even be drafted"
+    assert.ok(
+      panel.querySelector(".martyria-genus-column").classList.contains("is-inert"),
+      "an illegal position must not even be drafted, so the Genus column stays shut"
     );
     assert.ok(panel.classList.contains("open"), "and the panel stays open");
   });
 });
 
-// A picker is a draft, not a live edit: every click inside it moves the panel's
-// own pending value, and only Apply pushes that into the scale. Cancel, a click
-// outside, a second click on the well and opening another picker all discard it.
-test("drafting a symbol", async (t) => {
-  await t.test("leaves the row's fthora alone while one is drafted", () => {
-    const h = byzantineApp(t);
-    const row = noteRows(h)[0];
-
-    pickFthora(h, row, "diatonicPa", { dismiss: "none" });
-
-    assert.equal(h.app.readNoteSymbols(row).fthora, "", "the draft must not reach the row");
-    assert.ok(row.querySelector(".fthora-well").classList.contains("is-empty"));
-  });
-
-  await t.test("marks the drafted fthora inside the panel", () => {
-    const h = byzantineApp(t);
-    const row = noteRows(h)[0];
-
-    const panel = openWell(h, row, "fthora");
-    fireClick(h, panel.querySelector('.fthora-option[data-fthora="diatonicPa"]'));
-
-    const selected = panel.querySelectorAll(".fthora-option.is-selected");
-    assert.equal(selected.length, 1);
-    assert.equal(selected[0].dataset.fthora, "diatonicPa");
-  });
-
-  await t.test("keeps the fthora panel open, so the pick can be reconsidered", () => {
-    const h = byzantineApp(t);
-    const row = noteRows(h)[0];
-
-    pickFthora(h, row, "diatonicPa", { dismiss: "none" });
-
-    assert.ok(row.querySelector(".fthora-picker").classList.contains("open"));
-  });
-
+// The martyria picker is the only one that still drafts: its letter narrows the
+// Genus column, and the genus click is what pushes the pair into the scale. A
+// click outside, a second click on the well and opening another picker all
+// discard the letter.
+test("drafting a martyria", async (t) => {
   await t.test("leaves the row's martyria alone while a letter is drafted", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
@@ -801,45 +848,47 @@ test("drafting a symbol", async (t) => {
     assert.ok(row.querySelector(".martyria-well").classList.contains("is-empty"));
   });
 
-  await t.test("does not redraw the chart while drafting", () => {
+  await t.test("marks the drafted letter inside the panel", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    const panel = openWell(h, row, "martyria");
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midPa"]'));
+
+    const selected = panel.querySelectorAll(".martyria-note-option.is-selected");
+    assert.equal(selected.length, 1);
+    assert.equal(selected[0].dataset.note, "midPa");
+  });
+
+  await t.test("does not redraw the chart while only a letter is drafted", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
     openWell(h, row, "martyria");
     h.ctx.reset();
 
     fireClick(h, row.querySelector('.martyria-note-option[data-note="midPa"]'));
-    fireClick(h, row.querySelector('.martyria-genus-option[data-genus="alpha"]'));
 
     assert.equal(h.ctx.callsOf("fillRect").length, 0, "a draft changes nothing to draw");
   });
 });
 
-test("cancelling a picker", async (t) => {
-  await t.test("closes the panel when Cancel is pressed", () => {
+test("dismissing a picker without picking", async (t) => {
+  await t.test("closes the panel when the user clicks outside", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
     const panel = openWell(h, row, "martyria");
 
-    fireClick(h, panel.querySelector(".byz-cancel"));
+    dismissPicker(h, row, "outside", "martyria");
 
     assert.ok(!panel.classList.contains("open"));
-  });
-
-  await t.test("leaves the fthora alone when Cancel is pressed", () => {
-    const h = byzantineApp(t);
-    const row = noteRows(h)[0];
-    pickFthora(h, row, "diatonicPa");
-
-    pickFthora(h, row, "hardChromaticDi", { dismiss: "cancel" });
-
-    assert.equal(h.app.readNoteSymbols(row).fthora, "diatonicPa");
   });
 
   await t.test("leaves the fthora alone when the user clicks outside", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
 
-    pickFthora(h, row, "diatonicPa", { dismiss: "outside" });
+    openWell(h, row, "fthora");
+    dismissPicker(h, row, "outside", "fthora");
 
     assert.equal(h.app.readNoteSymbols(row).fthora, "");
   });
@@ -848,18 +897,10 @@ test("cancelling a picker", async (t) => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
 
-    pickFthora(h, row, "diatonicPa", { dismiss: "well" });
+    openWell(h, row, "fthora");
+    dismissPicker(h, row, "well", "fthora");
 
     assert.equal(h.app.readNoteSymbols(row).fthora, "");
-  });
-
-  await t.test("leaves the scale alone when Cancel is pressed", () => {
-    const h = byzantineApp(t);
-    setNoteCount(h, 3);
-
-    pickMartyria(h, noteRows(h)[0], { note: "midZo", dismiss: "cancel" });
-
-    assert.deepEqual(martyriaNotes(h), [null, null, null], "no letter, so no ladder");
   });
 
   await t.test("leaves the scale alone when the user clicks outside", () => {
@@ -902,12 +943,12 @@ test("cancelling a picker", async (t) => {
     assert.equal(h.ctx.callsOf("fillRect").length, 0, "a cancel has nothing to draw");
   });
 
-  await t.test("reopens the martyria picker on the committed letter, not the cancelled one", () => {
+  await t.test("reopens the martyria picker on the committed letter, not the discarded one", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
     pickMartyria(h, row, { note: "midPa" });
 
-    pickMartyria(h, row, { note: "midVou", dismiss: "cancel" });
+    pickMartyria(h, row, { note: "midVou", dismiss: "outside" });
     const panel = openWell(h, row, "martyria");
 
     const selected = panel.querySelectorAll(".martyria-note-option.is-selected");
@@ -915,12 +956,13 @@ test("cancelling a picker", async (t) => {
     assert.equal(selected[0].dataset.note, "midPa", "the discarded draft must not survive");
   });
 
-  await t.test("reopens the fthora picker on the committed fthora, not the cancelled one", () => {
+  await t.test("reopens the fthora picker on the committed fthora", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
     pickFthora(h, row, "diatonicPa");
 
-    pickFthora(h, row, "hardChromaticDi", { dismiss: "cancel" });
+    openWell(h, row, "fthora");
+    dismissPicker(h, row, "outside", "fthora");
     const panel = openWell(h, row, "fthora");
 
     const selected = panel.querySelectorAll(".fthora-option.is-selected");
@@ -929,122 +971,8 @@ test("cancelling a picker", async (t) => {
   });
 });
 
-test("the martyria picker: the footer preview", async (t) => {
-  await t.test("is empty while no letter is drafted", () => {
-    const h = byzantineApp(t);
-    const panel = openWell(h, noteRows(h)[0], "martyria");
-
-    assert.equal(panel.querySelector(".byz-preview").textContent, "");
-  });
-
-  await t.test("starts from the martyria the well already holds", () => {
-    const h = byzantineApp(t);
-    h.app.writeMartyria(noteRows(h)[0], "midPa", "alpha", 0);
-
-    const panel = openWell(h, noteRows(h)[0], "martyria");
-
-    assert.equal(
-      panel.querySelector(".byz-preview").textContent,
-      h.app.resolveMartyriaGlyphs("midPa", "alpha", 0)
-    );
-  });
-
-  await t.test("composes the drafted letter with the drafted genus", () => {
-    const h = byzantineApp(t);
-    const row = noteRows(h)[0];
-
-    pickMartyria(h, row, { note: "midDi", genus: "zygos", dismiss: "none" });
-
-    assert.equal(
-      row.querySelector(".martyria-picker .byz-preview").textContent,
-      h.app.resolveMartyriaGlyphs("midDi", "zygos", 0)
-    );
-  });
-
-  // The genus rows deliberately preview without the tick, so the footer is the
-  // only place the drafted register is visible.
-  await t.test("shows the octave tick, which the genus rows leave off", () => {
-    const h = byzantineApp(t);
-    h.app.writeMartyria(noteRows(h)[1], "highZo", h.app.GENUS_NONE, 1);
-    const row = noteRows(h)[0];
-
-    pickMartyria(h, row, { note: "highZo", ticks: 1, dismiss: "none" });
-
-    const preview = row.querySelector(".martyria-picker .byz-preview").textContent;
-    assert.equal(preview, h.app.resolveMartyriaGlyphs("highZo", h.app.GENUS_NONE, 1));
-    assert.notEqual(
-      preview,
-      h.app.resolveMartyriaGlyphs("highZo", h.app.GENUS_NONE, 0),
-      "the tick must be visible somewhere"
-    );
-  });
-});
-
-test("the Apply button", async (t) => {
-  await t.test("is disabled in a picker that has just been opened", () => {
-    const h = byzantineApp(t);
-    const panel = openWell(h, noteRows(h)[0], "martyria");
-
-    assert.ok(panel.querySelector(".byz-apply").disabled, "there is nothing to apply yet");
-  });
-
-  await t.test("becomes available once the draft differs from the row", () => {
-    const h = byzantineApp(t);
-    const row = noteRows(h)[0];
-    const panel = openWell(h, row, "martyria");
-
-    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midPa"]'));
-
-    assert.ok(!panel.querySelector(".byz-apply").disabled);
-  });
-
-  await t.test("goes back to disabled when the draft is put back to what the row holds", () => {
-    const h = byzantineApp(t);
-    const row = noteRows(h)[0];
-    pickMartyria(h, row, { note: "midPa" });
-    const panel = openWell(h, row, "martyria");
-
-    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midVou"]'));
-    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midPa"]'));
-
-    assert.ok(panel.querySelector(".byz-apply").disabled);
-  });
-
-  await t.test("notices a genus change on its own", () => {
-    const h = byzantineApp(t);
-    const row = noteRows(h)[0];
-    pickMartyria(h, row, { note: "midDi" });
-    const panel = openWell(h, row, "martyria");
-
-    fireClick(h, panel.querySelector('.martyria-genus-option[data-genus="zygos"]'));
-
-    assert.ok(!panel.querySelector(".byz-apply").disabled, "the letter is the same, the genus is not");
-  });
-
-  await t.test("is disabled in a fresh fthora picker and enabled by a pick", () => {
-    const h = byzantineApp(t);
-    const panel = openWell(h, noteRows(h)[0], "fthora");
-    assert.ok(panel.querySelector(".byz-apply").disabled);
-
-    fireClick(h, panel.querySelector('.fthora-option[data-fthora="diatonicPa"]'));
-
-    assert.ok(!panel.querySelector(".byz-apply").disabled);
-  });
-
-  await t.test("does nothing when it is clicked while disabled", () => {
-    const h = byzantineApp(t);
-    const row = noteRows(h)[0];
-    const panel = openWell(h, row, "martyria");
-
-    fireClick(h, panel.querySelector(".byz-apply"));
-
-    assert.equal(h.app.readNoteSymbols(row).martyria, null);
-    assert.ok(panel.classList.contains("open"), "a dead button must not close the panel either");
-  });
-});
-
 test("the ladder", async (t) => {
-  await t.test("runs the other degrees through the consecutive letters on Apply", () => {
+  await t.test("runs the other degrees through the consecutive letters on the commit", () => {
     const h = byzantineApp(t);
     setNoteCount(h, 4);
 
@@ -1255,6 +1183,17 @@ test("how a picker row shows its symbol", async (t) => {
     );
   });
 
+  await t.test("centres a genus row's composition in the same box", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+    const panel = openWell(h, row, "martyria");
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="lowPa"]'));
+
+    const option = row.querySelector('.martyria-genus-option[data-genus="alpha"]');
+
+    assert.ok(inkOf(option), "a genus row shows a whole martyria, so it gets the same treatment");
+  });
+
   await t.test("centres the sign's ink in that box rather than its baseline", () => {
     const h = byzantineApp(t);
     const panel = openWell(h, noteRows(h)[0], "martyria");
@@ -1288,38 +1227,24 @@ test("how a picker row shows its symbol", async (t) => {
     );
   });
 
-  await t.test("gives the footer's preview the same box", () => {
-    const h = byzantineApp(t);
-    const row = noteRows(h)[0];
-    const panel = openWell(h, row, "martyria");
-
-    fireClick(h, panel.querySelector('.martyria-note-option[data-note="lowPa"]'));
-
-    const preview = row.querySelector(".martyria-picker .byz-preview");
-    assert.ok(
-      preview.querySelector(".glyph-ink"),
-      "the drafted sign is the one the well will show, so it gets the well's treatment"
-    );
-  });
-
-  await t.test("seats a note row, the preview and the well identically", () => {
+  await t.test("seats a note row, a genus row and the well identically", () => {
     // The three places a whole martyria appears must agree, because the user
-    // reads them against each other: the row is what they pick, the preview is
-    // what they are about to commit, and the well is what they committed. One
-    // mechanism, one offset.
+    // reads them against each other: the Notes row is the letter they picked,
+    // the Genus row is the pair they are about to commit, and the well is what
+    // they committed. One mechanism, one offset.
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
     const panel = openWell(h, row, "martyria");
 
     fireClick(h, panel.querySelector('.martyria-note-option[data-note="lowPa"]'));
     const option = row.querySelector('.martyria-note-option[data-note="lowPa"]');
-    const preview = row.querySelector(".martyria-picker .byz-preview");
-    fireClick(h, row.querySelector(".martyria-picker .byz-apply"));
+    const genusRow = row.querySelector('.martyria-genus-option[data-genus="alpha"]');
+    fireClick(h, genusRow);
     const well = row.querySelector(".martyria-well");
 
     const dy = (el) => el.querySelector(".glyph-ink").style.getPropertyValue("--ink-dy");
-    assert.equal(dy(option), dy(preview), "the picked row and the preview must agree");
-    assert.equal(dy(preview), dy(well), "and the preview and the well must agree");
+    assert.equal(dy(option), dy(genusRow), "the picked letter and the genus preview must agree");
+    assert.equal(dy(genusRow), dy(well), "and the preview and the well must agree");
   });
 
   await t.test("holds a note row's letter at the height the face draws it", () => {
@@ -1344,87 +1269,99 @@ test("how a picker row shows its symbol", async (t) => {
 });
 
 test("what a genus row shows", async (t) => {
-  // A genus row offers a mark, so a row shows that mark and nothing else. The
-  // composition it makes with the chosen letter is one thing, shown once, in
-  // the footer preview — which is also the only place the octave tick appears.
-  const glyphOf = (option) => option.querySelector(".byz-glyph").textContent;
+  // A genus row is the commit button for one pair, so it previews that pair:
+  // the drafted letter carrying this genus's mark. The letter is drawn a second
+  // time over the composition, greyed, so the mark — the one thing the row is
+  // actually offering — is what stays black.
+  const composedOf = (option) => option.querySelector(".byz-glyph").dataset.glyph;
+  const mutedOf = (option) => option.querySelector(".byz-glyph").dataset.mutedGlyph;
 
-  await t.test("shows the mark on its own, not stacked on the note", () => {
-    const h = byzantineApp(t);
-    const row = noteRows(h)[0];
+  function draft(h, row, note) {
     const panel = openWell(h, row, "martyria");
-    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midPa"]'));
+    fireClick(h, panel.querySelector(`.martyria-note-option[data-note="${note}"]`));
+    return row;
+  }
+
+  await t.test("composes the mark onto the drafted letter", () => {
+    const h = byzantineApp(t);
+    const row = draft(h, noteRows(h)[0], "midPa");
 
     const option = row.querySelector('.martyria-genus-option[data-genus="alpha"]');
 
     assert.equal(
-      glyphOf(option),
-      h.app.resolveGenusGlyph("midPa", "alpha"),
-      "the row should carry the bare genus mark"
-    );
-    assert.equal(glyphOf(option).length, 1, "one glyph, with no letter under it");
-    assert.notEqual(
-      glyphOf(option),
+      composedOf(option),
       h.app.resolveMartyriaGlyphs("midPa", "alpha", 0),
-      "the composed martyria belongs to the preview, not to the row"
+      "the row should carry the whole martyria, not the bare mark"
+    );
+    assert.equal(
+      composedOf(option).length,
+      2,
+      "letter and mark, so the mark can attach to the letter's anchor"
     );
   });
 
-  await t.test("offers None as an empty box, since it adds no mark", () => {
+  await t.test("draws the letter a second time so it can be greyed", () => {
     const h = byzantineApp(t);
-    const row = noteRows(h)[0];
-    const panel = openWell(h, row, "martyria");
-    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midPa"]'));
+    const row = draft(h, noteRows(h)[0], "midPa");
+
+    const option = row.querySelector('.martyria-genus-option[data-genus="alpha"]');
+    const layers = option.querySelectorAll(".byz-glyph .glyph-ink > *");
+
+    assert.equal(
+      mutedOf(option),
+      h.app.resolveMartyriaGlyphs("midPa", h.app.GENUS_NONE, 0),
+      "the muted layer is the letter alone: a mark drawn without it would not attach"
+    );
+    assert.equal(layers.length, 2, "one layer for the composition, one for the letter over it");
+    assert.equal(layers[0].textContent, h.app.resolveMartyriaGlyphs("midPa", "alpha", 0));
+    assert.ok(
+      layers[1].classList.contains("glyph-muted"),
+      "the letter goes on top, greyed, leaving the mark below it black"
+    );
+    assert.equal(layers[1].textContent, h.app.resolveMartyriaGlyphs("midPa", h.app.GENUS_NONE, 0));
+  });
+
+  await t.test("offers None as the bare letter, since it adds no mark", () => {
+    const h = byzantineApp(t);
+    const row = draft(h, noteRows(h)[0], "midPa");
 
     const none = row.querySelector('.martyria-genus-option[data-genus="none"]');
 
-    assert.equal(glyphOf(none), "", "None means no mark, so there is nothing to draw");
+    assert.equal(
+      composedOf(none),
+      h.app.resolveMartyriaGlyphs("midPa", h.app.GENUS_NONE, 0),
+      "None commits the letter on its own, so that is what it previews"
+    );
   });
 
   await t.test("takes its mark from the register the letter belongs to", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
-    const panel = openWell(h, row, "martyria");
 
-    fireClick(h, panel.querySelector('.martyria-note-option[data-note="lowPa"]'));
-    const low = glyphOf(row.querySelector('.martyria-genus-option[data-genus="alpha"]'));
+    draft(h, row, "lowPa");
+    const low = composedOf(row.querySelector('.martyria-genus-option[data-genus="alpha"]'));
     fireClick(h, row.querySelector('.martyria-note-option[data-note="midPa"]'));
-    const mid = glyphOf(row.querySelector('.martyria-genus-option[data-genus="alpha"]'));
+    const mid = composedOf(row.querySelector('.martyria-genus-option[data-genus="alpha"]'));
 
     assert.notEqual(low, mid, "a low letter takes its marks from a different set");
-    assert.equal(low, h.app.resolveMartyriaGlyphs("lowPa", "alpha", 0)[1]);
-    assert.equal(mid, h.app.resolveMartyriaGlyphs("midPa", "alpha", 0)[1]);
+    assert.equal(low, h.app.resolveMartyriaGlyphs("lowPa", "alpha", 0));
+    assert.equal(mid, h.app.resolveMartyriaGlyphs("midPa", "alpha", 0));
   });
 
-  await t.test("seats a mark on the side it will attach to", () => {
+  await t.test("carries the drafted octave tick, so the row is the whole truth", () => {
     const h = byzantineApp(t);
+    h.app.writeMartyria(noteRows(h)[1], "highZo", h.app.GENUS_NONE, 1);
     const row = noteRows(h)[0];
+
     const panel = openWell(h, row, "martyria");
+    fireClick(h, panel.querySelector('.martyria-note-option[data-note="highZo"][data-ticks="1"]'));
 
-    fireClick(h, panel.querySelector('.martyria-note-option[data-note="lowPa"]'));
-    assert.ok(
-      row.querySelector(".martyria-genus-column").classList.contains("genus-above"),
-      "a low-octave letter takes its mark above, and the column has to say so"
-    );
-
-    fireClick(h, row.querySelector('.martyria-note-option[data-note="midPa"]'));
-    assert.ok(
-      row.querySelector(".martyria-genus-column").classList.contains("genus-below"),
-      "a middle-octave letter takes it below"
-    );
-  });
-
-  await t.test("leaves the composition to the preview", () => {
-    const h = byzantineApp(t);
-    const row = noteRows(h)[0];
-    const panel = openWell(h, row, "martyria");
-    fireClick(h, panel.querySelector('.martyria-note-option[data-note="midPa"]'));
-    fireClick(h, row.querySelector('.martyria-genus-option[data-genus="alpha"]'));
-
-    assert.equal(
-      row.querySelector(".martyria-picker .byz-preview").textContent,
-      h.app.resolveMartyriaGlyphs("midPa", "alpha", 0),
-      "the preview is where letter and mark come together"
+    const option = row.querySelector('.martyria-genus-option[data-genus="nana"]');
+    assert.equal(composedOf(option), h.app.resolveMartyriaGlyphs("highZo", "nana", 1));
+    assert.notEqual(
+      composedOf(option),
+      h.app.resolveMartyriaGlyphs("highZo", "nana", 0),
+      "the tick is part of what the row would commit, so the row has to show it"
     );
   });
 });
@@ -1451,27 +1388,20 @@ test("keeping your place in a picker", async (t) => {
     );
   });
 
-  await t.test("holds the Genus column still when a genus is picked", () => {
+  await t.test("takes the Genus column back to the top when a new letter is picked", () => {
     const h = byzantineApp(t);
     const row = noteRows(h)[0];
     const panel = openWell(h, row, "martyria");
     fireClick(h, panel.querySelector('.martyria-note-option[data-note="midDi"]'));
     scrollerOf(row, "genus").scrollTop = 180;
 
-    fireClick(h, row.querySelector('.martyria-genus-option[data-genus="zygos"]'));
+    fireClick(h, row.querySelector('.martyria-note-option[data-note="midGa"]'));
 
-    assert.equal(scrollerOf(row, "genus").scrollTop, 180);
-  });
-
-  await t.test("holds the fthora list still when a fthora is picked", () => {
-    const h = byzantineApp(t);
-    const row = noteRows(h)[0];
-    const panel = openWell(h, row, "fthora");
-    scrollerOf(row, "fthora").scrollTop = 240;
-
-    fireClick(h, panel.querySelector('.fthora-option[data-fthora="enharmonic"]'));
-
-    assert.equal(scrollerOf(row, "fthora").scrollTop, 240);
+    assert.equal(
+      scrollerOf(row, "genus").scrollTop,
+      0,
+      "the list was re-resolved and put back to None, so None is what must be in view"
+    );
   });
 
   await t.test("starts a fresh panel at the top", () => {

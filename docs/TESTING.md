@@ -307,10 +307,10 @@ number.
 | `noteRows(h)` / `intervalRows(h)` | The editor's rows, in order. |
 | `setNotation(h, value)` | Switch `#notation` (`"generic"` or `"byzantine"`) and dispatch `change`. |
 | `openWell(h, row, kind)` | Click a note row's `"alteration"`, `"fthora"` or `"martyria"` well; returns its picker panel. |
-| `pickAlteration(h, row, alterationId, { dismiss })` | Open the alteration picker, click one option (`""` picks None) and dismiss the panel. |
-| `pickFthora(h, row, fthoraId, { dismiss })` | Open the fthora picker, click one option (`""` picks None) and dismiss the panel. |
-| `pickMartyria(h, row, { note, genus, ticks, dismiss })` | Open the martyria picker, click a note and/or genus option and dismiss the panel. |
-| `dismissPicker(h, row, how, kind)` | The four real ways out of a picker: `"apply"` commits (and, for a martyria, propagates the ladder); `"cancel"`, `"outside"` and `"well"` all discard the draft; `"none"` leaves the panel open to inspect. `pickAlteration`/`pickFthora`/`pickMartyria` take the same word as `dismiss`, defaulting to `"apply"`. |
+| `pickAlteration(h, row, alterationId)` | Open the alteration picker and click one option (`""` picks None), which commits and closes it. |
+| `pickFthora(h, row, fthoraId)` | Open the fthora picker and click one option (`""` picks None), which commits and closes it. |
+| `pickMartyria(h, row, { note, genus, ticks, dismiss })` | Open the martyria picker, click a letter, then click a genus — the click that commits and propagates the ladder. `genus` defaults to None rather than being skipped, because a letter alone never reaches the row; `note: ""` clears the well and returns. `dismiss` stops after the letter and leaves by that gesture instead. |
+| `dismissPicker(h, row, how, kind)` | Leave a picker without picking: `"outside"` and `"well"` are the two gestures that discard, `"none"` leaves the panel open to inspect. There is no `"apply"` and no `"cancel"` — clicking a row *is* the commit, so the only way not to commit is not to click one. |
 
 Everything goes through real DOM events. Do not call the app's internal
 functions to *set up* state when a helper can drive the UI — a test that

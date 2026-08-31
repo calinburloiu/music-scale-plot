@@ -53,16 +53,19 @@ half is visible. Switching notation therefore discards nothing.
 
 Every note row also carries the **alteration well**, the **fthora well** and the **martyria
 well**, each a small button that shows the resolved glyph (or sits empty) and opens its own
-picker panel when clicked. A picker edits a draft of its own: clicking inside it changes only what the panel
-shows, **Apply** writes that draft to the row, and Cancel — or a click outside, or a second
-click on the well — discards it. See **Notation** below.
+picker panel when clicked. Clicking a row of a picker is the whole gesture: it writes the
+choice to the note row and closes the panel. There is no Apply and no Cancel — a click
+outside, a second click on the well or another picker opening all dismiss without changing
+anything. The martyria picker is the one that takes two clicks, because it commits a pair:
+its Notes column only narrows the Genus column beside it (and resets the genus to None), and
+the genus click commits. See **Notation** below.
 
 A picker opens on the choice the row already holds, scrolled into view; a martyria picker
 with nothing set opens on the middle octave rather than the top of a twenty-one row list.
-The martyria well, the picker's note rows and the picker's footer preview all place their
-glyph the same way, on one baseline shared by the whole martyria vocabulary, so a letter
-lands at the height the face draws it — which is the only thing distinguishing a low-octave
-letter from its middle-octave twin. See `docs/BYZANTINE-SYMBOLS.md` §8.
+The martyria well, the picker's note rows and the picker's genus rows all place their glyph
+the same way, on one baseline shared by the whole martyria vocabulary, so a letter lands at
+the height the face draws it — which is the only thing distinguishing a low-octave letter
+from its middle-octave twin. See `docs/BYZANTINE-SYMBOLS.md` §8.
 
 ## Data Model
 
@@ -157,8 +160,10 @@ outside `byzantine.js` should ever construct a codepoint by hand.
 **The pickers.** Two of the three wells hold a single value from one flat vocabulary and
 differ only in their vocabulary, their resolver and the attribute they read and write; they
 are rows in `BYZ_SIMPLE_WELLS` (`byzantine-ui.js`) rather than parallel code paths, and the
-class names and selectors are derived from that table. The martyria's picker stays bespoke —
-two columns, a three-field draft, ladder propagation on apply.
+class names and selectors are derived from that table; a click on one of their rows commits
+and closes. The martyria's picker stays bespoke — two columns, a three-field draft that the
+Notes column moves and the Genus column commits, genus rows that preview the whole
+composition, and ladder propagation on the commit.
 
 **The note ladder.** A martyria names an absolute degree, so raising or lowering a scale's
 base note must be able to walk every other degree's martyria up or down in lock-step. The

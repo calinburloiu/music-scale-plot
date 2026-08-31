@@ -10,17 +10,16 @@
 // Every well but the martyria holds a single sign chosen from one flat
 // vocabulary, and they differ only in three things: the label they wear, the
 // data-* attribute they read and write, and the resolver that turns an id into
-// a glyph. Everything else — the draft, the footer, Apply/Cancel, scroll
-// restoration, the class names — is shared, so the differences are *described*
-// here rather than branched on in a dozen places. A new sign family is a row in
-// this table.
+// a glyph. Everything else — opening, committing, dismissing, the class names —
+// is shared, so the differences are *described* here rather than branched on in
+// a dozen places. A new sign family is a row in this table.
 //
 // The class names are derived from `kind`, not listed: a well of kind `k` is
 // `.k-well` inside `.k-well-wrapper`, its panel is `.k-picker` with a
 // `.k-picker-body`, and its rows are `.k-option` carrying `data-k`. The
-// martyria is not in the table — it drafts three fields across two columns and
-// propagates a ladder on apply, so it genuinely is a different thing — but it
-// is a well, so `BYZ_WELL_KINDS` and `byzSelector` include it.
+// martyria is not in the table — it takes two clicks across two columns and
+// propagates a ladder when it commits, so it genuinely is a different thing —
+// but it is a well, so `BYZ_WELL_KINDS` and `byzSelector` include it.
 //
 // Table order is the order the wells appear on a note row, left to right.
 const BYZ_SIMPLE_WELLS = freezeTable([
@@ -47,11 +46,6 @@ const BYZ_WELL_KINDS = Object.freeze(BYZ_SIMPLE_WELLS.map((well) => well.kind).c
 /** `.fthora-well, .martyria-well` and friends — one clause per well kind. */
 function byzSelector(suffix) {
   return BYZ_WELL_KINDS.map((kind) => "." + kind + suffix).join(", ");
-}
-
-/** Where a simple well's draft lives on its panel: `fthora` → `draftFthora`. */
-function byzDraftAttr(kind) {
-  return "draft" + kind.charAt(0).toUpperCase() + kind.slice(1);
 }
 
 /** The descriptor for a panel's well, or null when the panel is a martyria's. */
@@ -165,22 +159,38 @@ function wellMeasuringContext() {
  * `placement` is one of:
  *
  *   "center"   the glyph's own ink, centred — a sign shown on its own.
- *   "top"      pinned against an edge of the box. What the genus list needs:
- *   "bottom"     a mark shown without its letter has to say which way it faces.
  *   "martyria" the shared martyria baseline, so a letter lands where the face
  *              draws it and a mark cannot drag it off that spot.
+ *
+ * (`inkCenteringShift` also takes "top" and "bottom", which pin a glyph against
+ * an edge of its line box. Nothing in the editor asks for that any more, now
+ * that a genus row shows a whole composition rather than a bare mark.)
+ *
+ * `mutedText` is drawn a second time on top of `text`, in a layer of its own,
+ * for the genus rows: they preview a whole martyria but are *about* the mark, so
+ * the letter is repainted over itself in grey and the mark below it stays black.
+ * A mark cannot simply be coloured on its own — it is a combining glyph the font
+ * attaches to the letter's anchor, and splitting the pair across two elements
+ * would leave it unattached — so the pair is drawn whole and the letter covers
+ * its own copy. Both layers share the wrapper's offset, which is what keeps the
+ * two copies of the letter exactly on top of each other.
  *
  * The offset comes back in em, so it is right for the 22px well and the 24px
  * picker row alike and does not depend on the box being in the document — a box
  * filled during a rebuild has no computed size to measure against.
  */
-function setGlyphBoxText(box, text, placement) {
+function setGlyphBoxText(box, text, placement, mutedText) {
   box.textContent = "";
   if (!text) return;
 
   const ink = document.createElement("span");
   ink.className = "glyph-ink";
-  ink.textContent = text;
+  if (mutedText) {
+    ink.appendChild(glyphLayer(text));
+    ink.appendChild(glyphLayer(mutedText, "glyph-muted"));
+  } else {
+    ink.textContent = text;
+  }
 
   const ctx = wellMeasuringContext();
   const shared =
@@ -192,6 +202,13 @@ function setGlyphBoxText(box, text, placement) {
   box.appendChild(ink);
 }
 
+function glyphLayer(text, className) {
+  const layer = document.createElement("span");
+  layer.className = className ? "glyph-layer " + className : "glyph-layer";
+  layer.textContent = text;
+  return layer;
+}
+
 function fillWell(well, text, placement) {
   setGlyphBoxText(well, text, placement);
   well.classList.toggle("is-empty", !text);
@@ -200,35 +217,29 @@ function fillWell(well, text, placement) {
 /**
  * Boxes and places every sign in a freshly built panel.
  *
- * Re-reading `textContent` picks the glyph back up whether the box still holds
- * a bare text node or an already-wrapped one, which keeps a rebuild idempotent.
+ * A box carries the glyphs it was built with as data-*, not as its own text:
+ * a genus row holds two — the composition and the letter that is greyed over it
+ * — and reading them back off the box keeps a rebuild idempotent whatever the
+ * previous pass left inside it.
  */
 function centerPickerGlyphs(panel) {
-  for (const box of panel.querySelectorAll(".byz-glyph, .byz-preview")) {
-    setGlyphBoxText(box, box.textContent, glyphBoxPlacement(box));
+  for (const box of panel.querySelectorAll(".byz-glyph")) {
+    setGlyphBoxText(box, box.dataset.glyph || "", glyphBoxPlacement(box), box.dataset.mutedGlyph);
   }
 }
 
 /**
  * Where a box should seat its sign.
  *
- * The genus list pins: a mark shown on its own has lost the letter that would
- * say which way it faces, so the box says it instead — a mark that stacks above
- * the letter rides the top of its box, one that stacks below sits at the
- * bottom.
- *
- * Anything showing a whole martyria — a note row, the footer preview, the well
- * itself — takes the shared martyria baseline, so all three agree and none of
- * them normalises the register away. A fthora and a sign of alteration have no
- * family to sit in, so each is centred on its own ink.
+ * Everything in the martyria picker shows a whole martyria — the Notes column
+ * its letter, the Genus column that letter carrying a mark — so both columns
+ * take the shared martyria baseline, which is also the well's. The letter then
+ * holds still down the whole panel and across the commit, and no box normalises
+ * a register away. A fthora and a sign of alteration have no family to sit in,
+ * so each is centred on its own ink.
  */
 function glyphBoxPlacement(box) {
-  const column = box.closest(".martyria-genus-column");
-  if (column) return column.classList.contains("genus-above") ? "top" : "bottom";
-  if (box.closest(".martyria-notes-column") || box.classList.contains("byz-preview")) {
-    return "martyria";
-  }
-  return "center";
+  return box.closest(".martyria-picker-body") ? "martyria" : "center";
 }
 
 function refreshNoteRowWells(row) {
@@ -284,36 +295,33 @@ function applyNoteSymbolAttrs(row, attrs) {
 // closeAllDropdowns(), which is the same machinery the colour picker uses, so
 // the two can never be open together.
 //
-// An open picker edits a *draft*, not the scale. Opening seeds the draft from
-// the row; clicking an option moves the draft and rebuilds the panel around it;
-// only Apply writes it back. Every other way out — Cancel, a click outside, a
-// second click on the well, opening another picker — discards the draft and
-// leaves the scale exactly as it was.
+// Clicking a row is the whole gesture: the sign goes on the note and the panel
+// closes behind it. There is no Apply and no Cancel, and the only way not to
+// commit is not to click a row — a click outside, a second click on the well, or
+// opening another picker, all of which leave the scale exactly as it was.
+//
+// The martyria is the exception, because it commits a *pair*: the Notes column
+// narrows the Genus column and nothing more, and the genus click is what
+// reaches the row. That intermediate letter is the one thing a panel still has
+// to remember, so the martyria picker — and only it — carries a draft. Picking
+// None in the Notes column is its own commit, having no genus left to confirm.
 // ---------------------------------------------------------------------------
 
 // The draft lives on the panel element, for the same reason a row's symbols
 // live on the row: the DOM is this app's data model, and a panel that is torn
 // down and rebuilt on every click needs its pending value to outlive its
 // contents.
-const PICKER_DRAFT_ATTRS = BYZ_SIMPLE_WELLS.map((well) => byzDraftAttr(well.kind)).concat([
-  "draftNote",
-  "draftGenus",
-  "draftTicks",
-]);
+const PICKER_DRAFT_ATTRS = ["draftNote", "draftGenus", "draftTicks"];
 
 function clearPickerDraft(panel) {
   for (const key of PICKER_DRAFT_ATTRS) delete panel.dataset[key];
 }
 
-/** Starts a panel's draft from the symbols its row currently holds. */
+/** Starts a martyria panel's draft from the symbols its row currently holds. */
 function seedPickerDraft(panel, row) {
   clearPickerDraft(panel);
-  const symbols = readNoteSymbols(row);
-  const well = panelWell(panel);
-  if (well) panel.dataset[byzDraftAttr(well.kind)] = symbols[well.kind];
-  else if (symbols.martyria) {
-    writeMartyriaDraft(panel, symbols.martyria.note, symbols.martyria.genus, symbols.martyria.ticks);
-  }
+  const martyria = readNoteSymbols(row).martyria;
+  if (martyria) writeMartyriaDraft(panel, martyria.note, martyria.genus, martyria.ticks);
 }
 
 /** The drafted martyria, in the shape `readNoteSymbols` returns, or null. */
@@ -341,22 +349,13 @@ function writeMartyriaDraft(panel, noteId, genusId, ticks) {
   panel.dataset.draftTicks = String(ticks || 0);
 }
 
-/** True when applying the draft would actually change the row. */
-function pickerDraftIsDirty(panel, row) {
-  const symbols = readNoteSymbols(row);
-  const well = panelWell(panel);
-  if (well) {
-    return (panel.dataset[byzDraftAttr(well.kind)] || "") !== symbols[well.kind];
-  }
-  const draft = readMartyriaDraft(panel);
-  const current = symbols.martyria;
-  if (!draft || !current) return Boolean(draft) !== Boolean(current);
-  return (
-    draft.note !== current.note || draft.genus !== current.genus || draft.ticks !== current.ticks
-  );
-}
-
-/** One clickable row of a picker: a glyph preview and a label. */
+/**
+ * One clickable row of a picker: a glyph preview and a label.
+ *
+ * `spec.mutedGlyph`, when given, is drawn over `spec.glyph` in grey — see
+ * `setGlyphBoxText`. Both are left on the box as data-* for `centerPickerGlyphs`
+ * to place once the row is in its panel and its placement can be read off it.
+ */
 function makeByzOption(spec) {
   const button = document.createElement("button");
   button.type = "button";
@@ -366,7 +365,8 @@ function makeByzOption(spec) {
 
   const glyph = document.createElement("span");
   glyph.className = "byz-glyph";
-  glyph.textContent = spec.glyph;
+  glyph.dataset.glyph = spec.glyph;
+  if (spec.mutedGlyph) glyph.dataset.mutedGlyph = spec.mutedGlyph;
 
   const label = document.createElement("span");
   label.className = "byz-label";
@@ -458,7 +458,7 @@ function revealPickerSelection(panel) {
 /**
  * Nudges a freshly opened panel into view when it opens below the fold. The
  * panels deliberately do not flip up — the lists scroll instead — but a well
- * near the bottom of a long editor can still push Apply past the viewport.
+ * near the bottom of a long editor can still push the list past the viewport.
  * Guarded: jsdom implements no scrollIntoView.
  */
 function keepPickerInView(panel) {
@@ -476,15 +476,14 @@ function keepPickerInView(panel) {
  * list of all sixteen and no rule, exactly as `buildGenusColumn` goes inert
  * when the draft has no note.
  *
- * The note read here is the row's *committed* martyria, not a draft: only one
- * picker is open at a time and applying a martyria closes every panel, so the
- * next fthora open always re-reads current state. A committed fthora that is
- * not compatible still renders selected — below the rule, where it was offered.
+ * The note read here is the row's committed martyria: only one picker is open
+ * at a time and committing a martyria closes every panel, so the next fthora
+ * open always re-reads current state. A committed fthora that is not compatible
+ * still renders selected — below the rule, where it was offered.
  */
 function buildFthoraPicker(panel, row) {
-  const draft = panel.dataset.draftFthora || "";
+  const committed = row.dataset.fthora || "";
   const noteId = row.dataset.martyriaNote || "";
-  const scroll = readPickerScroll(panel);
   panel.innerHTML = "";
 
   const body = document.createElement("div");
@@ -501,7 +500,7 @@ function buildFthoraPicker(panel, row) {
       glyph: resolveFthoraGlyph(id),
       label: byzFthoraById(id).label,
     });
-    if (draft === id) option.classList.add("is-selected");
+    if (committed === id) option.classList.add("is-selected");
     return option;
   }
 
@@ -518,9 +517,7 @@ function buildFthoraPicker(panel, row) {
   }
 
   panel.appendChild(body);
-  panel.appendChild(buildPickerFooter(panel, row));
   centerPickerGlyphs(panel);
-  restorePickerScroll(panel, scroll);
 }
 
 /**
@@ -533,8 +530,7 @@ function buildFthoraPicker(panel, row) {
  * register to prefer.
  */
 function buildAlterationPicker(panel, row) {
-  const draft = panel.dataset.draftAlteration || "";
-  const scroll = readPickerScroll(panel);
+  const committed = row.dataset.alteration || "";
   panel.innerHTML = "";
 
   const body = document.createElement("div");
@@ -562,15 +558,13 @@ function buildAlterationPicker(panel, row) {
         glyph: resolveAlterationGlyph(alteration.id),
         label: alteration.label,
       });
-      if (draft === alteration.id) option.classList.add("is-selected");
+      if (committed === alteration.id) option.classList.add("is-selected");
       body.appendChild(option);
     }
   }
 
   panel.appendChild(body);
-  panel.appendChild(buildPickerFooter(panel, row));
   centerPickerGlyphs(panel);
-  restorePickerScroll(panel, scroll);
 }
 
 function noteRowDegree(row) {
@@ -613,45 +607,8 @@ function buildMartyriaPicker(panel, row) {
   body.appendChild(buildGenusColumn(draft));
   panel.appendChild(body);
 
-  // The well still shows the committed martyria, so the footer is the only
-  // place the draft is visible whole — and the only place its octave tick is.
-  panel.appendChild(
-    buildPickerFooter(panel, row, draft ? resolveMartyriaGlyphs(draft.note, draft.genus, draft.ticks) : "")
-  );
   centerPickerGlyphs(panel);
   restorePickerScroll(panel, scroll);
-}
-
-/**
- * Cancel and Apply, and for the martyria picker a preview of the draft.
- * Apply is dead while the draft still matches the row: there is nothing to
- * apply, and pressing it would only re-run the ladder for no reason.
- */
-function buildPickerFooter(panel, row, previewText) {
-  const footer = document.createElement("div");
-  footer.className = "byz-picker-footer";
-
-  if (previewText !== undefined) {
-    const preview = document.createElement("div");
-    preview.className = "byz-preview";
-    preview.textContent = previewText;
-    footer.appendChild(preview);
-  }
-
-  const cancel = document.createElement("button");
-  cancel.type = "button";
-  cancel.className = "byz-cancel";
-  cancel.textContent = "Cancel";
-  footer.appendChild(cancel);
-
-  const apply = document.createElement("button");
-  apply.type = "button";
-  apply.className = "byz-apply";
-  apply.textContent = "Apply";
-  apply.disabled = !pickerDraftIsDirty(panel, row);
-  footer.appendChild(apply);
-
-  return footer;
 }
 
 function buildNotesColumn(degree, degreeCount, draft, showTicks) {
@@ -711,19 +668,20 @@ function buildGenusColumn(draft) {
     return column;
   }
 
-  // Which side the marks in this list will stack on. The rows are then laid
-  // out around the note letter rather than around each composition's own ink,
-  // so the letter holds still and the mark's side reads at a glance.
-  column.classList.add("genus-" + martyriaMarkSide(draft.note));
+  // A genus row is the click that commits, so it previews exactly what it would
+  // commit: the drafted letter — octave tick and all — carrying this genus's
+  // mark. Its subject is still the mark, so the letter is repainted over itself
+  // in grey and only the mark stays black; see `setGlyphBoxText`. Every row
+  // shares the martyria baseline, so the letter holds still down the list and
+  // the mark is the one thing that moves.
+  const letter = resolveMartyriaGlyphs(draft.note, GENUS_NONE, draft.ticks);
 
-  // A row's subject is the mark, so a row shows the mark alone. Letter and mark
-  // meet once, in the footer preview, which is also the only place the octave
-  // tick appears — the tick marks a register, not a genus.
   function genusOption(id, label) {
     const option = makeByzOption({
       className: "martyria-genus-option",
       data: { genus: id },
-      glyph: resolveGenusGlyph(draft.note, id),
+      glyph: resolveMartyriaGlyphs(draft.note, id, draft.ticks),
+      mutedGlyph: letter,
       label: label,
     });
     if (draft.genus === id) option.classList.add("is-selected");
@@ -752,10 +710,13 @@ function toggleWellPicker(well) {
   if (wasOpen) return;
 
   const row = well.closest(".note-row");
-  seedPickerDraft(panel, row);
   const descriptor = panelWell(panel);
-  if (descriptor) descriptor.build(panel, row);
-  else buildMartyriaPicker(panel, row);
+  if (descriptor) {
+    descriptor.build(panel, row);
+  } else {
+    seedPickerDraft(panel, row);
+    buildMartyriaPicker(panel, row);
+  }
   panel.classList.add("open");
   row.classList.add("picker-open");
   revealPickerSelection(panel);
@@ -763,10 +724,11 @@ function toggleWellPicker(well) {
 }
 
 /**
- * Closes whatever picker is open and throws its draft away. Apply is the only
- * gesture that commits, so every path through here — Cancel, a click outside,
- * a second click on the well, another picker opening — leaves the scale
- * untouched, and an untouched scale has nothing to redraw.
+ * Closes whatever picker is open and throws its draft away. Committing is done
+ * by the click that chose a row, before this runs, so every path that reaches
+ * here on its own — a click outside, a second click on the well, another picker
+ * opening — leaves the scale untouched, and an untouched scale has nothing to
+ * redraw.
  */
 function closeByzantinePickers() {
   for (const panel of editor.querySelectorAll(byzSelector("-picker.open"))) {
@@ -777,56 +739,57 @@ function closeByzantinePickers() {
   }
 }
 
-/** Moves the open panel's draft, then rebuilds the panel around it. */
+/**
+ * Acts on a click on one picker row.
+ *
+ * Everything but a martyria letter commits and closes. A letter only moves the
+ * draft and rebuilds the panel, because the genus list has to be re-resolved
+ * around it — and the drafted genus goes back to None, since a genus chosen for
+ * the previous letter is not a choice the user made for this one.
+ */
 function selectByzantineOption(option) {
   const row = option.closest(".note-row");
   if (!row) return;
 
   const well = BYZ_SIMPLE_WELLS.find((w) => option.classList.contains(w.kind + "-option"));
   if (well) {
-    const panel = row.querySelector("." + well.kind + "-picker");
-    panel.dataset[byzDraftAttr(well.kind)] = option.dataset[well.kind];
-    well.build(panel, row);
+    writeNoteSign(row, well.kind, option.dataset[well.kind]);
+    closeAllDropdowns();
+    render();
     return;
   }
 
   const panel = row.querySelector(".martyria-picker");
   if (option.classList.contains("martyria-note-option")) {
-    const draft = readMartyriaDraft(panel);
-    writeMartyriaDraft(
-      panel,
-      option.dataset.note,
-      draft ? draft.genus : GENUS_NONE,
-      parseInt(option.dataset.ticks, 10) || 0
-    );
-  } else if (option.classList.contains("martyria-genus-option")) {
-    const draft = readMartyriaDraft(panel);
-    if (!draft) return;
-    writeMartyriaDraft(panel, draft.note, option.dataset.genus, draft.ticks);
-  } else {
+    // None is the one letter with no genus to confirm, so it commits itself —
+    // otherwise an empty well would be unreachable.
+    if (!option.dataset.note) {
+      commitMartyria(row, null);
+      return;
+    }
+    writeMartyriaDraft(panel, option.dataset.note, GENUS_NONE, parseInt(option.dataset.ticks, 10) || 0);
+    buildMartyriaPicker(panel, row);
+    // The list below is a different list now, and its selection is back at the
+    // top, so the reader's old place in it is worse than useless.
+    const genus = panel.querySelector('[data-scroller="genus"]');
+    if (genus) genus.scrollTop = 0;
     return;
   }
-  // Rebuild so the genus previews recompose on the drafted letter and the
-  // footer follows it. The panel stays open until Apply or Cancel.
-  buildMartyriaPicker(panel, row);
+
+  if (option.classList.contains("martyria-genus-option")) {
+    const draft = readMartyriaDraft(panel);
+    if (!draft) return;
+    commitMartyria(row, { note: draft.note, genus: option.dataset.genus, ticks: draft.ticks });
+  }
 }
 
-/** Writes the open panel's draft to its row, and runs the ladder after it. */
-function applyPickerDraft(panel) {
-  const row = panel.closest(".note-row");
-  if (!row) return;
-
-  const well = panelWell(panel);
-  if (well) {
-    writeNoteSign(row, well.kind, panel.dataset[byzDraftAttr(well.kind)] || "");
-  } else {
-    const draft = readMartyriaDraft(panel);
-    if (draft) writeMartyria(row, draft.note, draft.genus, draft.ticks);
-    else clearMartyria(row);
-    // The letter the user confirmed anchors the ladder; the rest follows it.
-    // A cleared well anchors nothing, and propagation returns on its own.
-    propagateMartyriaLadder(row);
-  }
+/** Writes a martyria to its row, runs the ladder after it, and closes up. */
+function commitMartyria(row, martyria) {
+  if (martyria) writeMartyria(row, martyria.note, martyria.genus, martyria.ticks);
+  else clearMartyria(row);
+  // The letter the user confirmed anchors the ladder; the rest follows it.
+  // A cleared well anchors nothing, and propagation returns on its own.
+  propagateMartyriaLadder(row);
   closeAllDropdowns();
   render();
 }
@@ -840,25 +803,6 @@ function handleByzantineClick(e) {
   if (well) {
     e.stopPropagation();
     toggleWellPicker(well);
-    return true;
-  }
-
-  const apply = e.target.closest(".byz-apply");
-  if (apply) {
-    e.stopPropagation();
-    // A dead Apply is a dead click: it must not even dismiss the panel.
-    if (!apply.disabled) {
-      applyPickerDraft(apply.closest(byzSelector("-picker")));
-    }
-    return true;
-  }
-
-  const cancel = e.target.closest(".byz-cancel");
-  if (cancel) {
-    e.stopPropagation();
-    // Cancel is the explicit spelling of every other dismissal; closing
-    // discards the draft.
-    closeAllDropdowns();
     return true;
   }
 
