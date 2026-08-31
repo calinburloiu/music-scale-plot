@@ -4,7 +4,7 @@ Follow-up to issue **#2**. The work here is tagged `[#2]` like the rest of the
 Byzantine notation effort, even though the issue itself is closed.
 
 Companion to
-[`issues/002-byzantine-symbols/FTHORA-COMPATIBILITY.md`](../../../issues/002-byzantine-symbols/FTHORA-COMPATIBILITY.md),
+[`FTHORA-COMPATIBILITY.md`](FTHORA-COMPATIBILITY.md),
 which is the research this design is built on. That document establishes *what
 is true*; this one decides *what we build*. Where the two differ, the
 differences are called out explicitly in §2.3 — they are deliberate.
