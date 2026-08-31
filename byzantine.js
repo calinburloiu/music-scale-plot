@@ -125,6 +125,52 @@ const MARTYRIA_COMPATIBILITY = Object.freeze(
   )
 );
 
+// Per note, the fthores that belong on it: the diatonic sign of its own letter,
+// the chromatic pair its position selects, and whatever enharmonic or chroa
+// sign the letter carries. De-duplicated, in BYZ_FTHORES block order, so a row
+// stays stable when it gains an entry.
+//
+// Provenance is *not* MARTYRIA_COMPATIBILITY's. That table was read off the
+// modes table; this one is derived from rules — the same parity rule Neanes'
+// LayoutService uses for its root signs, checked against Neanes' own Fthora
+// Note dropdown. The two therefore agree on the chromatic signs by
+// construction, with one deliberate exception noted on midNi below. See
+// docs/BYZANTINE-SYMBOLS.md §3.
+const FTHORES_COMPATIBILITY = Object.freeze(
+  Object.fromEntries(
+    Object.entries({
+      lowZo:   ["diatonicZo", "hardChromaticDi", "softChromaticDi", "enharmonic"],
+      lowNi:   ["diatonicNiLow", "hardChromaticPa", "softChromaticKe"],
+      lowPa:   ["diatonicPa", "hardChromaticDi", "softChromaticDi"],
+      lowVou:  ["diatonicVou", "hardChromaticPa", "softChromaticKe", "enharmonic"],
+      lowGa:   ["diatonicGa", "hardChromaticDi", "softChromaticDi", "enharmonic", "chroaSpathi"],
+      lowDi:   ["diatonicDi", "hardChromaticPa", "softChromaticKe", "chroaZygos", "chroaKliton"],
+      lowKe:   ["diatonicKe", "hardChromaticDi", "softChromaticDi", "chroaSpathi"],
+      midZo:   ["diatonicZo", "hardChromaticPa", "softChromaticKe", "enharmonic"],
+      // No hardChromaticDi: parity would admit it, but Neanes' Fthora Note
+      // dropdown offers that sign on Ζω′, Δι and Βου only. Deliberate — the
+      // martyria table above still lists it for midNi, because the two tables
+      // are about different signs. Read the design's §2.3 before "fixing" it.
+      midNi:   ["diatonicNiLow", "softChromaticDi"],
+      midPa:   ["diatonicPa", "hardChromaticPa", "softChromaticKe"],
+      midVou:  ["diatonicVou", "hardChromaticDi", "softChromaticDi", "enharmonic"],
+      midGa:   ["diatonicGa", "hardChromaticPa", "softChromaticKe", "enharmonic", "chroaSpathi"],
+      midDi:   ["diatonicDi", "hardChromaticDi", "softChromaticDi", "chroaZygos", "chroaKliton"],
+      midKe:   ["diatonicKe", "hardChromaticPa", "softChromaticKe", "chroaSpathi"],
+      highZo:  ["diatonicZo", "hardChromaticDi", "softChromaticDi", "enharmonic"],
+      // The two Νη fthores split strictly by register: getShift spans one
+      // octave, so the low sign serves both Νη below it and the high sign the
+      // one above. The other is still pickable, one line below the separator.
+      highNi:  ["diatonicNiHigh", "hardChromaticPa", "softChromaticKe"],
+      highPa:  ["diatonicPa", "hardChromaticDi", "softChromaticDi"],
+      highVou: ["diatonicVou", "hardChromaticPa", "softChromaticKe", "enharmonic"],
+      highGa:  ["diatonicGa", "hardChromaticDi", "softChromaticDi", "enharmonic", "chroaSpathi"],
+      highDi:  ["diatonicDi", "hardChromaticPa", "softChromaticKe", "chroaZygos", "chroaKliton"],
+      highKe:  ["diatonicKe", "hardChromaticDi", "softChromaticDi", "chroaSpathi"],
+    }).map(([noteId, fthores]) => [noteId, Object.freeze(fthores)])
+  )
+);
+
 function byzGenusById(id) {
   return BYZ_GENERA.find((genus) => genus.id === id) || null;
 }
@@ -142,6 +188,17 @@ function compatibleGenera(noteId) {
 function otherGenera(noteId) {
   const compatible = compatibleGenera(noteId);
   return BYZ_GENERA.filter((genus) => !compatible.includes(genus.id)).map((genus) => genus.id);
+}
+
+/** The fthores that belong on this note, in BYZ_FTHORES block order. */
+function compatibleFthores(noteId) {
+  return FTHORES_COMPATIBILITY[noteId] || [];
+}
+
+/** Every other fthora, in BYZ_FTHORES block order — the uncommon choices. */
+function otherFthores(noteId) {
+  const compatible = compatibleFthores(noteId);
+  return BYZ_FTHORES.filter((fthora) => !compatible.includes(fthora.id)).map((fthora) => fthora.id);
 }
 
 // ---------------------------------------------------------------------------

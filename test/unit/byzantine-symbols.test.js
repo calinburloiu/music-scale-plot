@@ -215,6 +215,226 @@ test("the martyria compatibility table", async (t) => {
   });
 });
 
+test("the fthora compatibility table", async (t) => {
+  await t.test("gives every one of the 21 notes a non-empty fthora list", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    for (const note of Array.from(h.app.BYZ_NOTES)) {
+      const list = h.app.compatibleFthores(note.id);
+      assert.ok(list.length > 0, `${note.id} has no compatible fthores`);
+    }
+  });
+
+  await t.test("names only fthores that exist, with no duplicates", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const known = Array.from(h.app.BYZ_FTHORES).map((f) => f.id);
+    for (const note of Array.from(h.app.BYZ_NOTES)) {
+      const list = h.app.compatibleFthores(note.id);
+      for (const id of list) assert.ok(known.includes(id), `${note.id}: unknown fthora ${id}`);
+      assert.equal(new Set(list).size, list.length, `${note.id}: duplicated fthora`);
+    }
+  });
+
+  await t.test("partitions the sixteen fthores for every note", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const known = Array.from(h.app.BYZ_FTHORES).map((f) => f.id);
+    for (const note of Array.from(h.app.BYZ_NOTES)) {
+      const compatible = h.app.compatibleFthores(note.id);
+      const other = h.app.otherFthores(note.id);
+      assert.equal(
+        compatible.length + other.length,
+        known.length,
+        `${note.id}: every fthora must be in exactly one of the two lists`
+      );
+      assert.equal(
+        other.filter((id) => compatible.includes(id)).length,
+        0,
+        `${note.id}: the two lists must not overlap`
+      );
+    }
+  });
+
+  await t.test("lists the others in BYZ_FTHORES block order", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    equalArray(
+      h.app.otherFthores("midPa"),
+      [
+        "diatonicNiLow",
+        "diatonicVou",
+        "diatonicGa",
+        "diatonicDi",
+        "diatonicKe",
+        "diatonicZo",
+        "diatonicNiHigh",
+        "hardChromaticDi",
+        "softChromaticDi",
+        "enharmonic",
+        "chroaZygos",
+        "chroaKliton",
+        "chroaSpathi",
+      ]
+    );
+  });
+
+  await t.test("offers each note its own diatonic fthora, by letter", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const expected = {
+      Zo: "diatonicZo",
+      Pa: "diatonicPa",
+      Vou: "diatonicVou",
+      Ga: "diatonicGa",
+      Di: "diatonicDi",
+      Ke: "diatonicKe",
+    };
+    for (const note of Array.from(h.app.BYZ_NOTES)) {
+      if (note.latin === "Ni") continue; // two Νη signs, one per octave — below
+      assert.ok(
+        h.app.compatibleFthores(note.id).includes(expected[note.latin]),
+        `${note.id} must offer ${expected[note.latin]}`
+      );
+    }
+  });
+
+  await t.test("splits the two Νη fthores strictly by register", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    for (const noteId of ["lowNi", "midNi"]) {
+      const list = h.app.compatibleFthores(noteId);
+      assert.ok(list.includes("diatonicNiLow"), `${noteId} must offer diatonicNiLow`);
+      assert.ok(!list.includes("diatonicNiHigh"), `${noteId} must not offer diatonicNiHigh`);
+    }
+    const high = h.app.compatibleFthores("highNi");
+    assert.ok(high.includes("diatonicNiHigh"), "highNi must offer diatonicNiHigh");
+    assert.ok(!high.includes("diatonicNiLow"), "highNi must not offer diatonicNiLow");
+  });
+
+  await t.test("picks the chromatic pair by the parity of the note's value", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const notes = Array.from(h.app.BYZ_NOTES);
+    const chromatic = ["hardChromaticPa", "hardChromaticDi", "softChromaticDi", "softChromaticKe"];
+    notes.forEach((note, index) => {
+      // midPa is 0, the same origin Neanes' getRootSign counts parity from.
+      const even = (index - 9) % 2 === 0;
+      const offered = h.app.compatibleFthores(note.id).filter((id) => chromatic.includes(id));
+      const expected = even
+        ? ["hardChromaticPa", "softChromaticKe"]
+        : ["hardChromaticDi", "softChromaticDi"];
+      // midNi is the one documented exception; it is pinned on its own below.
+      if (note.id === "midNi") return;
+      equalArray(
+        [...offered].sort(),
+        [...expected].sort(),
+        `${note.id} (${even ? "even" : "odd"}) must offer exactly ${expected.join(" + ")}`
+      );
+    });
+  });
+
+  await t.test("withholds hardChromaticDi from Νη, though parity would admit it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // Deliberate: Neanes' own Fthora Note dropdown offers that sign on Ζω′, Δι
+    // and Βου only. MARTYRIA_COMPATIBILITY still lists it for midNi — the two
+    // tables are about different signs. See the design's §2.3.
+    assert.ok(
+      !h.app.compatibleFthores("midNi").includes("hardChromaticDi"),
+      "midNi must not offer hardChromaticDi"
+    );
+    assert.ok(
+      h.app.compatibleGenera("midNi").includes("hardChromaticDi"),
+      "the martyria table keeps it, and the divergence is on purpose"
+    );
+  });
+
+  await t.test("offers the enharmonic fthora on Βου, Γα and Ζω only", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    for (const note of Array.from(h.app.BYZ_NOTES)) {
+      const offered = h.app.compatibleFthores(note.id).includes("enharmonic");
+      const expected = ["Vou", "Ga", "Zo"].includes(note.latin);
+      assert.equal(offered, expected, `${note.id}: enharmonic should be ${expected}`);
+    }
+  });
+
+  await t.test("offers zygos and kliton on Δι, and spathi on Γα and Κε", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    for (const note of Array.from(h.app.BYZ_NOTES)) {
+      const list = h.app.compatibleFthores(note.id);
+      assert.equal(list.includes("chroaZygos"), note.latin === "Di", `${note.id}: zygos`);
+      assert.equal(list.includes("chroaKliton"), note.latin === "Di", `${note.id}: kliton`);
+      assert.equal(
+        list.includes("chroaSpathi"),
+        note.latin === "Ga" || note.latin === "Ke",
+        `${note.id}: spathi`
+      );
+    }
+  });
+
+  await t.test("keeps each row in BYZ_FTHORES block order", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    equalArray(h.app.compatibleFthores("midDi"), [
+      "diatonicDi",
+      "hardChromaticDi",
+      "softChromaticDi",
+      "chroaZygos",
+      "chroaKliton",
+    ]);
+    equalArray(h.app.compatibleFthores("midNi"), ["diatonicNiLow", "softChromaticDi"]);
+    equalArray(h.app.compatibleFthores("midGa"), [
+      "diatonicGa",
+      "hardChromaticPa",
+      "softChromaticKe",
+      "enharmonic",
+      "chroaSpathi",
+    ]);
+    equalArray(h.app.compatibleFthores("highNi"), [
+      "diatonicNiHigh",
+      "hardChromaticPa",
+      "softChromaticKe",
+    ]);
+  });
+
+  await t.test("has nothing to offer a note it does not know", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    equalArray(h.app.compatibleFthores("nowhere"), []);
+    assert.equal(
+      h.app.otherFthores("nowhere").length,
+      Array.from(h.app.BYZ_FTHORES).length,
+      "with nothing compatible, every fthora is an 'other'"
+    );
+  });
+
+  await t.test("is frozen: the object and each fthora list cannot be mutated", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const table = h.app.FTHORES_COMPATIBILITY;
+    assert.ok(Object.isFrozen(table), "FTHORES_COMPATIBILITY object itself must be frozen");
+    for (const noteId of Object.keys(table)) {
+      assert.ok(Object.isFrozen(table[noteId]), `${noteId}'s fthora list must be frozen`);
+    }
+  });
+});
+
 test("resolving a martyria to glyphs", async (t) => {
   await t.test("puts the letter first and the genus mark second", () => {
     const h = loadApp();
