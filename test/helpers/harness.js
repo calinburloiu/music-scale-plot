@@ -23,7 +23,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { JSDOM, VirtualConsole } = require("jsdom");
 
-const { RecordingContext2D, measureTextWidth, measureTextInk } = require("./canvas-stub.js");
+const { RecordingContext2D, measureTextWidth, measureTextInk, pngFixture } = require("./canvas-stub.js");
 const { FakeAudioContext } = require("./audio-stub.js");
 
 const ROOT = path.resolve(__dirname, "..", "..");
@@ -111,7 +111,8 @@ function loadApp(options = {}) {
   };
   const dataUrls = [];
   window.HTMLCanvasElement.prototype.toDataURL = function toDataURL(type) {
-    const url = `data:${type || "image/png"};base64,STUB(${this.width}x${this.height})`;
+    const png = Buffer.from(pngFixture(this.width, this.height)).toString("base64");
+    const url = `data:${type || "image/png"};base64,${png}`;
     dataUrls.push({ type: type || "image/png", width: this.width, height: this.height });
     return url;
   };

@@ -267,6 +267,24 @@ for print, where 4× puts a chart placed at book size around 700ppi, well above
 the 300ppi floor. `displayZoom` never enters into it: zoom is a CSS transform on
 the canvas element and does not touch the backing store.
 
+`withPrintMetadata()` then splices two ancillary chunks into the encoded file,
+which a canvas emits without either:
+
+- **`pHYs`** — the resolution, at `EXPORT_PPI` (720). Without it a layout app
+  falls back to 72ppi and places an octave chart nearly two feet tall; with it,
+  placed at 100%, the chart is 6.9in tall with 9.6pt note names. The declared
+  resolution is `CSS_PX_PER_INCH x EXPORT_SCALE`, so the printed *size* is a
+  property of the chart and the export scale only changes its sharpness.
+- **`sRGB`** — what the RGB numbers mean, with the relative-colorimetric intent
+  that suits flat chosen colours rather than the perceptual intent for
+  photographs. Untagged, a print workflow guesses the source space before
+  separating, and the palette shifts if it guesses wrong.
+
+Neither chunk says anything about black generation: `#000` still separates to a
+four-plate rich black under a normal CMYK profile, because a raster cannot tell
+the converter which pixels are text. Only vector output, or a grayscale
+interior, gets black text on one plate.
+
 ## Event Flow
 
 ```

@@ -373,6 +373,84 @@ class RecordingContext2D {
   }
 }
 
+/**
+ * A real, minimal PNG byte stream of the given size.
+ *
+ * `toDataURL` used to hand back a placeholder string, which was enough while
+ * the tests only asked how big the bitmap was. `savePNG()` now reads the bytes
+ * back to splice its print metadata in, so the stub has to produce something
+ * with a genuine signature, IHDR and IEND — an 8-bit RGBA image whose IDAT is
+ * a stand-in, since nothing decodes the pixels.
+ *
+ * The CRCs are computed here rather than borrowed from the app, so that a bug
+ * in the app's own crc32 cannot hide behind an identical bug in the fixture.
+ */
+function pngFixture(width, height) {
+  const chunks = [
+    fixtureChunk("IHDR", [
+      ...uint32(width), ...uint32(height),
+      8, // bit depth
+      6, // colour type: truecolour with alpha
+      0, 0, 0, // compression, filter, interlace
+    ]),
+    fixtureChunk("IDAT", [0x78, 0x9c, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01]),
+    fixtureChunk("IEND", []),
+  ];
+  const bytes = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  for (const chunk of chunks) bytes.push(...chunk);
+  return Uint8Array.from(bytes);
+}
+
+function uint32(n) {
+  return [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff];
+}
+
+function fixtureChunk(type, data) {
+  const typeBytes = [...type].map((c) => c.charCodeAt(0));
+  return [...uint32(data.length), ...typeBytes, ...data, ...uint32(fixtureCrc32([...typeBytes, ...data]))];
+}
+
+function fixtureCrc32(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) {
+      crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/** The chunk types a PNG byte stream carries, in order. */
+function pngChunkTypes(bytes) {
+  return readPngChunks(bytes).map((chunk) => chunk.type);
+}
+
+/** The data of the first chunk of `type`, or null when there is none. */
+function pngChunkData(bytes, type) {
+  const chunk = readPngChunks(bytes).find((c) => c.type === type);
+  return chunk ? chunk.data : null;
+}
+
+function readPngChunks(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const chunks = [];
+  let at = 8; // past the signature
+  while (at + 8 <= bytes.length) {
+    const length = view.getUint32(at);
+    const type = String.fromCharCode(...bytes.subarray(at + 4, at + 8));
+    chunks.push({ type, data: bytes.subarray(at + 8, at + 8 + length) });
+    at += 12 + length;
+  }
+  return chunks;
+}
+
+/** Decodes a `data:` URL's base64 payload back to bytes. */
+function bytesFromDataUrl(dataUrl) {
+  const binary = Buffer.from(dataUrl.slice(dataUrl.indexOf(",") + 1), "base64");
+  return new Uint8Array(binary);
+}
+
 module.exports = {
   RecordingContext2D,
   measureTextWidth,
@@ -393,4 +471,8 @@ module.exports = {
   FONT_ASCENT_RATIO,
   FONT_DESCENT_RATIO,
   anchorInk,
+  pngFixture,
+  pngChunkTypes,
+  pngChunkData,
+  bytesFromDataUrl,
 };

@@ -3,6 +3,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
+const { pngChunkData, bytesFromDataUrl } = require("../helpers/canvas-stub.js");
+const { closeTo } = require("../helpers/assertions.js");
 const {
   loadApp,
   selectOption,
@@ -201,6 +203,41 @@ test("PNG export", async (t) => {
 
     assert.equal(h.canvas().width, Math.round(css.width * 2));
     assert.equal(h.canvas().height, Math.round(css.height * 2));
+  });
+
+  await t.test("the downloaded file declares the size it should print at", () => {
+    const h = loadApp({ devicePixelRatio: 1 });
+    t.after(() => h.close());
+    // A just-intonation octave: the chart a page of the book would carry.
+    buildRelativeScale(h, ["9/8", "10/9", "16/15", "9/8", "10/9", "9/8", "16/15"]);
+    const css = cssSize(h);
+
+    savePng(h);
+
+    const physical = pngChunkData(bytesFromDataUrl(h.downloads[0].href), "pHYs");
+    assert.ok(physical, "no pHYs chunk: the file would place at a viewer's 72ppi default");
+    const view = new DataView(physical.buffer, physical.byteOffset, physical.byteLength);
+    const inchesTall = h.dataUrls[0].height / (view.getUint32(4) * 0.0254);
+
+    closeTo(
+      inchesTall,
+      css.height / h.app.CSS_PX_PER_INCH,
+      0.01,
+      "the declared resolution and the export scale must agree on the printed size"
+    );
+    closeTo(inchesTall, 6.9, 0.05, "an octave should place as a full-page figure");
+  });
+
+  await t.test("the downloaded file says what its colours mean", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    savePng(h);
+
+    assert.ok(
+      pngChunkData(bytesFromDataUrl(h.downloads[0].href), "sRGB"),
+      "no sRGB chunk: a print workflow has to guess how to separate the colours"
+    );
   });
 
   await t.test("caps a huge chart's export at the canvas-area limit", () => {
