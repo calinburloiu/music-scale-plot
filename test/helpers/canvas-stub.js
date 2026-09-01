@@ -230,9 +230,31 @@ function measureTextWidth(text, font) {
   return measureTextInk(text, font).width;
 }
 
+/**
+ * The same measurement as a browser that reports the ink box *unioned with the
+ * text's advance rect and its baseline* — which is what WebKit does, and the
+ * reason a sign whose ink never crosses the baseline (every fthora and every
+ * sign of alteration in this face) measures wrong there: its descent comes back
+ * as 0 and its box reaches the full advance.
+ *
+ * Nothing is invented here. The union is applied to the model's own ink box, so
+ * a test can hold the two modes side by side and ask that the app arrive at the
+ * same ink either way.
+ */
+function unionInkWithAdvance(metrics) {
+  return Object.assign({}, metrics, {
+    actualBoundingBoxLeft: Math.max(metrics.actualBoundingBoxLeft, 0),
+    actualBoundingBoxRight: Math.max(metrics.actualBoundingBoxRight, metrics.width),
+    actualBoundingBoxAscent: Math.max(metrics.actualBoundingBoxAscent, 0),
+    actualBoundingBoxDescent: Math.max(metrics.actualBoundingBoxDescent, 0),
+  });
+}
+
 class RecordingContext2D {
-  constructor(canvas) {
+  constructor(canvas, options = {}) {
     this.canvas = canvas;
+    // "exact" reports the ink alone; "union" reports it the way WebKit does.
+    this.inkMetrics = options.inkMetrics || "exact";
     this.calls = [];
     this.font = "10px sans-serif";
     this.fillStyle = "#000000";
@@ -273,7 +295,67 @@ class RecordingContext2D {
   }
 
   measureText(text) {
-    return anchorInk(measureTextInk(text, this.font), this.textAlign, this.textBaseline);
+    const ink = anchorInk(measureTextInk(text, this.font), this.textAlign, this.textBaseline);
+    return this.inkMetrics === "union" ? unionInkWithAdvance(ink) : ink;
+  }
+
+  /**
+   * A bitmap of what was drawn, so ink measured from pixels can be tested.
+   *
+   * Only `fillText` leaves ink, and the model says exactly where that ink is,
+   * so the region is filled opaque and everything else is left transparent —
+   * a real rasteriser's answer without a rasteriser, and without the
+   * anti-aliased fringe that would make an assertion approximate.
+   */
+  getImageData(x, y, width, height) {
+    const data = new Uint8ClampedArray(width * height * 4);
+    const clamp = (v, limit) => Math.max(0, Math.min(limit, Math.round(v)));
+    const paint = (box, alpha) => {
+      for (let row = clamp(box.top, height); row < clamp(box.bottom, height); row++) {
+        for (let col = clamp(box.left, width); col < clamp(box.right, width); col++) {
+          data[(row * width + col) * 4 + 3] = alpha;
+        }
+      }
+    };
+
+    // Nothing before the last clear of the whole region can still be visible,
+    // so replay starts there: one scratch canvas measuring a whole vocabulary
+    // would otherwise re-walk every sign it has ever drawn.
+    let first = 0;
+    for (let i = this.calls.length - 1; i >= 0; i--) {
+      const call = this.calls[i];
+      if (call.method !== "clearRect") continue;
+      const [cx, cy, cw, ch] = call.args;
+      if (cx <= x && cy <= y && cx + cw >= x + width && cy + ch >= y + height) {
+        first = i;
+        break;
+      }
+    }
+
+    for (const call of this.calls.slice(first)) {
+      // Drawing in order, so a surface cleared between two signs shows only the
+      // second — which is how one scratch canvas measures a whole vocabulary.
+      if (call.method === "clearRect") {
+        const [cx, cy, cw, ch] = call.args;
+        paint({ left: cx - x, right: cx + cw - x, top: cy - y, bottom: cy + ch - y }, 0);
+        continue;
+      }
+      if (call.method !== "fillText") continue;
+      const [text, penX, penY] = call.args;
+      const metrics = anchorInk(
+        measureTextInk(text, call.state.font),
+        call.state.textAlign,
+        call.state.textBaseline
+      );
+      const box = {
+        left: penX - metrics.actualBoundingBoxLeft - x,
+        right: penX + metrics.actualBoundingBoxRight - x,
+        top: penY - metrics.actualBoundingBoxAscent - y,
+        bottom: penY + metrics.actualBoundingBoxDescent - y,
+      };
+      if (text) paint(box, 255);
+    }
+    return { data, width, height, colorSpace: "srgb" };
   }
 
   /** All recorded calls to `method`, in draw order. */

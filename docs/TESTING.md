@@ -279,8 +279,9 @@ Two consequences worth knowing:
 
 | API | Stub | Why |
 |---|---|---|
-| `canvas.getContext("2d")` | `RecordingContext2D` | jsdom has no canvas. Records every draw call with the drawing state active at the time. |
+| `canvas.getContext("2d")` | `RecordingContext2D`, one per canvas | jsdom has no canvas. Records every draw call with the drawing state active at the time. The chart's is the one `h.ctx` exposes; a canvas the app makes to measure on gets its own, so its drawing stays out of the chart's record. |
 | `ctx.measureText` | ink model: `length × fontSize × 0.6` advance, plus modelled bounding-box and font metrics, reported **from the anchor `textAlign`/`textBaseline` choose** | Deterministic stand-in for font metrics. Font-size sensitive, so the 24px UI font and 21px monospace font measure differently, as in a browser. Also models ink for Byzantine glyphs: zero-advance genus marks and signs of alteration, a mark-aware ascent/descent that grows for an `…Above` or `…Below` mark, a fthora and every sign of alteration with ink sitting *entirely above* the baseline (a negative descent), the two geniki drawn a whole em higher than the numbered signs, an asymmetric `fontBoundingBox…` strut, and the three octave blocks of note letters drawn at three different heights — the only thing that tells a low letter from its middle-octave twin. Like a real canvas it moves the bounding box with `textAlign` and `textBaseline`, so measuring without pinning them is a bug a test can catch — see the ratio table in `canvas-stub.js` and `docs/BYZANTINE-SYMBOLS.md` §10. |
+| `ctx.getImageData` | a bitmap synthesised from the same ink model, honouring `clearRect` | The app finds a sign's ink in the pixels on engines whose `measureText` will not report it (`docs/BYZANTINE-SYMBOLS.md` §8b). There is no rasteriser here, so the ink model paints its own boxes opaque — no anti-aliased fringe, so a test can assert exactly. |
 | `canvas.toDataURL` | records the call | Lets export tests check the exported size. |
 | `AudioContext` | `FakeAudioContext` | Records oscillators, gains and every scheduled parameter change. |
 | `HTMLAnchorElement.click` | records `{download, href}` | jsdom cannot navigate or download. |
@@ -296,7 +297,7 @@ number.
 
 | Helper | Purpose |
 |---|---|
-| `loadApp(options)` | Fresh window. One per test — never share. `restored: { "#scale-mode": "absolute" }` writes values into the matching controls *before* the scripts run, the way Firefox restores form state across a soft reload. |
+| `loadApp(options)` | Fresh window. One per test — never share. `restored: { "#scale-mode": "absolute" }` writes values into the matching controls *before* the scripts run, the way Firefox restores form state across a soft reload. `inkMetrics: "union"` reports every ink box unioned with the text's advance rect and its baseline, the way WebKit does — the engine difference behind `scanInkBox`. |
 | `restoreFormState(h, values)` | The other restore order: writes the values *after* load and fires `pageshow`, the way Chromium restores form state. |
 | `buildRelativeScale(h, intervals, extra)` | Build a scale in relative mode; `extra` takes `names`, `labels`, `colors`. |
 | `buildAbsoluteScale(h, absolutes, extra)` | Same for absolute mode. |

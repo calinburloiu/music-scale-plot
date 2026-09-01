@@ -1328,7 +1328,10 @@ function loadByzantineFont() {
     })
     .then(function () {
       byzFontReady = true;
-      // The wells stored an ink offset measured against fallback metrics.
+      // The wells stored an ink offset measured against fallback metrics, and
+      // so did every cache behind them — a repaint that reused those would be
+      // no repaint at all.
+      resetInkMeasurements();
       refreshAllNoteRowWells();
       render();
     })
