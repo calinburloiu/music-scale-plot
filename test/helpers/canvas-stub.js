@@ -78,6 +78,13 @@ const FTHORA_FIRST = 0xe1d0;
 const FTHORA_LAST = 0xe1df;
 const ALTERATION_FIRST = 0xe1f0;
 const ALTERATION_LAST = 0xe20f;
+
+// The carrier a sign with no advance rides into the DOM on — a no-break space.
+// Modelled as the face draws it: no ink at all, and a hair of advance (Neanes
+// gives its space 0.007em), so a box holding a carried sign measures very
+// nearly the same as one holding the sign alone.
+const CARRIER_CODE = 0x00a0;
+const CARRIER_ADVANCE_RATIO = 0.007;
 const GENIKI_CODES = [0xe1f4, 0xe204];
 
 /** 0 low, 1 middle, 2 high — or -1 when the codepoint is not a note letter. */
@@ -111,15 +118,25 @@ function measureTextInk(text, font) {
   const chars = [...String(text)];
 
   let pen = 0;
+  let left = 0;
   let right = 0;
   // The ink box is the union of the characters', so a glyph whose ink never
   // crosses the baseline keeps its sign instead of being merged into a
   // baseline-straddling default.
   let top = 0;
   let bottom = 0;
+  // A carrier contributes advance and no ink, so it cannot seed the box: the
+  // first *inked* character does.
+  let inked = false;
 
-  chars.forEach(function (ch, index) {
+  chars.forEach(function (ch) {
     const code = ch.codePointAt(0);
+    if (code === CARRIER_CODE) {
+      pen += size * CARRIER_ADVANCE_RATIO;
+      return;
+    }
+    left = inked ? Math.min(left, pen + size * INK_LEFT_BEARING_RATIO)
+                 : pen + size * INK_LEFT_BEARING_RATIO;
     right = Math.max(right, pen + size * (INK_LEFT_BEARING_RATIO + INK_WIDTH_RATIO));
 
     let charTop = -size * ASCENT_RATIO;
@@ -145,23 +162,24 @@ function measureTextInk(text, font) {
       charTop -= size * HIGH_REGISTER_RISE_RATIO;
     }
 
-    if (index === 0) {
+    if (!inked) {
       top = charTop;
       bottom = charBottom;
     } else {
       top = Math.min(top, charTop);
       bottom = Math.max(bottom, charBottom);
     }
+    inked = true;
 
     if (!isZeroAdvance(code)) pen += size * CHAR_WIDTH_RATIO;
   });
 
   return {
     width: pen,
-    actualBoundingBoxLeft: chars.length ? -size * INK_LEFT_BEARING_RATIO : 0,
-    actualBoundingBoxRight: right,
-    actualBoundingBoxAscent: chars.length ? -top : 0,
-    actualBoundingBoxDescent: chars.length ? bottom : 0,
+    actualBoundingBoxLeft: inked ? -left : 0,
+    actualBoundingBoxRight: inked ? right : 0,
+    actualBoundingBoxAscent: inked ? -top : 0,
+    actualBoundingBoxDescent: inked ? bottom : 0,
     // Font metrics, not ink: they belong to the face, so they are reported for
     // the empty string too, exactly as a browser reports them.
     fontBoundingBoxAscent: size * FONT_ASCENT_RATIO,

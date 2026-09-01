@@ -501,7 +501,7 @@ test("symbols across an editor rebuild", async (t) => {
     );
     assert.equal(
       noteRows(h)[1].querySelector(".alteration-well").textContent,
-      h.app.resolveAlterationGlyph("diesis6"),
+      h.app.BYZ_DOM_GLYPH_CARRIER + h.app.resolveAlterationGlyph("diesis6"),
       "the rebuilt alteration well was not repainted"
     );
   });

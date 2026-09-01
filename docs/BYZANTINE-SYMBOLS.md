@@ -373,7 +373,33 @@ before appending them, so every sign was measured against a 40px fallback and
 sat visibly wrong — in both modes, since the switch back rebuilds the same way.
 In em there is no size to get wrong.
 
----
+### 8a. Engines that will not paint a bare mark
+
+A canvas paints the glyphs it is handed. DOM text is *shaped* first, and WebKit
+paints nothing at all for a run made up of nothing but zero-advance marks —
+which is every sign of alteration in this face, each one a combining mark the
+font expects to find attached to a neume. The consequence in Safari was that the
+chart drew the signs and the editor did not: the alteration well and every row
+of the alteration picker came up blank, and so did the two geniki an empty well
+shows as its hint.
+
+`domGlyphText()` (`byzantine.js`) puts a **carrier** in front of such a run — a
+no-break space, which no face draws and which, unlike an ordinary space, no
+engine trims off the front of a run. That gives the run one glyph with an
+advance, and the mark is painted again.
+
+Two things keep this honest:
+
+- **Whether a carrier is needed is measured, not assumed.** A face whose signs
+  advance on their own gets none. Nothing here is a fact about Neanes.
+- **The carrier is part of the string that gets measured.** `setGlyphBoxText()`
+  measures the offset from what the box really holds, so whatever advance the
+  face gives the carrier is already in the centring. In Neanes it is 0.007em.
+
+The chart is untouched — it hands glyphs to a canvas, where no shaping happens.
+The two empty-well hints in `style.css` carry the carrier by hand (`content:
+"\A0\E204"`), because CSS `content` is written out rather than computed; §6
+already lists them as a place codepoints are hand-written.
 
 ## 9. Why the octave tick is appended, not prepended
 

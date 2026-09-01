@@ -400,6 +400,40 @@ function byzantineFont(size) {
  * `top` is normally negative. `adv` is the advance width, which for a martyria
  * is narrower than the ink because the genus mark has no advance.
  */
+// ---------------------------------------------------------------------------
+// Getting a sign into the DOM.
+//
+// A canvas paints the glyphs it is handed. DOM text is shaped first, and that
+// is where the two engines disagree — see `domGlyphText`.
+
+/**
+ * The glyph a sign rides on when it goes into the DOM. A no-break space: the
+ * face draws nothing for it and gives it 0.007em of advance, and — unlike an
+ * ordinary space — no engine trims it off the front of a run.
+ */
+const BYZ_DOM_GLYPH_CARRIER = " ";
+
+/**
+ * `text` as DOM text has to be written to be painted.
+ *
+ * A canvas paints the glyphs it is handed. DOM text is shaped first, and WebKit
+ * paints nothing at all for a run made up of nothing but zero-advance marks —
+ * which is every sign of alteration in this face, each one a combining mark the
+ * font expects to see attached to a neume. Blink and Gecko paint them, so the
+ * signs are in the chart and in the wells everywhere but Safari, where the wells
+ * and the pickers come up blank.
+ *
+ * A carrier in front of the mark gives the run one glyph that advances, and the
+ * mark is painted again. Whether one is needed is *measured* — a face whose
+ * signs advance on their own needs none — and the carrier is then part of the
+ * string that gets measured for centring, so its advance, whatever the face
+ * makes of it, is already in the offset.
+ */
+function domGlyphText(ctx, text, font) {
+  if (!text) return text;
+  return inkBox(ctx, text, font).adv > 0 ? text : BYZ_DOM_GLYPH_CARRIER + text;
+}
+
 function inkBox(ctx, text, font) {
   const previousFont = ctx.font;
   const previousAlign = ctx.textAlign;
@@ -428,6 +462,7 @@ function inkBox(ctx, text, font) {
     fontAscent: metrics.fontBoundingBoxAscent || 0,
     fontDescent: metrics.fontBoundingBoxDescent || 0,
   };
+
 }
 
 /**

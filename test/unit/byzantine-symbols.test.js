@@ -1333,3 +1333,51 @@ test("drawing ink-anchored glyphs", async (t) => {
     assert.equal(h.ctx.callsOf("fillText").length, 0);
   });
 });
+
+test("handing a sign to the DOM", async (t) => {
+  // A canvas paints whatever it is given. DOM text is shaped first, and WebKit
+  // drops a run made up of nothing but zero-advance marks — every sign of
+  // alteration in this face — so it paints no sign at all where Blink and Gecko
+  // paint one. A carrier in front of the mark gives the run a glyph with an
+  // advance and the mark comes back. It is measured with the sign, so the ink
+  // centring accounts for whatever advance the carrier turns out to have.
+  await t.test("gives a sign with no advance of its own something to ride on", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const sign = h.app.resolveAlterationGlyph("diesis4");
+    closeTo(h.app.inkBox(h.ctx, sign, h.app.byzantineFont()).adv, 0, 1e-9, "the sign's advance");
+
+    assert.equal(
+      h.app.domGlyphText(h.ctx, sign, h.app.byzantineFont()),
+      h.app.BYZ_DOM_GLYPH_CARRIER + sign
+    );
+  });
+
+  await t.test("hands over a sign that has an advance unchanged", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const fthora = h.app.resolveFthoraGlyph("diatonicPa");
+    assert.ok(h.app.inkBox(h.ctx, fthora, h.app.byzantineFont()).adv > 0, "a fthora advances");
+
+    assert.equal(h.app.domGlyphText(h.ctx, fthora, h.app.byzantineFont()), fthora);
+  });
+
+  await t.test("carries a composition on its letter, not on a carrier", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const martyria = h.app.resolveMartyriaGlyphs("midPa", "alpha", 0);
+
+    assert.equal(h.app.domGlyphText(h.ctx, martyria, h.app.byzantineFont()), martyria);
+  });
+
+  await t.test("leaves an empty string empty, so an empty well stays empty", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.domGlyphText(h.ctx, "", h.app.byzantineFont()), "");
+  });
+});
+
