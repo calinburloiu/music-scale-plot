@@ -4,9 +4,19 @@ Research for [issue #13, *Add support for generic accidentals*](https://github.c
 Four questions were asked; all four are answered below, with the evidence that
 produced each answer rather than the conclusion alone.
 
-Companion page: **[`accidentals-demo.html`](accidentals-demo.html)** — every claim on this
-page that is about how a glyph *looks* is demonstrated there, in live font text, from
+Companion page: **[`accidentals-demo.html`](accidentals-demo.html)**, which opens from
 `file://` or from GitHub Pages.
+
+The two files divide the work and do not repeat each other:
+
+| | This document | The demo page |
+|---|---|---|
+| Holds | the facts: measurements, licence analysis, codepoint inventories, decisions and their reasons | the glyphs: every symbol as live font text, at real sizes, measured in the browser |
+| Read it for | *why* a choice was made and what number backs it | *what it looks like*, and whether a composition actually renders |
+
+Where a claim here is about how a glyph looks, it names the demo section that shows it;
+where the demo asserts a number or a rule, it links back to the section here that
+establishes it.
 
 ---
 
@@ -16,8 +26,8 @@ page that is about how a glyph *looks* is demonstrated there, in live font text,
 |---|---|
 | Bravura or Bravura Text, for well, picker and diagram alike? | **Bravura Text**, everywhere. Identical symbols; the metrics of plain Bravura are unusable outside a notation engine. |
 | May we vendor a woff2 in `fonts/`? | **Yes** — with one condition Neanes did not have: ship *upstream's own* `redist/woff/BravuraText.woff2` byte-for-byte. Do not convert or subset it while keeping the name. |
-| Are the Figure-2 mixed Sagittal symbols available? | **Partly.** Seven of the thirteen 72-EDO degrees are single SMuFL glyphs. The other six — ±4, ±5, ±6 — are **not**: SMuFL precomposes only the *Revo* flavour. The mixed (*Evo*) forms are composed as two codepoints, and need nothing but string concatenation. |
-| How do SMuFL glyphs compose? | Four mechanisms: plain concatenation on zero-side-bearing advances, GPOS `kern`, GSUB `liga` for vertical placement, and zero-advance glyphs for overprinting. §5 is the primer. |
+| Are the Figure-2 mixed Sagittal symbols available? | **Partly.** SMuFL precomposes only the *Revo* flavour. Nine of the thirteen 72-EDO degrees are a single glyph in the mixed (*Evo*) flavour too; the four remaining — ±4 and ±5 — are a sagittal glyph followed by ♯ or ♭, and need nothing but string concatenation. |
+| How do SMuFL glyphs compose? | Four mechanisms: plain concatenation on zero-side-bearing advances, GPOS `kern`, GSUB `liga` for vertical placement, and zero-advance glyphs for overprinting. §4 is the primer. |
 
 Everything below was measured locally against Bravura **1.482** (upstream commit
 `37b194378b710cc40e406ab6c4b07608bb9548ae`, 2026-08-24) and against the SMuFL 1.4
@@ -40,7 +50,7 @@ first thing to establish is that this is **not** a question about glyph coverage
 
 The symbols are the same symbols at the same codepoints. Bravura Text's extra 15 554
 glyphs are not extra symbols — they are the vertical-position variants reached through
-the ligature mechanism of §5c, which are not addressable by codepoint at all.
+the ligature mechanism of §4c, which are not addressable by codepoint at all.
 
 So the decision rests entirely on metrics, and there the two faces are built for
 different jobs.
@@ -92,14 +102,16 @@ that pixel-scanning path is not needed here.
 
 Bravura is scaled so that one em = four staff spaces = the full staff height. Bravura Text
 is scaled so that the staff height is about the cap height of a text font at the same
-point size (staff space = 200 units against Bravura's 250). Practically: set both to
-`font-size: 24px` beside 24px UI text and the Bravura Text symbol is the one that looks
-like it belongs; the Bravura one is roughly twice as large and overshoots its row.
+point size (staff space = 200 units against Bravura's 250). Set both to `font-size: 24px`
+beside 24px UI text and only Bravura Text is the size of its neighbours — see §5 of the
+demo page, which draws the symbols at well and picker size, and §6, which reads both
+faces' metrics back live.
 
 ### Spacing characters
 
-Composing an Evo pair (§4) wants a controllable gap. Bravura Text provides three blank,
-outline-free advance glyphs:
+Composing an Evo pair (§3) wants a controllable gap. Bravura Text provides three blank,
+outline-free advance glyphs (§2 of the demo page applies each of them to the four pairs
+that need one):
 
 | Character | Advance | In staff spaces |
 |---|---|---|
@@ -196,7 +208,7 @@ network, and a PUA codepoint has no fallback glyph — a missing face makes the 
 ### The size question, and why we are not subsetting
 
 447 KB is large next to Neanes' 67 KB. Subsetting to only the accidental ranges — the 491
-codepoints of every range in §6 plus the three spacers — was measured:
+codepoints of every range in §5 plus the three spacers — was measured:
 
 | | Full | Accidentals-only subset |
 |---|---|---|
@@ -242,37 +254,31 @@ precomposed glyph is a multi-shaft sagittal arrow, matching the paper's Revo row
 advance widths agree — `accSagittalSharp7CDown` is 250 units, while a real
 sagittal-plus-sharp pair is 156 + 249 = 405.
 
-So, for the 72-EDO ladder:
+So, for the thirteen degrees of the 72-EDO ladder:
 
-| Degree | Evo (mixed) — Figure 2 | Revo — precomposed |
-|---:|---|---|
-| −6 | `U+E260` ♭ | `U+E319` accSagittalFlat |
-| −5 | `U+E302` + `U+E260` | `U+E315` accSagittalFlat5CUp |
-| −4 | `U+E304` + `U+E260` | `U+E313` accSagittalFlat7CUp |
-| −3 | `U+E30B` accSagittal11MediumDiesisDown | *(same)* |
-| −2 | `U+E305` accSagittal7CommaDown | *(same)* |
-| −1 | `U+E303` accSagittal5CommaDown | *(same)* |
-| 0 | `U+E261` ♮ | *(same — Sagittal defines no natural)* |
-| +1 | `U+E302` accSagittal5CommaUp | *(same)* |
-| +2 | `U+E304` accSagittal7CommaUp | *(same)* |
-| +3 | `U+E30A` accSagittal11MediumDiesisUp | *(same)* |
-| +4 | `U+E305` + `U+E262` | `U+E312` accSagittalSharp7CDown |
-| +5 | `U+E303` + `U+E262` | `U+E314` accSagittalSharp5CDown |
-| +6 | `U+E262` ♯ | `U+E318` accSagittalSharp |
+- **Seven degrees are a single codepoint in either flavour** — ±1, ±2, ±3 (the single-shaft
+  sagittals `U+E302`–`U+E305`, `U+E30A`, `U+E30B`) and the natural `U+E261`, which is
+  the standard one because Sagittal defines no natural of its own.
+- **±6 is a single codepoint in either flavour, but not the same one.** Evo uses the
+  ordinary `U+E260` ♭ and `U+E262` ♯; Revo uses `U+E319` accSagittalFlat and `U+E318`
+  accSagittalSharp.
+- **Four degrees — ±4 and ±5 — are one codepoint in Revo and two in Evo.** Revo has
+  `U+E312`–`U+E315` precomposed; Evo writes a single-shaft sagittal followed by ♯ or ♭.
 
-Seven of thirteen degrees are one codepoint in either flavour. Six are one codepoint in
-Revo and two in Evo.
+The full thirteen-degree ladder, in all four notations at once and with each cell's
+codepoints printed under its glyph, is **§1 of the demo page** — it is a table of glyphs,
+so it belongs where glyphs render.
 
-### How to compose the six
+### How to compose the four
 
 Nothing exotic is required — **string concatenation**. Because every SMuFL glyph has zero
-side bearings (§5a), the two glyphs abut exactly at the ink, which is what the figure
+side bearings (§4a), the two glyphs abut exactly at the ink, which is what the figure
 shows. The whole mixed row is therefore expressible as a short table of codepoint
 sequences, in the DOM and in `ctx.fillText()` alike, with no positioning code, no canvas
 transforms and no second draw call.
 
 The only judgement call is air between the two symbols, and the font answers that with the
-three blank spacer characters of §1. The demo page shows all four options side by side on
+three blank spacer characters of §1. Demo page §2 renders all four options side by side on
 each of the four composed degrees; **tight (no spacer) reproduces the paper most closely**,
 with `U+0020` a defensible looser alternative at small sizes.
 
@@ -292,9 +298,11 @@ sub-groups, "Sagittal (mixed)" and "Sagittal (pure)", is the natural shape.
 
 ## 4 · How SMuFL glyphs compose — a primer
 
-Four mechanisms, in the order you will meet them. Only the first two matter for issue #13;
-the other two are here so the next reader is not surprised by them. All four are
-demonstrated live in §3 of [`accidentals-demo.html`](accidentals-demo.html).
+Four mechanisms, in the order you will meet them, with what was measured in the font for
+each. Only the first two matter for issue #13; the other two are here so the next reader is
+not surprised by them. **§3 of [`accidentals-demo.html`](accidentals-demo.html) renders one
+worked example of each**, in the same 3a–3d order as the subsections below — read the two
+side by side.
 
 ### 4a · Plain concatenation, and zero side bearings
 
@@ -334,6 +342,9 @@ letters — that is what the Neanes font uses to stack a genus mark on a martyri
 `docs/BYZANTINE-SYMBOLS.md`. **Bravura Text has no `mark`/`mkmk` lookups at all.** Sagittal
 composition is not mark attachment; it is two full-width glyphs in a row.
 
+(There is nothing to *see* here, which is why demo §3b states the same conclusion in one
+line and draws nothing.)
+
 ### 4c · GSUB `liga` — substituting a sequence for one glyph
 
 **GSUB** (Glyph SUBstitution) replaces a run of glyphs with a different glyph. In a text
@@ -348,7 +359,8 @@ U+EB99 U+E0A4    →   a black notehead two staff positions below the middle lin
 
 That substitution is where Bravura Text's 19 269 glyphs come from. Browsers apply `liga`
 by default in the DOM **and** in `ctx.fillText()` — canvas text is shaped by the same
-engine — so this works with no library.
+engine — so this works with no library. Demo §3c prints the same sharp three times at three
+heights; if they are not at three heights, the renderer did not apply the ligature.
 
 Issue #13 draws accidentals free-standing beside a chart rather than on a staff, so this
 is background knowledge, not a tool we need. It is the mechanism to reach for if the app
@@ -370,8 +382,10 @@ need it; some of the Extended Helmholtz-Ellis and Johnston combinations do.
 ## 5 · Candidate groups for the picker
 
 SMuFL already partitions its accidentals into named ranges, and they map almost one-to-one
-onto the groups issue #13 asks for ("Standard, Turkish, Arabic, Sagittal etc."). Every one
-of these is present in the vendored font and drawn in §4 of the demo page.
+onto the groups issue #13 asks for ("Standard, Turkish, Arabic, Sagittal etc."). The table
+below is the inventory — range, count, proposed group. **Demo page §4 draws every glyph of
+every one of these ranges**, with its SMuFL name and description on hover, which is the
+only way to judge whether a group holds together.
 
 | Range | Description | Glyphs | Suggested picker group |
 |---|---|---:|---|
