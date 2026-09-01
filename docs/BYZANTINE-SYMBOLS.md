@@ -373,6 +373,78 @@ before appending them, so every sign was measured against a 40px fallback and
 sat visibly wrong — in both modes, since the switch back rebuilds the same way.
 In em there is no size to get wrong.
 
+### 8a. Engines that will not paint a bare mark
+
+A canvas paints the glyphs it is handed. DOM text is *shaped* first, and WebKit
+paints nothing at all for a run made up of nothing but zero-advance marks —
+which is every sign of alteration in this face, each one a combining mark the
+font expects to find attached to a neume. The consequence in Safari was that the
+chart drew the signs and the editor did not: the alteration well and every row
+of the alteration picker came up blank, and so did the two geniki an empty well
+shows as its hint.
+
+`domGlyphText()` (`byzantine.js`) puts a **carrier** in front of such a run — a
+no-break space, which no face draws and which, unlike an ordinary space, no
+engine trims off the front of a run. That gives the run one glyph with an
+advance, and the mark is painted again.
+
+Two things keep this honest:
+
+- **Whether a carrier is needed is measured, not assumed.** A face whose signs
+  advance on their own gets none. Nothing here is a fact about Neanes.
+- **The carrier is part of the string that gets measured.** `setGlyphBoxText()`
+  measures the offset from what the box really holds, so whatever advance the
+  face gives the carrier is already in the centring. In Neanes it is 0.007em.
+
+The chart is untouched — it hands glyphs to a canvas, where no shaping happens.
+The two empty-well hints in `style.css` carry the carrier by hand (`content:
+"\A0\E204"`), because CSS `content` is written out rather than computed; §6
+already lists them as a place codepoints are hand-written.
+
+### 8b. Engines that will not report ink
+
+`measureText` is the cheap way to a glyph's ink box, and on Blink and Gecko it
+is the right one. WebKit answers a different question: it reports the ink
+**unioned with the text's advance rect and its baseline**. So a box there never
+rises above the baseline and never sits inside the advance:
+
+| `` at 40px | ink (Blink) | WebKit |
+|---|---|---|
+| ascent | 44.12 | 44.11 |
+| descent | −29.71 | **0** |
+| left | −3.23 | **0** |
+| right | 16.47 | **19.52** (the advance) |
+
+Every fthora and every sign of alteration in this face has ink that clears the
+baseline entirely, which is exactly the case the union destroys. Placed from
+those numbers a fthora sits about a third of an em low — visibly off-centre in
+its well, and out of line with the alteration beside it in the chart, which is
+mis-placed by a *different* amount.
+
+Nothing in `TextMetrics` can recover what the union threw away: the box always
+contains the baseline, whatever anchor `textAlign`/`textBaseline` report it
+from. Measuring twice from two baselines does not help, for the same reason. So
+on those engines the ink is found where it actually is — in the pixels.
+`scanInkBox()` (`byzantine.js`) draws the sign on a scratch canvas and scans the
+alpha channel for the drawn area.
+
+- **Which engine this is, is detected, not sniffed.** `measureTextReportsInk()`
+  measures a no-break space, which no face draws anything for: an engine that
+  reports ink reports none, an engine that unions hands back the whole advance.
+  Asked once, of a generic family, so there is no font to wait for.
+- **The reported box bounds the search.** A union only ever *grows* a box, so
+  what `measureText` said is a superset of the ink and the scratch canvas needs
+  no more surface than that plus a margin.
+- **Results are kept**, because a rasterisation per sign is not free: the
+  martyria vocabulary is a few hundred of them, about 145ms in WebKit against
+  3ms where `measureText` is used. `resetInkMeasurements()` drops them, and
+  `loadByzantineFont()` calls it when the face arrives (§7) — measurements taken
+  against a fallback face must not outlive it. An empty scan is never cached, so
+  a sign measured before its glyph existed is simply measured again.
+- **Accuracy is one pixel at `BYZ_FONT_SIZE`**, and the anti-aliased fringe
+  grows the box symmetrically, so the *centre* — which is what every caller
+  actually uses — is unaffected.
+
 ---
 
 ## 9. Why the octave tick is appended, not prepended

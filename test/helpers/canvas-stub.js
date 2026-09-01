@@ -78,6 +78,13 @@ const FTHORA_FIRST = 0xe1d0;
 const FTHORA_LAST = 0xe1df;
 const ALTERATION_FIRST = 0xe1f0;
 const ALTERATION_LAST = 0xe20f;
+
+// The carrier a sign with no advance rides into the DOM on — a no-break space.
+// Modelled as the face draws it: no ink at all, and a hair of advance (Neanes
+// gives its space 0.007em), so a box holding a carried sign measures very
+// nearly the same as one holding the sign alone.
+const CARRIER_CODE = 0x00a0;
+const CARRIER_ADVANCE_RATIO = 0.007;
 const GENIKI_CODES = [0xe1f4, 0xe204];
 
 /** 0 low, 1 middle, 2 high — or -1 when the codepoint is not a note letter. */
@@ -111,15 +118,25 @@ function measureTextInk(text, font) {
   const chars = [...String(text)];
 
   let pen = 0;
+  let left = 0;
   let right = 0;
   // The ink box is the union of the characters', so a glyph whose ink never
   // crosses the baseline keeps its sign instead of being merged into a
   // baseline-straddling default.
   let top = 0;
   let bottom = 0;
+  // A carrier contributes advance and no ink, so it cannot seed the box: the
+  // first *inked* character does.
+  let inked = false;
 
-  chars.forEach(function (ch, index) {
+  chars.forEach(function (ch) {
     const code = ch.codePointAt(0);
+    if (code === CARRIER_CODE) {
+      pen += size * CARRIER_ADVANCE_RATIO;
+      return;
+    }
+    left = inked ? Math.min(left, pen + size * INK_LEFT_BEARING_RATIO)
+                 : pen + size * INK_LEFT_BEARING_RATIO;
     right = Math.max(right, pen + size * (INK_LEFT_BEARING_RATIO + INK_WIDTH_RATIO));
 
     let charTop = -size * ASCENT_RATIO;
@@ -145,23 +162,24 @@ function measureTextInk(text, font) {
       charTop -= size * HIGH_REGISTER_RISE_RATIO;
     }
 
-    if (index === 0) {
+    if (!inked) {
       top = charTop;
       bottom = charBottom;
     } else {
       top = Math.min(top, charTop);
       bottom = Math.max(bottom, charBottom);
     }
+    inked = true;
 
     if (!isZeroAdvance(code)) pen += size * CHAR_WIDTH_RATIO;
   });
 
   return {
     width: pen,
-    actualBoundingBoxLeft: chars.length ? -size * INK_LEFT_BEARING_RATIO : 0,
-    actualBoundingBoxRight: right,
-    actualBoundingBoxAscent: chars.length ? -top : 0,
-    actualBoundingBoxDescent: chars.length ? bottom : 0,
+    actualBoundingBoxLeft: inked ? -left : 0,
+    actualBoundingBoxRight: inked ? right : 0,
+    actualBoundingBoxAscent: inked ? -top : 0,
+    actualBoundingBoxDescent: inked ? bottom : 0,
     // Font metrics, not ink: they belong to the face, so they are reported for
     // the empty string too, exactly as a browser reports them.
     fontBoundingBoxAscent: size * FONT_ASCENT_RATIO,
@@ -212,9 +230,31 @@ function measureTextWidth(text, font) {
   return measureTextInk(text, font).width;
 }
 
+/**
+ * The same measurement as a browser that reports the ink box *unioned with the
+ * text's advance rect and its baseline* — which is what WebKit does, and the
+ * reason a sign whose ink never crosses the baseline (every fthora and every
+ * sign of alteration in this face) measures wrong there: its descent comes back
+ * as 0 and its box reaches the full advance.
+ *
+ * Nothing is invented here. The union is applied to the model's own ink box, so
+ * a test can hold the two modes side by side and ask that the app arrive at the
+ * same ink either way.
+ */
+function unionInkWithAdvance(metrics) {
+  return Object.assign({}, metrics, {
+    actualBoundingBoxLeft: Math.max(metrics.actualBoundingBoxLeft, 0),
+    actualBoundingBoxRight: Math.max(metrics.actualBoundingBoxRight, metrics.width),
+    actualBoundingBoxAscent: Math.max(metrics.actualBoundingBoxAscent, 0),
+    actualBoundingBoxDescent: Math.max(metrics.actualBoundingBoxDescent, 0),
+  });
+}
+
 class RecordingContext2D {
-  constructor(canvas) {
+  constructor(canvas, options = {}) {
     this.canvas = canvas;
+    // "exact" reports the ink alone; "union" reports it the way WebKit does.
+    this.inkMetrics = options.inkMetrics || "exact";
     this.calls = [];
     this.font = "10px sans-serif";
     this.fillStyle = "#000000";
@@ -255,7 +295,67 @@ class RecordingContext2D {
   }
 
   measureText(text) {
-    return anchorInk(measureTextInk(text, this.font), this.textAlign, this.textBaseline);
+    const ink = anchorInk(measureTextInk(text, this.font), this.textAlign, this.textBaseline);
+    return this.inkMetrics === "union" ? unionInkWithAdvance(ink) : ink;
+  }
+
+  /**
+   * A bitmap of what was drawn, so ink measured from pixels can be tested.
+   *
+   * Only `fillText` leaves ink, and the model says exactly where that ink is,
+   * so the region is filled opaque and everything else is left transparent —
+   * a real rasteriser's answer without a rasteriser, and without the
+   * anti-aliased fringe that would make an assertion approximate.
+   */
+  getImageData(x, y, width, height) {
+    const data = new Uint8ClampedArray(width * height * 4);
+    const clamp = (v, limit) => Math.max(0, Math.min(limit, Math.round(v)));
+    const paint = (box, alpha) => {
+      for (let row = clamp(box.top, height); row < clamp(box.bottom, height); row++) {
+        for (let col = clamp(box.left, width); col < clamp(box.right, width); col++) {
+          data[(row * width + col) * 4 + 3] = alpha;
+        }
+      }
+    };
+
+    // Nothing before the last clear of the whole region can still be visible,
+    // so replay starts there: one scratch canvas measuring a whole vocabulary
+    // would otherwise re-walk every sign it has ever drawn.
+    let first = 0;
+    for (let i = this.calls.length - 1; i >= 0; i--) {
+      const call = this.calls[i];
+      if (call.method !== "clearRect") continue;
+      const [cx, cy, cw, ch] = call.args;
+      if (cx <= x && cy <= y && cx + cw >= x + width && cy + ch >= y + height) {
+        first = i;
+        break;
+      }
+    }
+
+    for (const call of this.calls.slice(first)) {
+      // Drawing in order, so a surface cleared between two signs shows only the
+      // second — which is how one scratch canvas measures a whole vocabulary.
+      if (call.method === "clearRect") {
+        const [cx, cy, cw, ch] = call.args;
+        paint({ left: cx - x, right: cx + cw - x, top: cy - y, bottom: cy + ch - y }, 0);
+        continue;
+      }
+      if (call.method !== "fillText") continue;
+      const [text, penX, penY] = call.args;
+      const metrics = anchorInk(
+        measureTextInk(text, call.state.font),
+        call.state.textAlign,
+        call.state.textBaseline
+      );
+      const box = {
+        left: penX - metrics.actualBoundingBoxLeft - x,
+        right: penX + metrics.actualBoundingBoxRight - x,
+        top: penY - metrics.actualBoundingBoxAscent - y,
+        bottom: penY + metrics.actualBoundingBoxDescent - y,
+      };
+      if (text) paint(box, 255);
+    }
+    return { data, width, height, colorSpace: "srgb" };
   }
 
   /** All recorded calls to `method`, in draw order. */
@@ -271,6 +371,84 @@ class RecordingContext2D {
   reset() {
     this.calls.length = 0;
   }
+}
+
+/**
+ * A real, minimal PNG byte stream of the given size.
+ *
+ * `toDataURL` used to hand back a placeholder string, which was enough while
+ * the tests only asked how big the bitmap was. `savePNG()` now reads the bytes
+ * back to splice its print metadata in, so the stub has to produce something
+ * with a genuine signature, IHDR and IEND — an 8-bit RGBA image whose IDAT is
+ * a stand-in, since nothing decodes the pixels.
+ *
+ * The CRCs are computed here rather than borrowed from the app, so that a bug
+ * in the app's own crc32 cannot hide behind an identical bug in the fixture.
+ */
+function pngFixture(width, height) {
+  const chunks = [
+    fixtureChunk("IHDR", [
+      ...uint32(width), ...uint32(height),
+      8, // bit depth
+      6, // colour type: truecolour with alpha
+      0, 0, 0, // compression, filter, interlace
+    ]),
+    fixtureChunk("IDAT", [0x78, 0x9c, 0x03, 0x00, 0x00, 0x00, 0x00, 0x01]),
+    fixtureChunk("IEND", []),
+  ];
+  const bytes = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+  for (const chunk of chunks) bytes.push(...chunk);
+  return Uint8Array.from(bytes);
+}
+
+function uint32(n) {
+  return [(n >>> 24) & 0xff, (n >>> 16) & 0xff, (n >>> 8) & 0xff, n & 0xff];
+}
+
+function fixtureChunk(type, data) {
+  const typeBytes = [...type].map((c) => c.charCodeAt(0));
+  return [...uint32(data.length), ...typeBytes, ...data, ...uint32(fixtureCrc32([...typeBytes, ...data]))];
+}
+
+function fixtureCrc32(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) {
+      crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/** The chunk types a PNG byte stream carries, in order. */
+function pngChunkTypes(bytes) {
+  return readPngChunks(bytes).map((chunk) => chunk.type);
+}
+
+/** The data of the first chunk of `type`, or null when there is none. */
+function pngChunkData(bytes, type) {
+  const chunk = readPngChunks(bytes).find((c) => c.type === type);
+  return chunk ? chunk.data : null;
+}
+
+function readPngChunks(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const chunks = [];
+  let at = 8; // past the signature
+  while (at + 8 <= bytes.length) {
+    const length = view.getUint32(at);
+    const type = String.fromCharCode(...bytes.subarray(at + 4, at + 8));
+    chunks.push({ type, data: bytes.subarray(at + 8, at + 8 + length) });
+    at += 12 + length;
+  }
+  return chunks;
+}
+
+/** Decodes a `data:` URL's base64 payload back to bytes. */
+function bytesFromDataUrl(dataUrl) {
+  const binary = Buffer.from(dataUrl.slice(dataUrl.indexOf(",") + 1), "base64");
+  return new Uint8Array(binary);
 }
 
 module.exports = {
@@ -293,4 +471,8 @@ module.exports = {
   FONT_ASCENT_RATIO,
   FONT_DESCENT_RATIO,
   anchorInk,
+  pngFixture,
+  pngChunkTypes,
+  pngChunkData,
+  bytesFromDataUrl,
 };

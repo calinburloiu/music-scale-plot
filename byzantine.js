@@ -400,6 +400,188 @@ function byzantineFont(size) {
  * `top` is normally negative. `adv` is the advance width, which for a martyria
  * is narrower than the ink because the genus mark has no advance.
  */
+// ---------------------------------------------------------------------------
+// Getting a sign into the DOM.
+//
+// A canvas paints the glyphs it is handed. DOM text is shaped first, and that
+// is where the two engines disagree — see `domGlyphText`.
+
+/**
+ * The glyph a sign rides on when it goes into the DOM. A no-break space: the
+ * face draws nothing for it and gives it 0.007em of advance, and — unlike an
+ * ordinary space — no engine trims it off the front of a run.
+ */
+const BYZ_DOM_GLYPH_CARRIER = " ";
+
+/**
+ * `text` as DOM text has to be written to be painted.
+ *
+ * A canvas paints the glyphs it is handed. DOM text is shaped first, and WebKit
+ * paints nothing at all for a run made up of nothing but zero-advance marks —
+ * which is every sign of alteration in this face, each one a combining mark the
+ * font expects to see attached to a neume. Blink and Gecko paint them, so the
+ * signs are in the chart and in the wells everywhere but Safari, where the wells
+ * and the pickers come up blank.
+ *
+ * A carrier in front of the mark gives the run one glyph that advances, and the
+ * mark is painted again. Whether one is needed is *measured* — a face whose
+ * signs advance on their own needs none — and the carrier is then part of the
+ * string that gets measured for centring, so its advance, whatever the face
+ * makes of it, is already in the offset.
+ */
+function domGlyphText(ctx, text, font) {
+  if (!text) return text;
+  return inkBox(ctx, text, font).adv > 0 ? text : BYZ_DOM_GLYPH_CARRIER + text;
+}
+
+// ---------------------------------------------------------------------------
+// Finding the ink.
+//
+// `measureText` is the cheap way to a glyph's ink box, and on Blink and Gecko
+// it is the right one. WebKit answers a different question: it reports the ink
+// *unioned with the text's advance rect and its baseline*, so a box never
+// reaches above the baseline or inside the advance. Every fthora and every sign
+// of alteration in this face has ink that clears the baseline entirely, which
+// is precisely the case that union destroys — the descent comes back as 0 and
+// the sign is placed a third of an em out, in the chart and in the wells alike.
+//
+// Nothing in `TextMetrics` can recover what the union threw away: the box
+// always contains the baseline, whatever anchor it is reported from. So on
+// those engines the ink is found where it actually is — in the pixels. The sign
+// is drawn on a scratch canvas and the drawn area is scanned for. It costs a
+// rasterisation per sign per face, once, which is why the results are kept.
+//
+// Which engine this is, is *detected*, not sniffed: see `measureTextReportsInk`.
+
+const INK_SCAN_PADDING_EM = 0.5;
+
+let inkScanCanvas = null;
+let inkMetricsAreExact = null;
+const scannedInkBoxes = new Map();
+
+/**
+ * A surface to measure on, sized for one sign.
+ *
+ * Measurement needs somewhere to draw, and this file has no document of its
+ * own — hence `OffscreenCanvas` first, which is nothing but a raster surface.
+ * The element is the fallback for engines without it. Null means neither is
+ * available, and the caller keeps whatever `measureText` said.
+ */
+function inkScanContext(width, height) {
+  if (!inkScanCanvas) {
+    if (typeof OffscreenCanvas === "function") inkScanCanvas = new OffscreenCanvas(width, height);
+    else if (typeof document !== "undefined") inkScanCanvas = document.createElement("canvas");
+    else return null;
+  }
+  inkScanCanvas.width = width;
+  inkScanCanvas.height = height;
+  const ctx = inkScanCanvas.getContext("2d");
+  if (!ctx || typeof ctx.getImageData !== "function") return null;
+  return ctx;
+}
+
+/**
+ * Whether this engine's `measureText` reports ink, or ink unioned with the
+ * advance rect.
+ *
+ * Asked of a no-break space, which no face draws anything for: an engine that
+ * reports ink reports none, and one that unions hands back the whole advance.
+ * A fact about the engine rather than the face, so it is asked once, of a
+ * generic family, with no font to wait for.
+ */
+function measureTextReportsInk() {
+  if (inkMetricsAreExact !== null) return inkMetricsAreExact;
+
+  const ctx = inkScanContext(1, 1);
+  if (!ctx) {
+    inkMetricsAreExact = true;
+    return inkMetricsAreExact;
+  }
+  ctx.font = "100px serif";
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  const metrics = ctx.measureText(BYZ_DOM_GLYPH_CARRIER);
+  inkMetricsAreExact = !(
+    metrics.width > 0 && metrics.actualBoundingBoxRight >= metrics.width
+  );
+  return inkMetricsAreExact;
+}
+
+/**
+ * The ink box of `text`, read off the pixels it covers.
+ *
+ * `reported` is what `measureText` said. It is a *superset* of the ink — the
+ * union only ever grows the box — so it bounds where the ink can be, and the
+ * scan needs no more surface than that plus a margin against an engine whose
+ * union is not exactly the one described above.
+ *
+ * Returns null when there is nowhere to draw, or when nothing was drawn: a face
+ * that has not arrived yet paints no glyph, and an empty box must not be
+ * mistaken for a measurement or kept.
+ */
+function scanInkBox(text, font, reported) {
+  const size = parseFloat(font) || BYZ_FONT_SIZE;
+  const pad = Math.ceil(size * INK_SCAN_PADDING_EM);
+  const minX = Math.floor(Math.min(reported.left, 0)) - pad;
+  const maxX = Math.ceil(Math.max(reported.right, reported.adv)) + pad;
+  const minY = Math.floor(Math.min(reported.top, 0)) - pad;
+  const maxY = Math.ceil(Math.max(reported.bottom, 0)) + pad;
+  const width = maxX - minX;
+  const height = maxY - minY;
+
+  const ctx = inkScanContext(width, height);
+  if (!ctx) return null;
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.font = font;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = "#000";
+  ctx.fillText(text, -minX, -minY);
+
+  let pixels;
+  try {
+    pixels = ctx.getImageData(0, 0, width, height);
+  } catch (error) {
+    // A tainted or unsupported surface. Nothing to do but keep what was said.
+    return null;
+  }
+
+  let left = width;
+  let right = -1;
+  let top = height;
+  let bottom = -1;
+  const data = pixels.data;
+  for (let row = 0; row < height; row++) {
+    for (let col = 0; col < width; col++) {
+      if (data[(row * width + col) * 4 + 3] === 0) continue;
+      if (col < left) left = col;
+      if (col > right) right = col;
+      if (row < top) top = row;
+      if (row > bottom) bottom = row;
+    }
+  }
+  if (right < 0) return null;
+
+  // A pixel at column c covers [c, c + 1), so the far edges are one past the
+  // last lit pixel.
+  return {
+    adv: reported.adv,
+    left: minX + left,
+    right: minX + right + 1,
+    top: minY + top,
+    bottom: minY + bottom + 1,
+    fontAscent: reported.fontAscent,
+    fontDescent: reported.fontDescent,
+  };
+}
+
+/** Drops every measurement made against a face that has since changed. */
+function resetInkMeasurements() {
+  scannedInkBoxes.clear();
+  martyriaInkRangeCache.clear();
+}
+
 function inkBox(ctx, text, font) {
   const previousFont = ctx.font;
   const previousAlign = ctx.textAlign;
@@ -412,11 +594,12 @@ function inkBox(ctx, text, font) {
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
   const metrics = ctx.measureText(text);
+  const effectiveFont = font || previousFont;
   ctx.font = previousFont;
   ctx.textAlign = previousAlign;
   ctx.textBaseline = previousBaseline;
 
-  return {
+  const reported = {
     adv: metrics.width,
     left: -(metrics.actualBoundingBoxLeft || 0),
     right: metrics.actualBoundingBoxRight === undefined ? metrics.width : metrics.actualBoundingBoxRight,
@@ -428,6 +611,14 @@ function inkBox(ctx, text, font) {
     fontAscent: metrics.fontBoundingBoxAscent || 0,
     fontDescent: metrics.fontBoundingBoxDescent || 0,
   };
+
+  if (!text || measureTextReportsInk()) return reported;
+
+  const key = effectiveFont + "\n" + text;
+  if (scannedInkBoxes.has(key)) return scannedInkBoxes.get(key);
+  const scanned = scanInkBox(text, effectiveFont, reported);
+  if (scanned) scannedInkBoxes.set(key, scanned);
+  return scanned || reported;
 }
 
 /**

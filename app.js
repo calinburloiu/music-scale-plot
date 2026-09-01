@@ -4,6 +4,35 @@ const RECT_WIDTH = 200;
 const TEXT_MARGIN = 12;
 const CANVAS_PADDING = 20;
 const DPR = window.devicePixelRatio || 2;
+// PNG export renders at this scale instead of the display's device pixel
+// ratio: a chart must come out at the same resolution whether it was exported
+// from a Retina laptop (2) or an ordinary external monitor (1), because the
+// person placing it in a book has no way of telling the two files apart. At 4,
+// a chart placed at book size lands around 700ppi, comfortably above print's
+// 300ppi floor.
+const EXPORT_SCALE = 4;
+// The physical size the chart is meant to print at, as CSS pixels to the inch:
+// at 180, the 24px note names print at 9.6pt and an octave stands 6.9in tall —
+// a full-page figure in a 6x9 book, with figure text the size of body text.
+// The exported file declares this, so it places at the right size instead of
+// at a viewer's 72ppi guess; the resolution follows from the export scale, so
+// changing that changes the sharpness and not the size.
+const CSS_PX_PER_INCH = 180;
+const EXPORT_PPI = CSS_PX_PER_INCH * EXPORT_SCALE;
+// pHYs counts pixels per metre, in whole numbers.
+const EXPORT_PIXELS_PER_METRE = Math.round(EXPORT_PPI / 0.0254);
+// sRGB rendering intents, per the PNG specification. A chart of flat, chosen
+// colours wants its colours matched (1, relative colorimetric), not adapted to
+// the output gamut the way a photograph does (0, perceptual).
+const SRGB_RELATIVE_COLORIMETRIC = 1;
+// Safari — iOS Safari especially — will not allocate a canvas larger than
+// about 16.7 million pixels; it hands back a blank one instead. Every backing
+// store is scaled to fit under that, which only ever costs resolution on a
+// chart already far larger than a page.
+const MAX_CANVAS_AREA = 16777216;
+// The scale render() draws at: the display's, except while savePNG() takes its
+// bitmap.
+let renderScale = DPR;
 
 const PALETTE_LIGHT = [
   "#FFFFFF", "#E8E8E8", "#D0D0D0", "#B8B8B8", "#A0A0A0", "#F0E0CC",
@@ -901,11 +930,12 @@ function render() {
     displayHeight = CANVAS_PADDING * 2 + signOverhang * 2 + stackLength;
   }
 
-  canvas.width = Math.round(displayWidth * DPR);
-  canvas.height = Math.round(displayHeight * DPR);
+  const scale = scaleWithinCanvasLimit(renderScale, displayWidth, displayHeight);
+  canvas.width = Math.round(displayWidth * scale);
+  canvas.height = Math.round(displayHeight * scale);
   canvas.style.width = displayWidth + "px";
   canvas.style.height = displayHeight + "px";
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
 
   ctx.clearRect(0, 0, displayWidth, displayHeight);
 
@@ -1328,7 +1358,10 @@ function loadByzantineFont() {
     })
     .then(function () {
       byzFontReady = true;
-      // The wells stored an ink offset measured against fallback metrics.
+      // The wells stored an ink offset measured against fallback metrics, and
+      // so did every cache behind them — a repaint that reused those would be
+      // no repaint at all.
+      resetInkMeasurements();
       refreshAllNoteRowWells();
       render();
     })
@@ -1341,10 +1374,112 @@ function loadByzantineFont() {
     });
 }
 
+/**
+ * The scale a backing store may actually use: the one asked for, reduced until
+ * the bitmap fits under the canvas-area cap. Each axis counts a pixel wider
+ * than it is, to leave room for the rounding to whole pixels that follows.
+ */
+function scaleWithinCanvasLimit(scale, displayWidth, displayHeight) {
+  return Math.min(scale, Math.sqrt(MAX_CANVAS_AREA / ((displayWidth + 1) * (displayHeight + 1))));
+}
+
+/** CRC-32 (ISO-HDLC), the check PNG puts at the end of every chunk. */
+function crc32(bytes) {
+  let crc = 0xffffffff;
+  for (const byte of bytes) {
+    crc ^= byte;
+    for (let bit = 0; bit < 8; bit++) {
+      crc = crc & 1 ? (crc >>> 1) ^ 0xedb88320 : crc >>> 1;
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/** A framed PNG chunk: its length, its four-letter type, its data, its CRC. */
+function pngChunk(type, data) {
+  const typeAndData = Uint8Array.from([...[...type].map((c) => c.charCodeAt(0)), ...data]);
+  const chunk = new Uint8Array(typeAndData.length + 8);
+  const view = new DataView(chunk.buffer);
+  view.setUint32(0, data.length);
+  chunk.set(typeAndData, 4);
+  view.setUint32(chunk.length - 4, crc32(typeAndData));
+  return chunk;
+}
+
+/**
+ * The same PNG, with the two chunks a printer needs.
+ *
+ * A canvas encodes neither, so the file leaves the browser saying nothing
+ * about how big it is meant to be — a layout app falls back to 72ppi and
+ * places an octave chart nearly two feet tall — or about what its RGB numbers
+ * mean, which a print workflow has to know before it can separate them.
+ *
+ * Both chunks are ancillary: a viewer that does not care skips them.
+ */
+function withPrintMetadata(dataUrl) {
+  const png = bytesFromBase64(dataUrl.slice(dataUrl.indexOf(",") + 1));
+  const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
+  // IHDR is always the first chunk. Straight after it satisfies both placement
+  // rules at once: pHYs must precede IDAT, and sRGB must precede PLTE as well.
+  const afterHeader = 8 + 12 + view.getUint32(8);
+
+  const physical = new Uint8Array(9);
+  const physicalView = new DataView(physical.buffer);
+  physicalView.setUint32(0, EXPORT_PIXELS_PER_METRE);
+  physicalView.setUint32(4, EXPORT_PIXELS_PER_METRE);
+  physical[8] = 1; // the unit is the metre
+
+  return "data:image/png;base64," + base64FromBytes(spliceBytes(png, afterHeader, [
+    pngChunk("sRGB", [SRGB_RELATIVE_COLORIMETRIC]),
+    pngChunk("pHYs", physical),
+  ]));
+}
+
+/** `bytes` with `insertions` spliced in at `at`. */
+function spliceBytes(bytes, at, insertions) {
+  const added = insertions.reduce((total, chunk) => total + chunk.length, 0);
+  const out = new Uint8Array(bytes.length + added);
+  out.set(bytes.subarray(0, at), 0);
+  let cursor = at;
+  for (const chunk of insertions) {
+    out.set(chunk, cursor);
+    cursor += chunk.length;
+  }
+  out.set(bytes.subarray(at), cursor);
+  return out;
+}
+
+function bytesFromBase64(base64) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function base64FromBytes(bytes) {
+  // In slices: fromCharCode takes its arguments on the stack, and a chart's
+  // bitmap runs to megabytes.
+  let binary = "";
+  const SLICE = 8192;
+  for (let at = 0; at < bytes.length; at += SLICE) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(at, at + SLICE));
+  }
+  return btoa(binary);
+}
+
 function savePNG() {
   const link = document.createElement("a");
   link.download = "scale.png";
-  link.href = canvas.toDataURL("image/png");
+  // Redraw at the export scale for the bitmap, then put the screen back: the
+  // canvas the user is looking at stays at the display's resolution.
+  renderScale = EXPORT_SCALE;
+  try {
+    render();
+    link.href = withPrintMetadata(canvas.toDataURL("image/png"));
+  } finally {
+    renderScale = DPR;
+    render();
+  }
   link.click();
 }
 

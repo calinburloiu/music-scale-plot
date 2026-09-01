@@ -23,7 +23,7 @@ const path = require("node:path");
 const vm = require("node:vm");
 const { JSDOM, VirtualConsole } = require("jsdom");
 
-const { RecordingContext2D, measureTextWidth, measureTextInk } = require("./canvas-stub.js");
+const { RecordingContext2D, measureTextWidth, measureTextInk, pngFixture } = require("./canvas-stub.js");
 const { FakeAudioContext } = require("./audio-stub.js");
 
 const ROOT = path.resolve(__dirname, "..", "..");
@@ -65,6 +65,8 @@ function buildExportEpilogue(names) {
  * @param {Object<string,string>} [options.restored] CSS selector to value, written
  *   into every matching control *before* the scripts run — the way a browser
  *   restores form state across a soft reload
+ * @param {string} [options.inkMetrics="exact"] `"union"` reports every ink box
+ *   unioned with the text's advance rect and its baseline, the way WebKit does
  * @returns {object} harness
  */
 function loadApp(options = {}) {
@@ -95,13 +97,22 @@ function loadApp(options = {}) {
   });
 
   // --- canvas ------------------------------------------------------------
-  const context = new RecordingContext2D(document.getElementById("chart"));
+  // One context per canvas, as a browser gives: the chart's is the one tests
+  // inspect, and a canvas the app makes for itself — to measure a well's glyph,
+  // or to find a sign's ink in the pixels — gets its own, so its drawing does
+  // not land in the chart's record.
+  const inkMetrics = options.inkMetrics || "exact";
+  const context = new RecordingContext2D(document.getElementById("chart"), { inkMetrics });
+  const contexts = new WeakMap();
   window.HTMLCanvasElement.prototype.getContext = function getContext() {
-    return context;
+    if (this === context.canvas) return context;
+    if (!contexts.has(this)) contexts.set(this, new RecordingContext2D(this, { inkMetrics }));
+    return contexts.get(this);
   };
   const dataUrls = [];
   window.HTMLCanvasElement.prototype.toDataURL = function toDataURL(type) {
-    const url = `data:${type || "image/png"};base64,STUB(${this.width}x${this.height})`;
+    const png = Buffer.from(pngFixture(this.width, this.height)).toString("base64");
+    const url = `data:${type || "image/png"};base64,${png}`;
     dataUrls.push({ type: type || "image/png", width: this.width, height: this.height });
     return url;
   };

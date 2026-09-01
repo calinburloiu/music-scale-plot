@@ -183,19 +183,27 @@ function setGlyphBoxText(box, text, placement, mutedText) {
   box.textContent = "";
   if (!text) return;
 
+  const ctx = wellMeasuringContext();
+  // What the box shows is not always what the caller named: a sign that carries
+  // no advance of its own rides into the DOM on a carrier, or WebKit paints
+  // nothing. Both layers take the same one, so the letter still lands exactly
+  // on its own copy, and the offset below is measured from what is really
+  // there rather than from the bare sign.
+  const domText = domGlyphText(ctx, text, byzantineFont(BYZ_FONT_SIZE));
+  const carrier = domText.slice(0, domText.length - text.length);
+
   const ink = document.createElement("span");
   ink.className = "glyph-ink";
   if (mutedText) {
-    ink.appendChild(glyphLayer(text));
-    ink.appendChild(glyphLayer(mutedText, "glyph-muted"));
+    ink.appendChild(glyphLayer(domText));
+    ink.appendChild(glyphLayer(carrier + mutedText, "glyph-muted"));
   } else {
-    ink.textContent = text;
+    ink.textContent = domText;
   }
 
-  const ctx = wellMeasuringContext();
   const shared =
     placement === "martyria" ? martyriaInkRange(ctx, byzantineFont(BYZ_FONT_SIZE)) : null;
-  const shift = inkCenteringShiftEm(ctx, text, shared ? "center" : placement, shared);
+  const shift = inkCenteringShiftEm(ctx, domText, shared ? "center" : placement, shared);
   ink.style.setProperty("--ink-dx", shift.dx.toFixed(4) + "em");
   ink.style.setProperty("--ink-dy", shift.dy.toFixed(4) + "em");
 

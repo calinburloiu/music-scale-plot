@@ -16,6 +16,7 @@ const {
   dismissPicker,
   measureTextInk,
 } = require("../helpers/harness.js");
+const { closeTo } = require("../helpers/assertions.js");
 
 function byzantineApp(t) {
   const h = loadApp();
@@ -331,7 +332,7 @@ test("the alteration picker", async (t) => {
     const option = panel.querySelector('.alteration-option[data-alteration="yfesis4"]');
     assert.equal(
       option.querySelector(".byz-glyph").textContent,
-      h.app.resolveAlterationGlyph("yfesis4")
+      h.app.BYZ_DOM_GLYPH_CARRIER + h.app.resolveAlterationGlyph("yfesis4")
     );
     assert.equal(
       option.querySelector(".byz-label").textContent,
@@ -348,7 +349,7 @@ test("the alteration picker", async (t) => {
     assert.equal(row.dataset.alteration, "diesis6");
     assert.equal(
       row.querySelector(".alteration-well").textContent,
-      h.app.resolveAlterationGlyph("diesis6")
+      h.app.BYZ_DOM_GLYPH_CARRIER + h.app.resolveAlterationGlyph("diesis6")
     );
     assert.ok(!row.querySelector(".alteration-well").classList.contains("is-empty"));
   });
@@ -1539,5 +1540,81 @@ test("what a picker scrolls to when it opens", async (t) => {
     const target = h.app.pickerRevealTarget(panel.querySelector('[data-scroller="fthora"]'));
 
     assert.equal(target.element, panel.querySelector('.fthora-option[data-fthora="chroaSpathi"]'));
+  });
+});
+
+test("what a box holding a sign actually contains", async (t) => {
+  // WebKit paints nothing for DOM text made of nothing but zero-advance marks,
+  // so a sign of alteration goes into a well or a picker row riding on a
+  // carrier. See `domGlyphText`. The chart is unaffected: a canvas paints the
+  // glyphs it is handed, with no shaping in the way.
+  await t.test("a well holding a sign of alteration puts a carrier in front of it", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    pickAlteration(h, row, "diesis6");
+
+    assert.equal(
+      row.querySelector(".alteration-well").textContent,
+      h.app.BYZ_DOM_GLYPH_CARRIER + h.app.resolveAlterationGlyph("diesis6")
+    );
+  });
+
+  await t.test("so does every row of the alteration picker", () => {
+    const h = byzantineApp(t);
+    const panel = openWell(h, noteRows(h)[0], "alteration");
+
+    const option = panel.querySelector('.alteration-option[data-alteration="yfesis4"]');
+
+    assert.equal(
+      option.querySelector(".byz-glyph").textContent,
+      h.app.BYZ_DOM_GLYPH_CARRIER + h.app.resolveAlterationGlyph("yfesis4")
+    );
+  });
+
+  await t.test("a fthora advances on its own, so it rides on nothing", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    pickFthora(h, row, "diatonicPa");
+
+    assert.equal(
+      row.querySelector(".fthora-well").textContent,
+      h.app.resolveFthoraGlyph("diatonicPa")
+    );
+  });
+
+  await t.test("a martyria rides on its own letter", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    pickMartyria(h, row, { note: "midPa", genus: "alpha" });
+
+    assert.equal(
+      row.querySelector(".martyria-well").textContent,
+      h.app.resolveMartyriaGlyphs("midPa", "alpha", 0)
+    );
+  });
+
+  await t.test("the carrier is measured with the sign, so the ink is still centred", () => {
+    const h = byzantineApp(t);
+    const row = noteRows(h)[0];
+
+    pickAlteration(h, row, "diesis6");
+
+    const sign = h.app.resolveAlterationGlyph("diesis6");
+    const ink = row.querySelector(".alteration-well .glyph-ink");
+    const expected = h.app.inkCenteringShiftEm(
+      h.ctx,
+      h.app.BYZ_DOM_GLYPH_CARRIER + sign,
+      "center"
+    );
+
+    closeTo(
+      parseFloat(ink.style.getPropertyValue("--ink-dx")),
+      expected.dx,
+      1e-4,
+      "the offset should centre what is really in the box, carrier and all"
+    );
   });
 });

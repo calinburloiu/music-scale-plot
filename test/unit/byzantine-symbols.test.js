@@ -1333,3 +1333,128 @@ test("drawing ink-anchored glyphs", async (t) => {
     assert.equal(h.ctx.callsOf("fillText").length, 0);
   });
 });
+
+test("handing a sign to the DOM", async (t) => {
+  // A canvas paints whatever it is given. DOM text is shaped first, and WebKit
+  // drops a run made up of nothing but zero-advance marks — every sign of
+  // alteration in this face — so it paints no sign at all where Blink and Gecko
+  // paint one. A carrier in front of the mark gives the run a glyph with an
+  // advance and the mark comes back. It is measured with the sign, so the ink
+  // centring accounts for whatever advance the carrier turns out to have.
+  await t.test("gives a sign with no advance of its own something to ride on", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const sign = h.app.resolveAlterationGlyph("diesis4");
+    closeTo(h.app.inkBox(h.ctx, sign, h.app.byzantineFont()).adv, 0, 1e-9, "the sign's advance");
+
+    assert.equal(
+      h.app.domGlyphText(h.ctx, sign, h.app.byzantineFont()),
+      h.app.BYZ_DOM_GLYPH_CARRIER + sign
+    );
+  });
+
+  await t.test("hands over a sign that has an advance unchanged", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const fthora = h.app.resolveFthoraGlyph("diatonicPa");
+    assert.ok(h.app.inkBox(h.ctx, fthora, h.app.byzantineFont()).adv > 0, "a fthora advances");
+
+    assert.equal(h.app.domGlyphText(h.ctx, fthora, h.app.byzantineFont()), fthora);
+  });
+
+  await t.test("carries a composition on its letter, not on a carrier", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const martyria = h.app.resolveMartyriaGlyphs("midPa", "alpha", 0);
+
+    assert.equal(h.app.domGlyphText(h.ctx, martyria, h.app.byzantineFont()), martyria);
+  });
+
+  await t.test("leaves an empty string empty, so an empty well stays empty", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.equal(h.app.domGlyphText(h.ctx, "", h.app.byzantineFont()), "");
+  });
+});
+
+test("measuring ink where the engine will not report it on its own", async (t) => {
+  // WebKit answers `measureText` with the ink box unioned with the text's
+  // advance rect and its baseline. Every fthora and every sign of alteration in
+  // this face has ink that clears the baseline entirely, so there the descent
+  // comes back as 0 and the box reaches the whole advance — and a sign placed
+  // from those numbers lands a third of an em out, in the chart and in the
+  // wells alike. The app finds the ink in the pixels instead. Same face, same
+  // signs, so the answer has to be the same as an engine that reports ink.
+  const boxOf = (h, text) => h.app.inkBox(h.ctx, text, h.app.byzantineFont());
+
+  const sameInkAs = (name, textOf) => async () => {
+    const exact = loadApp();
+    t.after(() => exact.close());
+    const union = loadApp({ inkMetrics: "union" });
+    t.after(() => union.close());
+
+    const text = textOf(exact.app);
+    const wanted = boxOf(exact, text);
+    const got = boxOf(union, text);
+
+    for (const edge of ["left", "right", "top", "bottom"]) {
+      closeTo(got[edge], wanted[edge], 1, name + ": the ink's " + edge + " edge");
+    }
+    closeTo(got.adv, wanted.adv, 1e-9, name + ": the advance");
+  };
+
+  await t.test(
+    "for a fthora, whose ink sits a whole em above the baseline",
+    sameInkAs("fthora", (app) => app.resolveFthoraGlyph("diatonicPa"))
+  );
+
+  await t.test(
+    "for a sign of alteration, which has no advance to be confused with",
+    sameInkAs("alteration", (app) => app.resolveAlterationGlyph("diesis4"))
+  );
+
+  await t.test(
+    "for a geniki, drawn higher again",
+    sameInkAs("geniki", (app) => app.resolveAlterationGlyph("diesisGeniki"))
+  );
+
+  await t.test(
+    "for a martyria, whose letter straddles the baseline and whose mark hangs below",
+    sameInkAs("martyria", (app) => app.resolveMartyriaGlyphs("lowPa", "alpha", 0))
+  );
+
+  await t.test("over a whole vocabulary measured on one surface", () => {
+    // The martyria range is a few hundred measurements. They share one scratch
+    // canvas, so each has to start from a cleared surface: leave the last sign
+    // on it and the range grows to the union of everything ever drawn.
+    const exact = loadApp();
+    t.after(() => exact.close());
+    const union = loadApp({ inkMetrics: "union" });
+    t.after(() => union.close());
+
+    const font = exact.app.byzantineFont();
+    const wanted = exact.app.martyriaInkRange(exact.ctx, font);
+    const got = union.app.martyriaInkRange(union.ctx, font);
+
+    closeTo(got.top, wanted.top, 1, "the top of the range every martyria shares");
+    closeTo(got.bottom, wanted.bottom, 1, "and its bottom");
+  });
+
+  await t.test("and centres a sign on that ink, not on the advance", async () => {
+    const exact = loadApp();
+    t.after(() => exact.close());
+    const union = loadApp({ inkMetrics: "union" });
+    t.after(() => union.close());
+
+    const sign = exact.app.resolveFthoraGlyph("diatonicPa");
+    const wanted = exact.app.inkCenteringShiftEm(exact.ctx, sign, "center");
+    const got = union.app.inkCenteringShiftEm(union.ctx, sign, "center");
+
+    closeTo(got.dy, wanted.dy, 0.03, "the vertical offset a fthora well is given");
+    closeTo(got.dx, wanted.dx, 0.03, "the horizontal offset a fthora well is given");
+  });
+});

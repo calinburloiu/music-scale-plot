@@ -244,11 +244,46 @@ For each interval (bottom to top):
 
 ### Canvas resolution
 
-The canvas `width` and `height` attributes are set to `2×` the CSS display size (device-pixel-ratio aware), and the context is scaled by 2, producing crisp output for both screen display and PNG export.
+The canvas `width` and `height` attributes are the CSS display size times
+`renderScale`, and the context is scaled to match. On screen `renderScale` is
+the display's `devicePixelRatio` (read once at load, `DPR`); during a PNG export
+it is the fixed `EXPORT_SCALE`.
+
+`scaleWithinCanvasLimit()` reduces whichever scale is in effect until the bitmap
+fits under `MAX_CANVAS_AREA` (16.7M pixels) — the ceiling above which Safari,
+iOS Safari in particular, returns a blank canvas rather than allocating one. It
+binds only on charts spanning several octaves.
 
 ## PNG Export
 
 A **Save as PNG** button calls `canvas.toDataURL("image/png")`, creates a temporary `<a>` element with the `download` attribute set to `scale.png`, and programmatically clicks it. This triggers a file download with no server involvement.
+
+The export is **independent of the display**: `savePNG()` re-renders at
+`EXPORT_SCALE` (4), takes the bitmap, then re-renders at `DPR` to put the screen
+back. Tying the export to `devicePixelRatio` instead would mean the same chart
+left one machine at twice the resolution it left another, with nothing in the
+file to tell the two apart — which matters because these charts are exported
+for print, where 4× puts a chart placed at book size around 700ppi, well above
+the 300ppi floor. `displayZoom` never enters into it: zoom is a CSS transform on
+the canvas element and does not touch the backing store.
+
+`withPrintMetadata()` then splices two ancillary chunks into the encoded file,
+which a canvas emits without either:
+
+- **`pHYs`** — the resolution, at `EXPORT_PPI` (720). Without it a layout app
+  falls back to 72ppi and places an octave chart nearly two feet tall; with it,
+  placed at 100%, the chart is 6.9in tall with 9.6pt note names. The declared
+  resolution is `CSS_PX_PER_INCH x EXPORT_SCALE`, so the printed *size* is a
+  property of the chart and the export scale only changes its sharpness.
+- **`sRGB`** — what the RGB numbers mean, with the relative-colorimetric intent
+  that suits flat chosen colours rather than the perceptual intent for
+  photographs. Untagged, a print workflow guesses the source space before
+  separating, and the palette shifts if it guesses wrong.
+
+Neither chunk says anything about black generation: `#000` still separates to a
+four-plate rich black under a normal CMYK profile, because a raster cannot tell
+the converter which pixels are text. Only vector output, or a grayscale
+interior, gets black text on one plate.
 
 ## Event Flow
 
