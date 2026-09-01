@@ -196,31 +196,21 @@ a { color: var(--accent); }
 
 <h1>SMuFL accidentals in Bravura Text</h1>
 <p class="lede">
-  Working page for <a href="https://github.com/calinburloiu/music-scale-plot/issues/13">issue #13</a>.
-  Every symbol here is live text in <code>fonts/BravuraText.woff2</code>, not an image:
-  select it and copy it. The page exists to <b>show the glyphs</b> — Figure 2 of the
-  Sagittal paper reconstructed, the four composition mechanisms at work, and every
-  candidate picker group drawn out.
-</p>
-<p class="lede">
-  It is the companion to
-  <a href="2026-09-01-smufl-accidentals-research.md">the research document</a>, which holds
-  the other half: the measurements, the licence analysis, the codepoint inventories and the
-  decisions. Nothing is stated twice — each section below names the section there that
-  argues for it.
+  The glyphs for <a href="https://github.com/calinburloiu/music-scale-plot/issues/13">issue
+  #13</a>, as live text in <code>fonts/BravuraText.woff2</code> — select and copy any of
+  them. The facts, measurements and decisions are in
+  <a href="2026-09-01-smufl-accidentals-research.md">the research document</a>, linked per
+  section below; this page only shows what they look like.
 </p>
 
 <!-- ====================================================================== -->
 <h2>1 &middot; The 72-EDO ladder — Figure 2 reconstructed</h2>
 
 <p>
-  Twelve steps to the whole tone, so one step is a twelfth of a tone (16.67&nbsp;&cent;) and
-  the apotome is six of them. The <b>Revo</b> row is what SMuFL ships precomposed; the
-  <b>Evo (mixed)</b> row is the one drawn in Figure 2 of the paper, and its &plusmn;4 and
-  &plusmn;5 are a sagittal glyph followed by an ordinary
-  <span class="sym sm">&#xE260;</span> or <span class="sym sm">&#xE262;</span> — two
-  codepoints in a row. Each cell prints its own codepoints under the glyph. Why the two
-  flavours differ, and which degrees that leaves to compose, is
+  One step is a twelfth of a tone (16.67&nbsp;&cent;), the apotome six of them. <b>Revo</b>
+  is what SMuFL ships precomposed; <b>Evo (mixed)</b> is Figure 2 of the paper, whose
+  &plusmn;4 and &plusmn;5 are two codepoints in a row. Cells print their codepoints under
+  the glyph; the reasoning is
   <a href="2026-09-01-smufl-accidentals-research.md#3--the-sagittal-mixed-symbols-for-72-edo">&sect;3
   of the research document</a>.
 </p>
@@ -230,20 +220,16 @@ a { color: var(--accent); }
 </div>
 
 <p class="note">
-  Degrees &plusmn;1, &plusmn;2 and &plusmn;3 are identical in both flavours — they are the
-  single-shaft symbols, which is exactly the point the paper makes about the two flavours
-  coexisting. Only &plusmn;4, &plusmn;5 and &plusmn;6 differ.
+  &plusmn;1, &plusmn;2 and &plusmn;3 — the single-shaft symbols — are identical in both
+  flavours. Only &plusmn;4, &plusmn;5 and &plusmn;6 differ.
 </p>
 
 <!-- ====================================================================== -->
 <h2>2 &middot; Composing an Evo pair: the spacing question</h2>
 
 <p>
-  Every glyph in the font has <b>zero side bearings</b>: the advance width is exactly the
-  width of the ink. Two accidentals in a row therefore touch, with not one pixel between
-  them. That is deliberate — a notation engine positions accidentals itself — but it means
-  a plain two-character string is too tight. Bravura Text provides three blank advance
-  glyphs to open the gap, measured in staff spaces:
+  Zero side bearings mean two accidentals in a row touch, with not one pixel between them.
+  Three blank advance glyphs open the gap; pick one by eye:
 </p>
 
 <div class="panel">
@@ -251,12 +237,8 @@ a { color: var(--accent); }
 </div>
 
 <p class="note">
-  <code>U+0020</code> = &frac12; staff space, <code>-</code> = 1 staff space,
-  <code>=</code> = 2 staff spaces. They carry no outline at all, so they are safe inside a
-  <code>fillText()</code> string as well as in the DOM. In the DOM the containing element
-  needs <code>white-space: pre</code> or the leading space is collapsed away.
-  Their advance widths in font units, and why Bravura&rsquo;s single spacer is not the same
-  quantity, are in
+  The containing element needs <code>white-space: pre</code>, or the DOM collapses the
+  leading space. Advance widths in font units:
   <a href="2026-09-01-smufl-accidentals-research.md#1--bravura-or-bravura-text">&sect;1 of the
   research document</a>.
 </p>
@@ -265,18 +247,15 @@ a { color: var(--accent); }
 <h2>3 &middot; How SMuFL glyphs compose — a primer</h2>
 
 <p>
-  One worked example of each of the four mechanisms, in the same order as
+  One worked example of each, in the order of
   <a href="2026-09-01-smufl-accidentals-research.md#4--how-smufl-glyphs-compose--a-primer">&sect;4
-  of the research document</a>, which explains what each one is and what was found in the
-  font. Only the first two matter for issue #13.
+  of the research document</a>, which explains what they are.
 </p>
 
 <h3>3a &middot; Plain concatenation (what an Evo pair is)</h3>
 <p>
-  Two codepoints in a string, no markup, no positioning. Because of the zero side bearings
-  they touch exactly at the ink, and <code>U+E305 U+E262</code> reads as one compound
-  accidental. This is what an Evo pair is, in the DOM and in <code>ctx.fillText()</code>
-  alike.
+  Two codepoints in a string, no markup, no positioning — they touch at the ink and read as
+  one compound accidental.
 </p>
 
 <div class="panel">
@@ -289,17 +268,14 @@ a { color: var(--accent); }
 
 <h3>3b &middot; GPOS <code>kern</code> — pair positioning</h3>
 <p>
-  Nothing to draw: <b>none of the accidental pairs on this page is kerned</b>, so every
-  pair above is pure advance-width stacking. That the font&rsquo;s <code>kern</code> table
-  leaves them alone was read out of the font — see the research document.
+  Nothing to draw: <b>none of the accidental pairs on this page is kerned</b>, so every pair
+  above is pure advance-width stacking.
 </p>
 
 <h3>3c &middot; GSUB <code>liga</code> — substituting a sequence for one glyph</h3>
 <p>
-  Bravura Text uses ligature substitution for <b>vertical positioning</b>: write one of the
-  shifter codepoints <code>U+EB90</code>&hellip;<code>U+EB9F</code>, then a symbol, and the
-  run is swapped for a single pre-shifted glyph. The proof is visual — the same sharp,
-  three times, at three heights:
+  A shifter codepoint <code>U+EB90</code>&hellip;<code>U+EB9F</code> before a symbol is
+  swapped for one pre-shifted glyph. The proof is visual — the same sharp, three times:
 </p>
 
 <div class="panel">
@@ -309,18 +285,15 @@ a { color: var(--accent); }
     <code>U+E262</code> &middot; <code>U+EB91 U+E262</code> &middot; <code>U+EB9A U+E262</code>
   </div>
   <p class="note" style="margin:.6rem 0 0">
-    If they are not at three different heights, your renderer did not apply the ligature.
-    Canvas <code>fillText()</code> applies it too. Issue #13 draws accidentals
-    free-standing beside a chart, not on a staff, so this is background knowledge rather
-    than a tool we need.
+    If they are not at three heights, your renderer did not apply the ligature. Canvas
+    <code>fillText()</code> applies it too.
   </p>
 </div>
 
 <h3>3d &middot; Zero-width glyphs — overprinting</h3>
 <p>
-  Staff glyphs (<code>U+E010</code>&hellip;<code>U+E014</code>) and leger lines have an
-  advance width of <b>zero</b>, so whatever follows overprints them instead of following
-  them — a staff and three accidentals, from one string:
+  Staff glyphs (<code>U+E010</code>&hellip;<code>U+E014</code>) advance by <b>zero</b>, so
+  what follows overprints them — a staff and three accidentals, from one string:
 </p>
 
 <div class="panel">
@@ -329,9 +302,8 @@ a { color: var(--accent); }
     <span class="sym lg">&#xE014;&#xE014;&#xE014;&#xE262;&#x2D;&#xE302;&#x2D;&#xE30A;</span>
   </div>
   <p class="note" style="margin:.6rem 0 0">
-    Three staff glyphs at zero advance stack in the same place and only widen the drawing,
-    not the cursor; the accidentals that follow start at x&nbsp;=&nbsp;0 of the run and
-    land on the middle line, which is where every movable glyph sits by default.
+    The three staff glyphs stack in place; the accidentals start at x&nbsp;=&nbsp;0 of the
+    run and land on the middle line, where every movable glyph sits by default.
   </p>
 </div>
 
@@ -339,10 +311,8 @@ a { color: var(--accent); }
 <h2>4 &middot; Candidate groups for the picker</h2>
 
 <p>
-  Every range that is plausibly a picker group, drawn in full from the vendored font — this
-  is the material a group decision has to be made on. Hover a cell for its SMuFL
-  description. The range-to-group proposal, the glyph counts and the two design
-  observations that follow from them are
+  Every plausible group, drawn in full — the material the grouping decision is made on.
+  Hover a cell for its SMuFL description; the proposal itself is
   <a href="2026-09-01-smufl-accidentals-research.md#5--candidate-groups-for-the-picker">&sect;5
   of the research document</a>.
 </p>
@@ -353,10 +323,9 @@ a { color: var(--accent); }
 <h2>5 &middot; At well and picker size</h2>
 
 <p>
-  The same glyphs at the sizes they would actually appear: a 2.6&nbsp;rem well beside a
-  note-name box, and a 30&nbsp;px picker option — including the widest Evo pair, to check it
-  still fits. Bravura Text needs <code>line-height: 1</code> to sit in a box this tight;
-  with the default strut the symbol floats and the row grows by half a line.
+  The glyphs at editor size, including the widest Evo pair, to check it still fits. Bravura
+  Text needs <code>line-height: 1</code> in a box this tight; with the default strut the
+  symbol floats and the row grows by half a line.
 </p>
 
 <div class="panel">
@@ -384,10 +353,9 @@ a { color: var(--accent); }
 <h2>6 &middot; Why Bravura Text and not Bravura</h2>
 
 <p>
-  The two faces carry the identical SMuFL symbols at the same codepoints, so the choice is
-  about metrics. The table below reads them live from the browser with
-  <code>ctx.measureText()</code> at 100&nbsp;px — the numbers the app itself would get. The
-  argument they support, and the licensing behind vendoring the face, are
+  Both faces carry the same symbols at the same codepoints, so the choice is about metrics.
+  Read live with <code>ctx.measureText()</code> at 100&nbsp;px — the numbers the app would
+  get. The argument, and the licensing, are
   <a href="2026-09-01-smufl-accidentals-research.md#1--bravura-or-bravura-text">&sect;&sect;1&ndash;2
   of the research document</a>.
 </p>
@@ -397,9 +365,8 @@ a { color: var(--accent); }
 </div>
 
 <p class="note">
-  Bravura itself is deliberately <b>not</b> vendored: only Bravura Text is. The Bravura rows
-  above are therefore read from a locally installed copy if you have one — the figures to
-  expect are 0.249em advance and a <b>4.020em line box</b> for the sharp.
+  Bravura itself is <b>not</b> vendored, so its rows read a locally installed copy if you
+  have one — expect 0.249em advance and a <b>4.020em line box</b> for the sharp.
   <span id="bravura-missing" hidden>On this machine Bravura is not installed, so those rows
   fell back to a system font and mean nothing; install it, or drop
   <code>Bravura.woff2</code> beside <code>BravuraText.woff2</code> and add an
