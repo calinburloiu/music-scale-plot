@@ -4,6 +4,21 @@ const RECT_WIDTH = 200;
 const TEXT_MARGIN = 12;
 const CANVAS_PADDING = 20;
 const DPR = window.devicePixelRatio || 2;
+// PNG export renders at this scale instead of the display's device pixel
+// ratio: a chart must come out at the same resolution whether it was exported
+// from a Retina laptop (2) or an ordinary external monitor (1), because the
+// person placing it in a book has no way of telling the two files apart. At 4,
+// a chart placed at book size lands around 700ppi, comfortably above print's
+// 300ppi floor.
+const EXPORT_SCALE = 4;
+// Safari — iOS Safari especially — will not allocate a canvas larger than
+// about 16.7 million pixels; it hands back a blank one instead. Every backing
+// store is scaled to fit under that, which only ever costs resolution on a
+// chart already far larger than a page.
+const MAX_CANVAS_AREA = 16777216;
+// The scale render() draws at: the display's, except while savePNG() takes its
+// bitmap.
+let renderScale = DPR;
 
 const PALETTE_LIGHT = [
   "#FFFFFF", "#E8E8E8", "#D0D0D0", "#B8B8B8", "#A0A0A0", "#F0E0CC",
@@ -901,11 +916,12 @@ function render() {
     displayHeight = CANVAS_PADDING * 2 + signOverhang * 2 + stackLength;
   }
 
-  canvas.width = Math.round(displayWidth * DPR);
-  canvas.height = Math.round(displayHeight * DPR);
+  const scale = scaleWithinCanvasLimit(renderScale, displayWidth, displayHeight);
+  canvas.width = Math.round(displayWidth * scale);
+  canvas.height = Math.round(displayHeight * scale);
   canvas.style.width = displayWidth + "px";
   canvas.style.height = displayHeight + "px";
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
 
   ctx.clearRect(0, 0, displayWidth, displayHeight);
 
@@ -1344,10 +1360,28 @@ function loadByzantineFont() {
     });
 }
 
+/**
+ * The scale a backing store may actually use: the one asked for, reduced until
+ * the bitmap fits under the canvas-area cap. Each axis counts a pixel wider
+ * than it is, to leave room for the rounding to whole pixels that follows.
+ */
+function scaleWithinCanvasLimit(scale, displayWidth, displayHeight) {
+  return Math.min(scale, Math.sqrt(MAX_CANVAS_AREA / ((displayWidth + 1) * (displayHeight + 1))));
+}
+
 function savePNG() {
   const link = document.createElement("a");
   link.download = "scale.png";
-  link.href = canvas.toDataURL("image/png");
+  // Redraw at the export scale for the bitmap, then put the screen back: the
+  // canvas the user is looking at stays at the display's resolution.
+  renderScale = EXPORT_SCALE;
+  try {
+    render();
+    link.href = canvas.toDataURL("image/png");
+  } finally {
+    renderScale = DPR;
+    render();
+  }
   link.click();
 }
 
