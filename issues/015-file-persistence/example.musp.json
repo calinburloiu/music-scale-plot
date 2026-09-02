@@ -3,7 +3,7 @@
   "name": "Hicaz",
   "settings": {
     "notation": "generic",
-    "baseNote": "C"
+    "baseNote": 0
   },
   "scaleEditor": {
     "mode": "relativeIntervals",

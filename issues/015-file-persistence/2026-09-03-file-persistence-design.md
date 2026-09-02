@@ -21,8 +21,11 @@ into the Scale Editor next to Mode.
 
 `musp` is *MuSP*, for Music Scale Plot, lowercased.
 
+**Base Note** also gains the five accidentals — all twelve chromatic notes — and is
+re-encoded from C, which moves the default from A to C (§5.1).
+
 Nothing about the chart, the symbol model or the interval maths changes. This is a
-serialisation layer, a toolbar, and two controls that move.
+serialisation layer, a toolbar, controls that move, and one widened selector.
 
 ---
 
@@ -36,12 +39,14 @@ Recorded so the plan does not relitigate them.
 | Format version | `formatVersion: 1`, required | A future format change must be detectable, not guessable from shape |
 | Martyria ticks | Persisted | `ticks` is user-visible state (`ladderNoteAt`, `byzantine.js:345`); without it a scale in the tick octave reloads an octave wrong |
 | Bad file on Open | Validate everything first, reject as a whole, keep current state, report in a message bar | Never a half-loaded editor; the user never loses work to a bad file |
-| Icons | Real `.svg` files in `icons/`, loaded with `<img>`, colours baked | The user wants editable SVG assets. See §5 for what this costs and how it is paid |
+| Icons | Real `.svg` files in `icons/`, loaded with `<img>`, colours baked | The user wants editable SVG assets. See §5.2 for what this costs and how it is paid |
 | Keyboard shortcuts | Ctrl/Cmd+O and Ctrl/Cmd+S | The browser owns Ctrl+N, so New gets no chord |
 | Name box location | Scale Editor, above Mode | A name is a property of the scale; Settings is for choices that change how values are *interpreted* |
 | Interval Type location | Scale Editor, above Mode, with EDO Divisions | Interval Type and Mode are the two axes that decide what an interval box means, and changing it calls `resetScaleToDefault()` — an editor operation |
 | `name` in the JSON | Top level, not `scaleEditor.name` | File identity; it feeds the suggested filename and couples to nothing else |
 | Code layout | Two new scripts, model/UI split | Mirrors `byzantine.js`/`byzantine-ui.js` and `smufl.js`/`symbols-ui.js` |
+| Base Note | All twelve chromatic notes, encoded 0–11 above **C**, in the DOM *and* the file | One encoding, no translation to get wrong, and C=0 is the conventional pitch class. See §5.1 |
+| Default base note | **C**, changed from A | The chromatic list starts at C, and the first option is the default. An audible change, recorded in §5.1 |
 
 ---
 
@@ -53,7 +58,7 @@ Recorded so the plan does not relitigate them.
   "name": "Hicaz",
   "settings": {
     "notation": "generic",
-    "baseNote": "C"
+    "baseNote": 0
   },
   "scaleEditor": {
     "mode": "relativeIntervals",
@@ -99,7 +104,7 @@ implementation detail, the file uses a word instead, translated at the boundary:
 | Field | File | DOM (`index.html`) |
 |---|---|---|
 | `settings.notation` | `generic`, `byzantine` | same |
-| `settings.baseNote` | `A`…`G` | `0, 2, 3, 5, 7, 8, 10` (semitones above A) |
+| `settings.baseNote` | `0`–`11`, semitones above C | same — see §5.1 |
 | `scaleEditor.mode` | `relativeIntervals`, `absoluteIntervals` | `relative`, `absolute` |
 | `scaleEditor.intervalType.type` | `ratio`, `edo`, `cents` | same |
 | `chart.style` | `boxes`, `segments` | `boxes`, `lines` |
@@ -197,7 +202,8 @@ Two new classic scripts, splitting model from DOM the way the repo already does.
 const SCALE_FILE_VERSION = 1;
 const SCALE_FILE_EXTENSION = ".musp.json";
 
-// Bidirectional enum maps: BASE_NOTE_LETTERS, SCALE_MODE_NAMES, CHART_STYLE_NAMES
+// Bidirectional enum maps: SCALE_MODE_NAMES, CHART_STYLE_NAMES
+// (baseNote needs none — §5.1 makes the DOM and the file agree)
 
 function serializeScaleDocument(state)   // state object -> pretty JSON string
 function parseScaleDocument(text)        // JSON string -> {ok:true, doc} | {ok:false, error}
@@ -250,16 +256,57 @@ Three edits:
    along with everything else.
 2. `closeAllDropdowns()` also calls `closeSaveMenu()`, alongside its existing
    `closeSymbolPickers()`. One function keeps meaning "close every transient overlay".
-3. **Refactor under a green suite:** extract `makeNoteRowElement(degree, mode, absVal)`
+3. `getBaseFrequency()` re-reads its input as semitones above C, per §5.1.
+4. **Refactor under a green suite:** extract `makeNoteRowElement(degree, mode, absVal)`
    and `makeIntervalRowElement(value, mode)`. `resetScaleToDefault`, `addNote` and the
    new `applyDocumentState` all build rows the same six-line way; today two of them
    repeat it verbatim. Behaviour-preserving, so no assertion changes.
 
 ---
 
-## 5. The toolbar
+## 5. The controls
 
-### Markup
+### 5.1 Base Note — twelve chromatic notes, encoded from C
+
+Today `#base-note` offers seven naturals, valued as **semitones above A**
+(`A=0, B=2, C=3 …`), which `getBaseFrequency()` turns into Hz with
+`220 × 2^(s/12)` (`app.js:94`).
+
+It gains the five accidentals, and the whole list is re-encoded as **semitones above C**
+so the DOM and the file agree and nothing needs translating at the boundary:
+
+```html
+<option value="0">C</option>       <option value="6">F♯/G♭</option>
+<option value="1">C♯/D♭</option>   <option value="7">G</option>
+<option value="2">D</option>       <option value="8">G♯/A♭</option>
+<option value="3">D♯/E♭</option>   <option value="9">A</option>
+<option value="4">E</option>       <option value="10">A♯/B♭</option>
+<option value="5">F</option>       <option value="11">B</option>
+```
+
+```js
+function getBaseFrequency() {
+  // Semitones above C. The wrap keeps the range at A220 … G♯415, which is
+  // exactly the octave the A-based encoding spanned — so every note that
+  // could be chosen before still sounds at the pitch it did.
+  const s = parseInt(baseNoteSelect.value, 10);
+  return 220 * Math.pow(2, ((s + 3) % 12) / 12);
+}
+```
+
+The wrap is what makes this behaviour-preserving: C→261.63, A→220, B→246.94, identical
+to today for all seven naturals.
+
+**One deliberate behaviour change comes with it.** The default base note is whichever
+option is first, and a chromatic list starts at C — so the default moves from **A (220 Hz)
+to C (261.63 Hz)**. The default scale's playback pitch changes for anyone who never
+touched the control. The chart is unaffected; only audio.
+
+Base Note stays in the Settings panel. Only its options and their encoding change.
+
+### 5.2 The toolbar
+
+#### Markup
 
 A `<div id="toolbar" role="toolbar" aria-label="File and scale actions">` placed before
 `.container`, holding:
@@ -285,14 +332,14 @@ The buttons have no text, so the `aria-label` is their only accessible name.
 The Save button carries `aria-haspopup="menu"` and an `aria-expanded` that tracks the
 panel.
 
-### Positioning
+#### Positioning
 
 `position: sticky; top: 0; z-index: 200`, as a direct child of `<body>` before
 `.container`. 200 clears the pickers' `z-index: 100`, which is what "always on top" has
 to beat here — and clears it in the root stacking context, the same one the note-row
 pickers escape into (`style.css:1447`).
 
-### Icons
+#### Icons
 
 Five files beside `fonts/`:
 
@@ -339,7 +386,7 @@ does under the stricter font rules.
 
 jsdom does not load images, so the harness needs no change for them.
 
-### What moves, and what is left behind
+#### What moves, and what is left behind
 
 | Control | From | To |
 |---|---|---|
@@ -374,7 +421,7 @@ editor exactly as it was.
 | `formatVersion === 1` | missing → `Not a Music Scale Plot file: no formatVersion.`; higher → `This file was saved by a newer version of Music Scale Plot (format 2).` |
 | `name` a string if present | `name must be text.` |
 | `settings.notation` in the enum | `settings.notation must be "generic" or "byzantine", got "x".` |
-| `settings.baseNote` in `A`…`G` | `settings.baseNote must be a note letter A–G, got "H".` |
+| `settings.baseNote` an integer 0–11 | `settings.baseNote must be a whole number from 0 to 11 (0 = C), got 12.` |
 | `scaleEditor.mode` in the enum | `scaleEditor.mode must be "relativeIntervals" or "absoluteIntervals", got "x".` |
 | `intervalType.type` in the enum | `scaleEditor.intervalType.type must be "ratio", "edo" or "cents", got "x".` |
 | `divisionCount` an integer ≥ 1 when `edo` | `scaleEditor.intervalType.divisionCount must be a whole number of at least 1.` |
@@ -526,9 +573,24 @@ Nothing new is stubbed for Save: the `data:` URL rides the existing
 
 ### Existing tests
 
-None should move. `settings.test.js:27`, `editor.test.js:19-22`,
-`byzantine-pickers.test.js:1119-1161` and `harness.js:303-304` all reach the relocated
-buttons by ID. `startup-reset.test.js` gains an assertion for `#scale-name`.
+**The relocated buttons move no tests.** `settings.test.js:27`, `editor.test.js:19-22`,
+`byzantine-pickers.test.js:1119-1161` and `harness.js:303-304` all reach them by ID.
+`startup-reset.test.js` gains an assertion for `#scale-name`.
+
+**The base note re-encoding does move tests**, and they change in the same commit with
+the reason in the message, as `docs/TESTING.md` §2 requires:
+
+- `defaults.test.js:99-113` — "A is 220 Hz" selects `"0"`, which is now C; A is `"9"`.
+  The table `{2:"B", 3:"C", 5:"D", 7:"E", 8:"F", 10:"G"}` is re-encoded from C, and its
+  expectation gains the `% 12` wrap. The *frequencies asserted do not change* — only the
+  values that select them.
+- `pitch.test.js:30` — `"3"` (C under the old encoding) becomes `"0"`, and the comment
+  with it.
+- `startup-reset.test.js:60` — asserts the default is `"0"`. Still `"0"`, but it now
+  means C rather than A, so the assertion gains the note that says which.
+
+New coverage for §5.1: every one of the twelve options resolves to the pitch it names,
+the five accidentals included, and the default is C at 261.63 Hz.
 
 ---
 
