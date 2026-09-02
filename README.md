@@ -6,11 +6,11 @@ Supports scales from various traditions including Byzantine/psaltic music, Ottom
 
 ## Usage
 
-Open `index.html` in a browser. No build step or server required. The page loads `style.css` and, in order, `byzantine.js`, `smufl.js`, `symbols-ui.js`, `byzantine-ui.js` and `app.js` (all `defer`), from the same directory.
+Open `index.html` in a browser. No build step or server required. The page loads `style.css` and, in order, `byzantine.js`, `smufl.js`, `persistence.js`, `symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js` and `app.js` (all `defer`), from the same directory.
 
 1. Use the scale editor to define notes and intervals.
 2. The chart updates in real-time as you type.
-3. Click **Save as PNG** to export the chart.
+3. Use the toolbar's **New**, **Open** and **Save** to work with `.musp.json` scale files, or its **Save** menu's **Save As PNG** to export the chart.
 
 ## Development
 

@@ -13,9 +13,12 @@ music-scale-plot/
 ├── byzantine.js             # Byzantine symbol model + shared ink-measuring
 │                             # primitives (font-agnostic), no DOM
 ├── smufl.js                 # SMuFL accidental catalogue + resolvers, no DOM
+├── persistence.js           # The .musp.json format: serialise/parse/validate, no DOM
 ├── symbols-ui.js            # Wells and pickers shared by both notations
 ├── byzantine-ui.js          # Only what is Byzantine: the three picker builders,
 │                             # the martyria draft, the ladder
+├── persistence-ui.js        # The toolbar and the file flows: New/Open/Save,
+│                             # collectDocumentState/applyDocumentState
 ├── app.js                   # Everything else: editor DOM management, chart rendering,
 │                             # audio, PNG export — runs at load time, so it loads last
 ├── docs/
@@ -24,32 +27,53 @@ music-scale-plot/
 │   ├── SMUFL-ACCIDENTALS.md   # The Generic accidental layer, for maintainers
 │   └── TESTING.md             # Testing guide and the mandatory TDD workflow
 ├── fonts/                    # Vendored Neanes and Bravura Text fonts (see README's NOTICE)
+├── icons/                    # Toolbar SVG icons, --ink baked in (see Styling below)
 ├── LICENSE
 └── README.md
 ```
 
-- `index.html` — contains the page skeleton, links to `style.css`, and loads the five
+- `index.html` — contains the page skeleton, links to `style.css`, and loads the seven
   scripts in that order (deferred).
 - `style.css` — all visual styling.
-- `byzantine.js`, `smufl.js`, `symbols-ui.js`, `byzantine-ui.js`, `app.js` — all
-  JavaScript, split into five classic `<script>` files loaded in load order, not modules:
-  `<script type="module">` is fetched under CORS, and a page opened with `file://` has an
-  opaque origin, so a module script would be blocked — breaking "open `index.html`
-  directly in a browser". Classic scripts share one global scope, so `byzantine.js`'s
-  tables, resolvers and measuring primitives are visible to `smufl.js`, `symbols-ui.js`,
-  `byzantine-ui.js` and `app.js` without any import.
+- `byzantine.js`, `smufl.js`, `persistence.js`, `symbols-ui.js`, `byzantine-ui.js`,
+  `persistence-ui.js`, `app.js` — all JavaScript, split into seven classic `<script>`
+  files loaded in load order, not modules: `<script type="module">` is fetched under
+  CORS, and a page opened with `file://` has an opaque origin, so a module script would
+  be blocked — breaking "open `index.html` directly in a browser". Classic scripts share
+  one global scope, so `byzantine.js`'s tables, resolvers and measuring primitives are
+  visible to `smufl.js`, `persistence.js`, `symbols-ui.js`, `byzantine-ui.js`,
+  `persistence-ui.js` and `app.js` without any import.
 
 Tests live under `test/` and are described in [TESTING.md](TESTING.md), which also
 defines the mandatory TDD workflow for changes to this design.
 
 ## HTML Layout
 
-The page is split into two side-by-side panels using CSS flexbox:
+A sticky `#toolbar` sits before `.container`, `position: sticky; top: 0; z-index: 200` —
+200 clears the symbol pickers' own `z-index: 100`, both living in the root stacking
+context a picker escapes the editor panel into, so 200 is the number "always on top"
+actually has to beat. It holds, in order: **New**, **Open**, **Save** (a button that opens
+a menu with "Save As Music Scale Plot file" and, below a separator, "Save As PNG"), a
+`.toolbar-separator`, then **Add note** and **Remove last note**; a `role="alert"` message
+bar (`#toolbar-message`, hidden until a file operation has something to say) and the
+hidden `<input type="file" id="open-file-input">` used by the Open fallback complete it.
+Each button is icon-only (`<img src="icons/*.svg" alt="">`) with its accessible name given
+entirely by `aria-label`/`title`. **Add note**, **Remove last note** and **Save as PNG**
+kept their element ids (`add-note`, `remove-note`, `save-png`) across the move from the
+Scale Editor and the Chart panel respectively — `app.js` finds them by id, so relocating
+the markup touched no listener in it.
+
+The page is then split into two side-by-side panels using CSS flexbox:
 
 | Left panel — Scale Editor | Right panel — Chart |
 |---|---|
 | Form-based editor for notes and intervals | `<canvas>` element displaying the scale chart |
-| Add / Remove note buttons | Save as PNG button |
+
+The Settings panel holds only **Notation** and **Base Note** now; **Name**, **Interval
+Type**, **EDO Divisions** and **Mode** are the Scale Editor's own first four rows, above
+`#editor`, in that order — Name new, the other three moved out of Settings. See
+[File Persistence](#file-persistence) below for why: the file format's `settings` and
+`scaleEditor` objects are the two objects those controls now mirror.
 
 The **Notation** setting (`#notation`, `generic` or `byzantine`) sits at the top of the
 Settings panel, above the base-note row. It does not rebuild the editor: every note row
@@ -95,6 +119,15 @@ scaleData = [
 ```
 
 This flat list mirrors the alternating note/interval rows in the editor UI. It is rebuilt from the DOM inputs on every change, keeping the DOM as the single source of truth (no separate state syncing needed for this small app).
+
+`#base-note`'s value (`settings.baseNote`) is **semitones above C** — `0` is C, `11` is B
+— the same number a `.musp.json` file stores under `settings.baseNote`, so nothing needs
+translating at that boundary (see [File Persistence](#file-persistence)). `getBaseFrequency()`
+reads it and wraps by `(s + 3) % 12` before turning it into Hz: the wrap keeps the audible
+octave at A220…G♯415 regardless of which semitone is chosen, which is the octave the
+option list's five accidentals plus seven naturals span. The default option is C
+(`baseNote = 0`), so the default scale now plays at 261.63 Hz rather than the old
+A-based encoding's 220 Hz.
 
 Each note item carries four extra fields for the symbol wells, read off the row's `data-*`
 attributes by `readNoteSymbols()` (`symbols-ui.js`):
@@ -164,11 +197,17 @@ baseline at all.
 
 The editor starts with Note 1, one interval (ratio defaulting to `9/8`, label empty), and Note 2. Both note name fields are initially empty. The user fills in only what they need — names and labels are optional and omitted from the chart when left blank.
 
-The page has no persistence: every load starts from this state and from the settings' markup defaults. `initUI()` enforces that, because the browser does not. A browser restores form-control state across a soft reload — the selects, the number and range inputs and every text box in the editor come back holding the values the user left them at — while `#editor`'s *structure* comes back as the markup's own two rows and the app has no state of its own to restore alongside it. Left alone, the page would boot with the controls saying one thing and the DOM-as-data-model another: `#scale-mode` on "absolute" over rows that hold relative inputs, an EDO interval type with the EDO settings row hidden, a stale cents label beside an emptied interval box.
+The page still has no *automatic* persistence: every load starts from this state and from
+the settings' markup defaults, and a scale reaches or leaves disk only when the user opens
+or saves a `.musp.json` file through the toolbar (see [File Persistence](#file-persistence)).
+`initUI()` enforces the load-time reset, because the browser does not. A browser restores
+form-control state across a soft reload — the selects, the number and range inputs and every text box in the editor come back holding the values the user left them at — while `#editor`'s *structure* comes back as the markup's own two rows and the app has no state of its own to restore alongside it. Left alone, the page would boot with the controls saying one thing and the DOM-as-data-model another: `#scale-mode` on "absolute" over rows that hold relative inputs, an EDO interval type with the EDO settings row hidden, a stale cents label beside an emptied interval box.
 
-`initUI()` therefore puts every control back to the value its markup declares (`resetControlsToDefaults()` reads the defaults off `index.html`, so a default is written down in exactly one place), then rebuilds the editor and redraws. It runs **twice**, because browsers disagree on when the restore lands: Firefox writes it while parsing, so the deferred scripts already see it, whereas Chromium writes it *after* `load`, once every top-level statement has run against the markup's defaults. `pageshow` is the first event that fires after the restore is complete in either browser — and it covers a bfcache restore as well — so `initUI()` runs once at load time, which keeps the first paint correct, and again on `pageshow`.
+`initUI()` therefore puts every control back to the value its markup declares (`resetControlsToDefaults()` reads the defaults off `index.html`, so a default is written down in exactly one place), then rebuilds the editor and redraws. It runs **twice**, because browsers disagree on when the restore lands: Firefox writes it while parsing, so the deferred scripts already see it, whereas Chromium writes it *after* `load`, once every top-level statement has run against the markup's defaults. `pageshow` is the first event that fires after the restore is complete in either browser — and it covers a bfcache restore as well — so `initUI()` runs once at load time, which keeps the first paint correct, and again on `pageshow`. **New**, in the toolbar, calls this same `initUI()` (plus clearing the toolbar message bar) — it is exactly "as if you opened the page in a new private session".
 
 ### Controls
+
+Add note and Remove last note live in the toolbar now, not in the Scale Editor panel.
 
 - **Add note** button: appends one interval row (ratio defaulting to `9/8`, label empty) + one note row (name empty) at the bottom. The new note's degree increments automatically.
 - **Remove last note** button: removes the last note row and its preceding interval row. Disabled when only two notes remain (minimum viable scale = one interval).
@@ -233,6 +272,91 @@ well the user just confirmed. Its two boundary rules: the ladder runs out below 
 SBMuFL block exists under it, so the ladder simply stops there) and is extended above high Κε
 by a tick rather than a new block (there is no block above it either). See
 BYZANTINE-SYMBOLS.md §5 for the exact inequalities.
+
+## File Persistence
+
+`persistence.js` (no DOM) defines the `.musp.json` format and its own read/write pair;
+`persistence-ui.js` is the DOM half — the toolbar's handlers, `collectDocumentState()` and
+`applyDocumentState()`. A scale is saved and opened **explicitly** through the toolbar;
+there is no autosave and no file the page reopens on its own.
+
+### The format, version 1
+
+A `.musp.json` file is one JSON object: `formatVersion` (currently `1`), an optional
+`name`, `settings`, `scaleEditor` and `chart`. The file is written for a person to read
+and hand-edit, so where the DOM's own value is an implementation detail the format uses a
+different word for it, translated at the boundary by the bidirectional maps in
+`persistence.js` (`fileWordFor()` writes, the maps read):
+
+| Field | File word | DOM value |
+|---|---|---|
+| `settings.notation` | `generic` / `byzantine` | same |
+| `settings.baseNote` | `0`–`11`, semitones above C | same — no translation needed |
+| `scaleEditor.mode` | `relativeIntervals` / `absoluteIntervals` | `relative` / `absolute` |
+| `scaleEditor.intervalType.type` | `ratio` / `edo` / `cents` | same |
+| `chart.style` | `boxes` / `segments` | `boxes` / `lines` |
+| `chart.orientation` | `vertical` / `horizontal` | same |
+
+`intervalType.divisionCount` is written only when `type` is `edo`, and is required there.
+
+**Cardinality**, for *n* notes (*n* ≥ 2): `noteProperties` has *n* entries; `intervalProperties`
+always has *n* − 1, one per interval *between* successive notes; `intervals` has *n* − 1 in
+relative mode and *n* in absolute mode, where the first entry is the unison the editor
+shows disabled on Note 1.
+
+**The writer omits anything at its default**, so an untouched note serialises as `{}` and
+a half with nothing set (`generic` or `byzantine`) disappears entirely. Defaults are `""`
+for `accidental`, `name`, `alteration` and `fthora`; `GENUS_NONE` ("none") for
+`martyria.genus`; `0` for `martyria.ticks`; and no `martyria` key when the well holds no
+note. The reader accepts all three spellings of an unset field equally — omitted, `{}`, or
+written out explicitly at the default — so these describe the same note:
+
+```json
+{ "byzantine": { "martyria": { "note": "midPa", "genus": "none", "ticks": 0 } } }
+{ "byzantine": { "martyria": { "note": "midPa" } } }
+```
+
+`martyria.note` is the one martyria field that is *not* optional — no note is no
+martyria, the same rule `writeMartyria()` keeps. An interval item is typed by
+`intervalType.type` (a string for `ratio`, a number for `edo` or `cents`), except for one
+deliberate loosening: a box may hold text that does not parse (a scale saved mid-thought),
+and the writer then emits the raw string even where a number is canonical — nothing is
+lost and nothing invented, since the editor already tolerates unparseable input.
+
+### Validation
+
+`parseScaleDocument(text)` parses the JSON and hands the result to
+`validateScaleDocument(raw)`, which checks the **whole** document — every field, every
+array length, every symbol id — before anything is touched, so a rejected file leaves the
+editor exactly as it was; there is never a half-loaded scale. Symbol ids are resolved
+against the real tables (`smuflAccidentalById`, `byzFthoraById`, `byzAlterationById`,
+`byzNoteById`, `byzGenusById`), so a typo in a hand-edited file is *named* in the error
+rather than silently dropped into an empty well. Two deliberate softenings: unknown keys
+are ignored, so a file from a future minor addition still opens, and `chart.zoom` is
+clamped to 10–100 rather than rejected, because the value has one obvious safe reading and
+the zoom slider would clamp it anyway. On success, `{ ok: true, doc }` carries a document
+with every default filled back in; on failure, `{ ok: false, error }` carries one message
+naming the field and, where useful, the offending value.
+
+### Applying a document
+
+`applyDocumentState(doc)` rebuilds the whole page from a validated document. Every control
+is set by **direct value assignment, firing no events** — dispatching `change` on
+`#interval-type` or `#scale-mode` would run their own handlers
+(`onIntervalTypeChange` → `resetScaleToDefault()`, and the mode converter), either of which
+would destroy the very scale being loaded. In order: close every dropdown
+(`closeAllDropdowns()`); write the settings and scale-editor controls' values; show or hide
+the EDO row and update its cents label; `updateZoom()`; `onNotationChange()` for the
+editor's `notation-generic`/`notation-byzantine` class; clear and rebuild `#editor` with
+`makeNoteRowElement`/`makeIntervalRowElement`, writing each row's symbol, colour and label
+state through the same sanctioned writers a picker or the palette dropdown would use
+(`writeNoteSign`, `writeMartyria`/`clearMartyria`, `setSwatchColor`); then
+`updateRemoveBtn()`, `updateAllLabels()`, `render()`.
+
+Two functions it deliberately does **not** call: `propagateMartyriaLadder()`, because the
+file's martyrias are authoritative per degree and the ladder would overwrite them from
+whichever row happened to be last, and `syncIntervalColors()`, likewise, because the file
+says what each interval looks like rather than deriving it from matching values.
 
 ## Chart Rendering (Canvas)
 
@@ -378,6 +502,41 @@ Add/Remove note buttons modify the DOM (insert or remove rows) and then trigger 
 
 At load time, and again on `pageshow`, `initUI()` resets the settings and the editor to their defaults and renders — see [Initial state](#initial-state).
 
+**Open**:
+
+```
+User picks a file (File System Access picker, or the hidden <input type=file>)
+                               │
+                               ▼
+                    parseScaleDocument(text)
+                               │
+                 ┌─────────────┴─────────────┐
+                 ▼                            ▼
+            ok: false                     ok: true
+                 │                            │
+                 ▼                            ▼
+      showToolbarMessage(error)      applyDocumentState(doc)
+      (editor left untouched)                 │
+                                               ▼
+                                     clearToolbarMessage(), render()
+```
+
+**Save** (always Save As — no dirty tracking, no remembered handle):
+
+```
+collectDocumentState()  ──►  serializeScaleDocument()  ──►  JSON text
+                                                                │
+                                                                ▼
+                          window.showSaveFilePicker exists?
+                                 │                    │
+                                yes                   no
+                                 │                    │
+                                 ▼                    ▼
+                      picker → createWritable   downloadScaleFile()
+                      → write → close           (<a download> + data: URL,
+                                                 the same mechanism savePNG() uses)
+```
+
 ## Styling
 
 - Clean, minimal design with a light background.
@@ -395,6 +554,12 @@ At load time, and again on `pageshow`, `initUI()` resets the settings and the ed
   `overflow-x: auto` so a wide canvas scrolls inside its own panel rather than widening the
   container, and the interval row's label cluster is `flex: 0 1 auto` so that it can give way
   on a narrow phone, as the note-name box above it already does.
+- **`#1a1814` is written in five `.svg` files as well as in `--ink`.** An SVG loaded
+  through `<img>` (the toolbar's five icons) renders in an isolated document that no page
+  CSS reaches, so `currentColor` never resolves — each icon's ink is baked at author time
+  instead. A change to the `--ink` custom property must change `icons/new.svg`,
+  `icons/open.svg`, `icons/save.svg`, `icons/add-note.svg` and `icons/remove-note.svg`
+  with it, or the toolbar and the rest of the page drift apart.
 
 ## Summary
 
@@ -406,4 +571,4 @@ At load time, and again on `pageshow`, `initUI()` resets the settings and the ed
 | Export | `canvas.toDataURL()` + programmatic download |
 | Dependencies | None |
 | Build step | None — open `index.html` in a browser |
-| Code organisation | Separate `index.html`, `style.css` files and five classic scripts (`byzantine.js`, `smufl.js`, `symbols-ui.js`, `byzantine-ui.js`, `app.js`) — no modules |
+| Code organisation | Separate `index.html`, `style.css` files and seven classic scripts (`byzantine.js`, `smufl.js`, `persistence.js`, `symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `app.js`) — no modules |
