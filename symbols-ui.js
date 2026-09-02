@@ -307,21 +307,18 @@ function makeWellData(kind, id) {
  *
  * A committed entry can open the panel scrolled deep into a 501-entry list; a
  * query that actually narrows the results must not leave the reader at that
- * old offset in a much shorter one, so a real filter snaps every scroller
- * back to the top. Clearing the query back to empty is not itself a
- * narrowing filter — it puts the untouched catalogue back, and leaves the
- * scroll position exactly where the reader had it.
+ * old offset in a much shorter one, so a filter that changes the list snaps
+ * every scroller back to the top. Two keystrokes do not: one that leaves the
+ * same options standing — a trailing space, a word the matcher folds away —
+ * because the reader has since found their place in them, and clearing the
+ * query back to empty, which puts the untouched catalogue back rather than
+ * narrowing anything.
  */
 function filterGroupedPicker(panel, query) {
   const words = searchWords(query);
   const body = panel.querySelector("[data-scroller]");
   if (!body) return;
 
-  if (words.length > 0) {
-    for (const el of panel.querySelectorAll("[data-scroller]")) {
-      el.scrollTop = 0;
-    }
-  }
 
   // One walk of the list in document order. A heading precedes its own options,
   // so the group it opens is settled when the next heading, the next group's
@@ -333,6 +330,7 @@ function filterGroupedPicker(panel, query) {
   let wholeGroup = false;
   let anyInGroup = false;
   let groupsSurviving = 0;
+  let optionsSurviving = 0;
   const separators = [];
   let empty = null;
 
@@ -373,7 +371,10 @@ function filterGroupedPicker(panel, query) {
       const label = el.querySelector(".sym-label");
       const show = wholeGroup || matchesQuery(label ? label.textContent : "", words);
       el.hidden = !show;
-      if (show) anyInGroup = true;
+      if (show) {
+        anyInGroup = true;
+        optionsSurviving++;
+      }
     }
   }
   closeGroup();
@@ -383,6 +384,19 @@ function filterGroupedPicker(panel, query) {
   }
 
   if (empty) empty.hidden = groupsSurviving > 0;
+
+  // Snap back to the top only when the list under the reader actually changed.
+  // A keystroke that survives the same options — a trailing space, a word the
+  // matcher folds away — must leave them where they were reading; clearing the
+  // query back to empty is not a narrowing filter either, and keeps its place
+  // by the same rule the doc comment gives.
+  const previous = panel.dataset.visibleOptions;
+  if (words.length > 0 && String(optionsSurviving) !== previous) {
+    for (const el of panel.querySelectorAll("[data-scroller]")) {
+      el.scrollTop = 0;
+    }
+  }
+  panel.dataset.visibleOptions = String(optionsSurviving);
 }
 
 // ---------------------------------------------------------------------------

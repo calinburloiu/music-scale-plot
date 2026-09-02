@@ -434,7 +434,31 @@ test("searching the accidentals picker", async (t) => {
     assert.equal(
       scroller.scrollTop,
       0,
-      "the old offset left the reader mid-list instead of at the top of the 156 survivors"
+      "the old offset left the reader mid-list instead of at the top of the 166 survivors"
+    );
+  });
+
+  await t.test("leaves the scroll position alone when the results do not change", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    const panel = openWell(h, row, "accidental");
+    const scroller = panel.querySelector('[data-scroller="accidental"]');
+    const search = panel.querySelector(".sym-search");
+
+    typeInto(h, search, "flat");
+    // The reader has read down the survivors and is looking at one of them.
+    scroller.scrollTop = 900;
+    const survivors = visibleOptions(panel).length;
+
+    typeInto(h, search, "flat ");
+
+    assert.equal(visibleOptions(panel).length, survivors, "a trailing space narrows nothing");
+    assert.equal(
+      scroller.scrollTop,
+      900,
+      "a keystroke that changes no result must not throw away the place the reader just found"
     );
   });
 
