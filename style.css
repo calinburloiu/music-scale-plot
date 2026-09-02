@@ -640,10 +640,31 @@ body {
     0 14px 38px -10px rgba(30, 20, 10, 0.38);
 }
 
-/* The accidental well is the leftmost element of the row's right-hand block, so
-   its panel opens rightward; the Byzantine wells sit at the row's right edge
-   and theirs open leftward. */
-.accidental-picker { left: 0; right: auto; max-width: 22rem; }
+/* The Byzantine panels hang off their own well: those wells sit at the row's
+   right edge, and the labels are short. The accidental panel cannot. Its well
+   is the leftmost element of the row's right-hand block — a long way into the
+   row — and its labels ("Syntonic/Didymus comma (80:81) up (Bosanquet)") push
+   it to the 22rem cap, so opening rightward from the well ran it off the side
+   of the page: 118px past the viewport at 820px wide, 200px at 375px, with no
+   `overflow-x` anywhere in the layout to clip it, so the *page* scrolled
+   sideways. On a desktop it stayed on the page but laid itself over the chart.
+
+   So this one panel hangs off the note row instead, whose right edge is on
+   screen by definition. `left: 0; right: 0` makes the row the panel's width
+   budget, the cap trims it to 22rem when there is room, and `margin-left: auto`
+   keeps it by its well rather than stranded at the row's left edge. The panel
+   is then never wider than the row and never leaves the page, at any width,
+   with no breakpoint of its own. */
+/* Same specificity as the rule above that makes every well wrapper a containing
+   block, and after it, so this one wrapper gives that role back to the row. */
+#editor.notation-generic .note-row .accidental-well-wrapper { position: static; }
+
+.accidental-picker {
+  left: 0;
+  right: 0;
+  max-width: 22rem;
+  margin-left: auto;
+}
 
 /* The lists are tall, so they scroll inside their panel — which never flips
    up: a scrolling panel cannot escape the editor. */
