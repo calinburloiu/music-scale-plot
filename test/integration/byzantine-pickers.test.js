@@ -58,8 +58,8 @@ test("the fthora picker", async (t) => {
     const panel = openWell(h, noteRows(h)[0], "fthora");
 
     const option = panel.querySelector('.fthora-option[data-fthora="diatonicPa"]');
-    assert.equal(option.querySelector(".byz-glyph").textContent, h.app.resolveFthoraGlyph("diatonicPa"));
-    assert.equal(option.querySelector(".byz-label").textContent, h.app.byzFthoraById("diatonicPa").label);
+    assert.equal(option.querySelector(".sym-glyph").textContent, h.app.resolveFthoraGlyph("diatonicPa"));
+    assert.equal(option.querySelector(".sym-label").textContent, h.app.byzFthoraById("diatonicPa").label);
   });
 
   await t.test("writes the pick to the row and closes the panel in one click", () => {
@@ -167,7 +167,7 @@ test("the fthora picker's compatible list", async (t) => {
 
     const body = openWell(h, row, "fthora").querySelector(".fthora-picker-body");
     const children = [...body.children];
-    const ruleIndex = children.findIndex((el) => el.classList.contains("byz-separator"));
+    const ruleIndex = children.findIndex((el) => el.classList.contains("sym-separator"));
     assert.ok(ruleIndex > 0, "there is no separator");
 
     const before = children.slice(0, ruleIndex).filter((el) => el.classList.contains("fthora-option"));
@@ -192,7 +192,7 @@ test("the fthora picker's compatible list", async (t) => {
       pickMartyria(h, row, { note: note });
       const panel = openWell(h, row, "fthora");
       const ids = [...panel.querySelectorAll(".fthora-option")].map((o) => o.dataset.fthora);
-      assert.equal(panel.querySelectorAll(".byz-separator").length, 1, `${note}: one rule, always`);
+      assert.equal(panel.querySelectorAll(".sym-separator").length, 1, `${note}: one rule, always`);
       assert.deepEqual(
         [...ids].slice(1).sort(),
         Array.from(h.app.BYZ_FTHORES).map((f) => f.id).sort(),
@@ -207,7 +207,7 @@ test("the fthora picker's compatible list", async (t) => {
     const panel = openWell(h, noteRows(h)[0], "fthora");
 
     assert.equal(
-      panel.querySelectorAll(".byz-separator").length,
+      panel.querySelectorAll(".sym-separator").length,
       0,
       "with no note there is nothing to be compatible with, so there are no two runs"
     );
@@ -220,7 +220,7 @@ test("the fthora picker's compatible list", async (t) => {
     pickMartyria(h, row, { note: "" });
 
     const panel = openWell(h, row, "fthora");
-    assert.equal(panel.querySelectorAll(".byz-separator").length, 0);
+    assert.equal(panel.querySelectorAll(".sym-separator").length, 0);
     assert.deepEqual(
       [...panel.querySelectorAll(".fthora-option")].map((o) => o.dataset.fthora).slice(1),
       Array.from(h.app.BYZ_FTHORES).map((f) => f.id)
@@ -255,7 +255,7 @@ test("the fthora picker's compatible list", async (t) => {
     assert.ok(option.classList.contains("is-selected"), "the committed sign must still read as chosen");
 
     const children = [...body.children];
-    const ruleIndex = children.findIndex((el) => el.classList.contains("byz-separator"));
+    const ruleIndex = children.findIndex((el) => el.classList.contains("sym-separator"));
     assert.ok(ruleIndex > 0, "there is no separator");
     assert.ok(
       children.indexOf(option) > ruleIndex,
@@ -293,10 +293,10 @@ test("the alteration picker", async (t) => {
     const h = byzantineApp(t);
     const body = openWell(h, noteRows(h)[0], "alteration").querySelector(".alteration-picker-body");
 
-    const titles = [...body.querySelectorAll(".byz-group-title")].map((el) => el.textContent);
+    const titles = [...body.querySelectorAll(".sym-group-title")].map((el) => el.textContent);
     assert.deepEqual(titles, ["Sharps", "Flats"]);
     assert.equal(
-      body.querySelectorAll(".byz-separator").length,
+      body.querySelectorAll(".sym-separator").length,
       0,
       "every sign is offered on every note, so there is nothing to separate"
     );
@@ -331,11 +331,11 @@ test("the alteration picker", async (t) => {
 
     const option = panel.querySelector('.alteration-option[data-alteration="yfesis4"]');
     assert.equal(
-      option.querySelector(".byz-glyph").textContent,
+      option.querySelector(".sym-glyph").textContent,
       h.app.BYZ_DOM_GLYPH_CARRIER + h.app.resolveAlterationGlyph("yfesis4")
     );
     assert.equal(
-      option.querySelector(".byz-label").textContent,
+      option.querySelector(".sym-label").textContent,
       h.app.byzAlterationById("yfesis4").label
     );
   });
@@ -457,7 +457,7 @@ test("opening one well", async (t) => {
     const row = noteRows(h)[0];
 
     const panel = openWell(h, row, "alteration");
-    fireClick(h, panel.querySelector(".byz-group-title"));
+    fireClick(h, panel.querySelector(".sym-group-title"));
 
     assert.ok(
       panel.classList.contains("open"),
@@ -476,7 +476,7 @@ test("the martyria picker: the Notes column", async (t) => {
     assert.deepEqual(ids.slice(1), Array.from(h.app.BYZ_NOTES).map((n) => n.id));
 
     assert.deepEqual(
-      [...panel.querySelectorAll(".martyria-notes-column .byz-group-title")].map((el) => el.textContent),
+      [...panel.querySelectorAll(".martyria-notes-column .sym-group-title")].map((el) => el.textContent),
       ["Low", "Middle", "High"]
     );
   });
@@ -487,11 +487,11 @@ test("the martyria picker: the Notes column", async (t) => {
 
     const option = panel.querySelector('.martyria-note-option[data-note="midPa"]');
     assert.equal(
-      option.querySelector(".byz-glyph").textContent,
+      option.querySelector(".sym-glyph").textContent,
       h.app.resolveMartyriaGlyphs("midPa", h.app.GENUS_NONE, 0),
       "the Notes column previews the letter without a genus"
     );
-    assert.equal(option.querySelector(".byz-label").textContent, "Πα Pa");
+    assert.equal(option.querySelector(".sym-label").textContent, "Πα Pa");
   });
 
   await t.test("disables the positions that would not leave room for the whole scale", () => {
@@ -540,7 +540,7 @@ test("the martyria picker: the Notes column", async (t) => {
       "the ticked rows should be listed now"
     );
     assert.deepEqual(
-      [...panel.querySelectorAll(".martyria-notes-column .byz-group-title")].map((el) => el.textContent),
+      [...panel.querySelectorAll(".martyria-notes-column .sym-group-title")].map((el) => el.textContent),
       ["Low", "Middle", "High", "High + octave tick"]
     );
   });
@@ -584,7 +584,7 @@ test("the martyria picker: the Genus column", async (t) => {
 
     const column = row.querySelector(".martyria-genus-column");
     const children = [...column.children];
-    const ruleIndex = children.findIndex((el) => el.classList.contains("byz-separator"));
+    const ruleIndex = children.findIndex((el) => el.classList.contains("sym-separator"));
     assert.ok(ruleIndex > 0, "there is no separator");
 
     const before = children.slice(0, ruleIndex).filter((el) => el.dataset.genus);
@@ -604,7 +604,7 @@ test("the martyria picker: the Genus column", async (t) => {
 
     const option = row.querySelector('.martyria-genus-option[data-genus="zygos"]');
     assert.equal(
-      option.querySelector(".byz-glyph").dataset.glyph,
+      option.querySelector(".sym-glyph").dataset.glyph,
       h.app.resolveMartyriaGlyphs("midDi", "zygos", 0),
       "a row is a preview of the pair, so it shows the drafted letter carrying the mark"
     );
@@ -619,7 +619,7 @@ test("the martyria picker: the Genus column", async (t) => {
 
     const option = row.querySelector('.martyria-genus-option[data-genus="delta"]');
     assert.equal(
-      option.querySelector(".byz-glyph").dataset.glyph,
+      option.querySelector(".sym-glyph").dataset.glyph,
       h.app.resolveMartyriaGlyphs("lowDi", "delta", 0),
       "the low register takes the Above mark set, so the composition itself must change"
     );
@@ -802,7 +802,7 @@ test("picking a martyria", async (t) => {
     const h = byzantineApp(t);
     const panel = openWell(h, noteRows(h)[0], "martyria");
 
-    fireClick(h, panel.querySelector(".byz-column-title"));
+    fireClick(h, panel.querySelector(".sym-column-title"));
 
     assert.ok(panel.classList.contains("open"));
   });
@@ -813,7 +813,7 @@ test("picking a martyria", async (t) => {
     const panel = openWell(h, row, "martyria");
     fireClick(h, panel.querySelector('.martyria-note-option[data-note="midPa"]'));
 
-    fireClick(h, panel.querySelector(".byz-separator"));
+    fireClick(h, panel.querySelector(".sym-separator"));
 
     assert.ok(panel.classList.contains("open"));
   });
@@ -1167,7 +1167,7 @@ test("how a picker row shows its symbol", async (t) => {
   // nowhere near where a Latin label's does. Each sign gets a box, and the ink
   // is centred in it — the same treatment, from the same helper, that a well
   // gives the sign it holds.
-  const inkOf = (option) => option.querySelector(".byz-glyph .glyph-ink");
+  const inkOf = (option) => option.querySelector(".sym-glyph .glyph-ink");
   const dyOf = (option) => parseFloat(inkOf(option).style.getPropertyValue("--ink-dy"));
 
   await t.test("puts the sign in a box of its own", () => {
@@ -1178,7 +1178,7 @@ test("how a picker row shows its symbol", async (t) => {
 
     assert.ok(inkOf(option), "the sign should sit in a box, not loose beside the label");
     assert.equal(
-      option.querySelector(".byz-glyph").textContent,
+      option.querySelector(".sym-glyph").textContent,
       h.app.resolveMartyriaGlyphs("lowPa", h.app.GENUS_NONE, 0),
       "and the box should still show the resolved glyph"
     );
@@ -1274,8 +1274,8 @@ test("what a genus row shows", async (t) => {
   // the drafted letter carrying this genus's mark. The letter is drawn a second
   // time over the composition, greyed, so the mark — the one thing the row is
   // actually offering — is what stays black.
-  const composedOf = (option) => option.querySelector(".byz-glyph").dataset.glyph;
-  const mutedOf = (option) => option.querySelector(".byz-glyph").dataset.mutedGlyph;
+  const composedOf = (option) => option.querySelector(".sym-glyph").dataset.glyph;
+  const mutedOf = (option) => option.querySelector(".sym-glyph").dataset.mutedGlyph;
 
   function draft(h, row, note) {
     const panel = openWell(h, row, "martyria");
@@ -1306,7 +1306,7 @@ test("what a genus row shows", async (t) => {
     const row = draft(h, noteRows(h)[0], "midPa");
 
     const option = row.querySelector('.martyria-genus-option[data-genus="alpha"]');
-    const layers = option.querySelectorAll(".byz-glyph .glyph-ink > *");
+    const layers = option.querySelectorAll(".sym-glyph .glyph-ink > *");
 
     assert.equal(
       mutedOf(option),
@@ -1567,7 +1567,7 @@ test("what a box holding a sign actually contains", async (t) => {
     const option = panel.querySelector('.alteration-option[data-alteration="yfesis4"]');
 
     assert.equal(
-      option.querySelector(".byz-glyph").textContent,
+      option.querySelector(".sym-glyph").textContent,
       h.app.BYZ_DOM_GLYPH_CARRIER + h.app.resolveAlterationGlyph("yfesis4")
     );
   });

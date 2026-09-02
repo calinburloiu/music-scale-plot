@@ -256,10 +256,10 @@ function makeNoteRowHTML(degree, mode, absoluteValue) {
     const absInput = '<input type="text" class="absolute-interval" placeholder="' +
       getIntervalPlaceholder() + '" value="' + val + '"' + (isFirst ? " disabled" : "") + ">";
     return playBtn + labelHtml + absInput + '<span class="abs-cents-label"></span>' +
-      nameInput + makeSymbolWellsHTML();
+      nameInput + makeSymbolWellsHTML("byzantine");
   }
   return playBtn + labelHtml + '<span class="cumulative-cents"></span>' +
-    nameInput + makeSymbolWellsHTML();
+    nameInput + makeSymbolWellsHTML("byzantine");
 }
 
 function makeIntervalRowHTML(value, mode) {
@@ -485,7 +485,7 @@ function alterationTextOf(noteItem) {
  * nothing.
  *
  * This order is the chart's half of an invariant whose other half is
- * `BYZ_SIMPLE_WELLS` in byzantine-ui.js, which orders the wells on a note row:
+ * `SYMBOL_WELLS` in symbols-ui.js, which orders the wells on a note row:
  * the chart draws the signs left to right in the order the editor collects
  * them. Reorder one and reorder the other.
  */
@@ -1522,7 +1522,7 @@ function closeAllDropdowns() {
     const row = dd.closest(".interval-row");
     if (row) row.classList.remove("dropdown-open");
   }
-  closeByzantinePickers();
+  closeSymbolPickers();
 }
 
 function setSwatchColor(swatch, hex) {
@@ -1604,7 +1604,7 @@ function syncIntervalColors(sourceRow) {
 }
 
 editor.addEventListener("click", function (e) {
-  if (handleByzantineClick(e)) return;
+  if (handleSymbolClick(e)) return;
 
   const swatch = e.target.closest(".color-swatch");
   if (swatch) {

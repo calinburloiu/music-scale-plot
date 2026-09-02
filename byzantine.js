@@ -721,12 +721,15 @@ function martyriaInkRange(ctx, font) {
  * font and sat visibly wrong. The ink metrics are exactly proportional to the
  * font size, so measuring once at a nominal size and reporting em removes the
  * question: CSS resolves em against the size the box really renders at, whether
- * that is the well's 22px or a picker row's 24px, attached or not.
+ * that is the well's 34px or a picker row's 24px, attached or not — and it is
+ * also why one measurement serves two faces, so long as `font` names the one
+ * the box is actually drawn in.
  */
-function inkCenteringShiftEm(ctx, text, vAlign, range) {
-  const font = byzantineFont(BYZ_FONT_SIZE);
-  const shift = inkCenteringShift(ctx, text, font, vAlign, range);
-  return { dx: shift.dx / BYZ_FONT_SIZE, dy: shift.dy / BYZ_FONT_SIZE };
+function inkCenteringShiftEm(ctx, text, vAlign, range, font) {
+  const spec = font || byzantineFont(BYZ_FONT_SIZE);
+  const size = parseFloat(spec) || BYZ_FONT_SIZE;
+  const shift = inkCenteringShift(ctx, text, spec, vAlign, range);
+  return { dx: shift.dx / size, dy: shift.dy / size };
 }
 
 /**

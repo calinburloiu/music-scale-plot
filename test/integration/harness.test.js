@@ -69,9 +69,9 @@ test("the test harness", async (t) => {
 
     assert.deepEqual(
       h.scriptFiles.map((f) => path.basename(f)),
-      ["byzantine.js", "smufl.js", "byzantine-ui.js", "app.js"],
-      "the load order is load-bearing: smufl.js must precede anything that reads its catalogue, " +
-        "and app.js must run last because it wires the page up"
+      ["byzantine.js", "smufl.js", "symbols-ui.js", "byzantine-ui.js", "app.js"],
+      "the load order is load-bearing: smufl.js before symbols-ui.js, which names " +
+        "byzantine-ui.js's picker builders, and app.js last because it wires the page up"
     );
   });
 
@@ -82,5 +82,46 @@ test("the test harness", async (t) => {
     assert.ok(h.exportedNames.includes("BYZ_NOTES"), "byzantine.js names are missing");
     assert.ok(h.exportedNames.includes("readScaleData"), "app.js names are missing");
     assert.equal(typeof h.app.byzNoteById, "function");
+  });
+
+  await t.test("re-exports the shared symbol machinery from symbols-ui.js", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // The wells and pickers are shared machinery, not Byzantine, so they live
+    // in a file of their own. Nothing here may still be declared in
+    // byzantine-ui.js: two declarations of one name across two classic scripts
+    // is a load-time SyntaxError, which is exactly what this asserts is absent.
+    assert.deepEqual(h.jsdomErrors, []);
+    for (const name of [
+      "SYMBOL_WELLS",
+      "SYMBOL_WELL_KINDS",
+      "wellSelector",
+      "makeSymbolOption",
+      "closeSymbolPickers",
+      "handleSymbolClick",
+      "buildGroupedPicker",
+    ]) {
+      assert.ok(h.exportedNames.includes(name), `${name} is missing`);
+    }
+  });
+
+  await t.test("orders the well registry by notation, so a row's wells follow it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.deepEqual(
+      Array.from(h.app.SYMBOL_WELLS, (w) => [w.kind, w.notation]),
+      [
+        ["alteration", "byzantine"],
+        ["fthora", "byzantine"],
+      ],
+      "the accidental joins this table in a later task; until then it holds the Byzantine two"
+    );
+    for (const well of h.app.SYMBOL_WELLS) {
+      assert.equal(typeof well.font, "string", `${well.kind} must name the face it is boxed in`);
+      assert.equal(typeof well.build, "function");
+      assert.equal(typeof well.resolve, "function");
+    }
   });
 });

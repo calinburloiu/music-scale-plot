@@ -583,7 +583,7 @@ body {
 
 #editor .note-row.picker-open { z-index: 100; }
 
-.byz-option {
+.sym-option {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -598,15 +598,15 @@ body {
   white-space: nowrap;
 }
 
-.byz-option:hover:not(:disabled) { background: var(--paper-fade); }
-.byz-option:disabled { opacity: 0.35; cursor: default; }
-.byz-option.is-selected { background: var(--paper-fade); font-weight: 600; }
+.sym-option:hover:not(:disabled) { background: var(--paper-fade); }
+.sym-option:disabled { opacity: 0.35; cursor: default; }
+.sym-option.is-selected { background: var(--paper-fade); font-weight: 600; }
 
 /* A psaltic sign and a Latin name are hard to scan side by side: the sign is
    small, unfamiliar, and sits nowhere near the name's optical line. Boxing it
    gives the eye a column to run down, and matches the well the sign is going
    into. */
-.byz-glyph {
+.sym-glyph {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
@@ -623,17 +623,17 @@ body {
 
 /* The same lift the wells get, for the same reason: a list of fthores or of
    signs of alteration set at the martyria's size is a column of specks. */
-.alteration-picker .byz-glyph,
-.fthora-picker .byz-glyph { font-size: 34px; }
+.alteration-picker .sym-glyph,
+.fthora-picker .sym-glyph { font-size: 34px; }
 
-.byz-option.is-selected .byz-glyph { border-color: var(--ink-faint); }
-.byz-option:disabled .byz-glyph { background: none; }
+.sym-option.is-selected .sym-glyph { border-color: var(--ink-faint); }
+.sym-option:disabled .sym-glyph { background: none; }
 
 /* The None row of a single-value list holds no sign. A solid empty box reads as
    a glyph that failed to load; a dashed one says "empty", the same way an empty
    well does. (The Genus column's None is not empty: it previews the letter on
    its own, which is exactly what picking it commits.) */
-.byz-glyph:empty {
+.sym-glyph:empty {
   border-style: dashed;
   background: none;
 }
@@ -655,7 +655,7 @@ body {
 
 .martyria-genus-column.is-inert { opacity: 0.45; }
 
-.byz-column-title {
+.sym-column-title {
   position: sticky;
   top: 0;
   padding: 0.25rem 0.5rem;
@@ -668,7 +668,7 @@ body {
   color: var(--ink-soft);
 }
 
-.byz-group-title {
+.sym-group-title {
   padding: 0.35rem 0.5rem 0.15rem;
   font-family: 'DM Sans', sans-serif;
   font-size: 0.68rem;
@@ -677,13 +677,13 @@ body {
   color: var(--ink-faint);
 }
 
-.byz-separator {
+.sym-separator {
   height: 1px;
   margin: 0.4rem 0.5rem;
   background: var(--rule);
 }
 
-.byz-label {
+.sym-label {
   font-family: 'DM Sans', sans-serif;
   font-size: 0.82rem;
 }

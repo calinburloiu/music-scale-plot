@@ -4,6 +4,7 @@ paths:
   - "byzantine.js"
   - "byzantine-ui.js"
   - "smufl.js"
+  - "symbols-ui.js"
   - "index.html"
   - "style.css"
   - "test/**/*.js"
