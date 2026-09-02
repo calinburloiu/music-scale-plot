@@ -67,3 +67,7 @@ Key concepts:
 - **Commit messages**: always prefix with the GitHub issue number in brackets to annotate which
   issue the work belongs to, e.g. `[#2] Add Byzantine font research`. Use this prefix for every
   commit that relates to an issue.
+- **Issue assets**: research, designs, plans and scratch files for one GitHub issue live in
+  `issues/NNN-slug/`, where `NNN` is the issue number zero-padded to three digits and `slug`
+  echoes the branch name — e.g. `issues/015-file-persistence/` for issue #15 on
+  `feature/file-persistence`.

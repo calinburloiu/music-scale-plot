@@ -1,0 +1,50 @@
+{
+  "formatVersion": 1,
+  "name": "Hicaz",
+  "settings": {
+    "notation": "generic",
+    "baseNote": "C"
+  },
+  "scaleEditor": {
+    "mode": "relativeIntervals",
+    "intervalType": {
+      "type": "edo",
+      "divisionCount": 72
+    },
+    "intervals": [7, 5, 12],
+    "noteProperties": [
+      {
+        "generic": {
+          "accidental": "accidentalSharp",
+          "name": "hicaz"
+        },
+        "byzantine": {
+          "alteration": "diesisGeniki",
+          "fthora": "diatonicPa",
+          "martyria": {
+            "note": "midPa",
+            "genus": "alpha",
+            "ticks": 1
+          }
+        }
+      },
+      {
+        "generic": {
+          "name": "neva"
+        }
+      },
+      {},
+      {}
+    ],
+    "intervalProperties": [
+      { "color": "#CCFFCC", "label": "s" },
+      { "color": "#FFFFFF" },
+      { "color": "#CCFFCC", "label": "s" }
+    ]
+  },
+  "chart": {
+    "style": "boxes",
+    "orientation": "vertical",
+    "zoom": 75
+  }
+}

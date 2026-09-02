@@ -1,0 +1,47 @@
+{
+    "settings": {
+        "notation": "generic", // "generic" | "byzantine"
+        "baseNote": "C",
+        "intervalType": {
+            "type": "edo", // "ratio" | "edo" | "cents"
+            "divisionCount": 72 // only available for `"type": "edo"`
+        }
+    },
+    "scaleEditor": {
+        "mode": "relativeIntervals", // "relativeIntervals" | "absoluteIntervals"
+        "intervals": [7], // array of numbers for "cents" and "edo" intervalType or of strings (like "9/8") for "ratio"
+        "noteProperties": [
+            {
+                "generic": {
+                    "accidental": "accidentalSharp", // accidental ID
+                    "name": "hicaz" // string
+                },
+                "byzantine": {
+                    "alteration": "diesisGeniki", // alteration ID
+                    "fthora": "diatonicPa", // fthora ID
+                    "martyria": {
+                        "note": "midPa", // byzantine note ID
+                        "genus": "alpha" // genus ID
+                    }
+                }
+            },
+            {
+                "generic": {
+                    "name": "neva" // string
+                },
+                "byzantine": {}
+            }
+        ],
+        "intervalProperties": [
+            {
+                "color": "#CCFFCC",
+                "label": "s" // string
+            }
+        ]
+    },
+    "chart": {
+        "style": "boxes", // "boxes" | "segments"
+        "orientation": "vertical", // "vertical" | "horizontal"
+        "zoom": 75 // percentage value
+    }
+}
