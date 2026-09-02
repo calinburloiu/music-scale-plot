@@ -10,6 +10,7 @@ const {
   typeInto,
   setNoteCount,
   selectOption,
+  openWell,
 } = require("../helpers/harness.js");
 
 test("the Notation setting", async (t) => {
@@ -634,6 +635,37 @@ test("waiting for the symbol faces", async (t) => {
 
     assert.deepEqual(h.jsdomErrors, [], "the rejection escaped as an unhandled error");
     assert.ok(h.ctx.callsOf("fillRect").length > 0, "the chart must still be drawn");
+  });
+
+  // Switching notation hides one half of every note row. A picker left open in
+  // the half that just went away is still open, still marked on its row, and
+  // comes back on screen the moment the reader switches back.
+  await t.test("closes an open picker, whose well the switch just hid", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    const panel = openWell(h, row, "accidental");
+    assert.equal(panel.classList.contains("open"), true, "the picker never opened");
+
+    setNotation(h, "byzantine");
+
+    assert.equal(panel.classList.contains("open"), false, "the panel outlived the well it belongs to");
+    assert.equal(row.classList.contains("picker-open"), false, "the row still says a picker is open");
+  });
+
+  await t.test("closes a Byzantine picker on the way back to Generic", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+    const row = noteRows(h)[0];
+
+    const panel = openWell(h, row, "fthora");
+    assert.equal(panel.classList.contains("open"), true, "the picker never opened");
+
+    setNotation(h, "generic");
+
+    assert.equal(panel.classList.contains("open"), false, "the panel outlived the well it belongs to");
   });
 
   // The faces can load and the repaint still fail — a FontFaceSet whose `ready`

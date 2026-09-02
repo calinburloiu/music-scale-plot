@@ -92,6 +92,12 @@ function getNotation() {
 }
 
 function onNotationChange() {
+  // The switch hides one half of every note row. A picker open in the half that
+  // just went away would stay open, stay marked on its row, and reappear the
+  // moment the reader switched back. A click anywhere closes the pickers, so
+  // this is only reachable from the keyboard — which is reason to handle it,
+  // not to leave it.
+  closeAllDropdowns();
   const byzantine = getNotation() === "byzantine";
   // Both classes, because both halves of a note row need one to key off: the
   // accidental well and the name box in Generic, the three wells in Byzantine.
