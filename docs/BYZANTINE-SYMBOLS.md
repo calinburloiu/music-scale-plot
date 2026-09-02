@@ -1,10 +1,17 @@
 # Byzantine notation — a maintainer's map
 
 This is the human-readable guide to the Byzantine (psaltic) notation layer:
-`byzantine.js` (the symbol model — tables and SBMuFL resolvers, no DOM) and
-`byzantine-ui.js` (the editor UI built on top of it — wells, pickers, the note
-ladder). `docs/ARCHITECTURE.md`'s **Notation** section is the one-paragraph
-orientation; this document is where you come to actually change something.
+`byzantine.js` (the symbol model — tables and SBMuFL resolvers, no DOM — plus
+the shared, font-agnostic ink-measuring primitives; see §2) and
+`byzantine-ui.js` (only what is Byzantine, built on top of it: the alteration,
+fthora and martyria picker builders, the martyria draft, and the note ladder
+applied to the editor). The well and picker machinery both notations share —
+opening, committing, dismissing, the grouped-list builder, search — lives in
+`symbols-ui.js`, described where it is generic in `docs/ARCHITECTURE.md`'s
+**Notation** section and, for the accidental layer that also uses it, in
+[`docs/SMUFL-ACCIDENTALS.md`](SMUFL-ACCIDENTALS.md). `docs/ARCHITECTURE.md`'s
+**Notation** section is the one-paragraph orientation; this document is where
+you come to actually change something Byzantine.
 
 ---
 
@@ -66,12 +73,22 @@ None of them names a codepoint. Codepoints live only in the resolvers (§4).
   `BYZ_GENERA` already has, where the resolver picks a base from the register.
 - **`MARTYRIA_COMPATIBILITY`** and **`FTHORES_COMPATIBILITY`** — see §3.
 
+The tables above are the only Byzantine-specific thing in this file. What follows them —
+`inkBox`, `inkCenteringShift`/`inkCenteringShiftEm`, `drawGlyphs`, `domGlyphText`,
+`scanInkBox`, and `freezeTable` up at the top — is shared, **font-agnostic** machinery: every
+one of them takes its face as an explicit argument, and `smufl.js` and `symbols-ui.js` call
+them with `smuflFont(...)` exactly as this file's own callers pass `byzantineFont(...)`. They
+were not moved into a third, font-neutral file when the accidental layer was added, because
+doing so would have been a large diff unrelated to that feature. See §8 and §10 for how the
+model works, and [`docs/SMUFL-ACCIDENTALS.md`](SMUFL-ACCIDENTALS.md) §7 for the same story
+told from the SMuFL side.
+
 ---
 
 ## 3. The two compatibility tables
 
 Both say "these signs belong on this note, the rest are unusual", and both are
-rendered the same way — the compatible list first, a `.byz-separator`, then
+rendered the same way — the compatible list first, a `.sym-separator`, then
 everything else. They have **different provenance**, and that is the whole of
 what a maintainer needs to keep straight.
 
@@ -213,11 +230,12 @@ of per-note lookups.
   `GENUS_NONE` sentinel if it had none), and fthores are never touched by the
   ladder at all.
 - **Clicking a row is the commit; every other way out cancels.** There is no
-  Apply and no Cancel. `selectByzantineOption` writes the row, propagates the
-  ladder where there is one, closes every panel and renders — all on the click
-  that chose the row. `closeByzantinePickers` merely closes, so a click outside,
-  a second click on the well and another picker opening are one and the same
-  cancel, and a picker opened and closed again is a no-op in every direction.
+  Apply and no Cancel. `selectSymbolOption` (`symbols-ui.js`) writes the row,
+  and for a martyria goes on to propagate the ladder, close every panel and
+  render — all on the click that chose the row. `closeSymbolPickers` merely
+  closes, so a click outside, a second click on the well and another picker
+  opening are one and the same cancel, and a picker opened and closed again is
+  a no-op in every direction.
 
   The martyria is the one picker that still holds a *draft* on its panel element
   (`draftNote`, `draftGenus`, `draftTicks`, seeded from the row by
@@ -233,8 +251,16 @@ of per-note lookups.
 
 ## 6. Adding a second font
 
-The whole point of splitting `byzantine.js` out this way is that a font swap
-is small and localized. What changes:
+This is no longer hypothetical. It happened once already, for a different well
+rather than a swapped face: [`docs/SMUFL-ACCIDENTALS.md`](SMUFL-ACCIDENTALS.md)
+is the worked example of most of what follows, and its §8 is the SMuFL-side
+mirror of this checklist. The one part that example does *not* exercise is the
+resolver bullet below — the SMuFL accidental catalogue is a flat id-to-codepoints
+table (`docs/SMUFL-ACCIDENTALS.md` §2), not the register-based arithmetic this
+section describes, because there is no register concept for a SMuFL accidental
+to belong to. The checklist below is for a font that *does* have one — a second
+Byzantine-style face replacing Neanes for the martyria/fthora/alteration
+vocabulary. What changes:
 
 - A second `@font-face` (in `style.css`) for the new font.
 - A second set of resolvers — the equivalents of `resolveMartyriaGlyphs`,
@@ -243,21 +269,30 @@ is small and localized. What changes:
   *only* place a new codepoint is ever written.
 - `BYZ_FONT_FAMILY` (`byzantine.js`) — the family name, written once. Every
   font string the JavaScript uses is built from it by `byzantineFont()`: the
-  chart's drawing and measuring font, and the face `loadByzantineFont()`
-  preloads (§7). Nothing else in the JavaScript names a family.
+  chart's drawing and measuring font, and one of the two faces
+  `loadSymbolFonts()` preloads (§7). `SMUFL_FONT_FAMILY` (`smufl.js`) is the
+  identical discipline for Bravura Text — nothing outside the two files that
+  declare these two constants should ever write a family name into a font
+  string by hand.
 - **Both CSS rules that name the family**, because CSS cannot read a JS
-  constant: `.alteration-well, .fthora-well, .martyria-well` (the three wells
-  in the editor) and `.byz-glyph` (the previews on every option row of every
-  picker panel). Miss these and the chart changes font while the editor keeps
-  drawing the old one.
+  constant: `.accidental-well, .alteration-well, .fthora-well, .martyria-well`
+  (the four wells in the editor — a new Byzantine face still shares this rule
+  with the accidental well, which then overrides the family to
+  `"Bravura Text"` on its own) and `.sym-glyph` (the previews on every option row of
+  every picker panel, `.accidental-picker .sym-glyph` overriding the same
+  way). Miss these and the chart changes font while the editor keeps drawing
+  the old one.
 - **The two rules that size fthores and signs of alteration** —
-  `.alteration-well, .fthora-well` and `.alteration-picker .byz-glyph,
-  .fthora-picker .byz-glyph`. They do not name the family, but the numbers on
+  `.alteration-well, .fthora-well` and `.alteration-picker .sym-glyph,
+  .fthora-picker .sym-glyph`. They do not name the family, but the numbers on
   them are derived from Neanes: those two families' widest sign covers 0.84em
   where a martyria covers 1.21, so they are set larger to fill the same box.
   A face with different proportions needs the ratio re-measured, exactly as
-  `BYZ_SIGN_GAP` does.
-- **The empty-well hints** — `.alteration-well.is-empty::before/::after` and
+  `BYZ_SIGN_GAP` does. (The accidental well and picker have their own,
+  separate sizing rules, not derived from a measured ratio in the same way —
+  see `docs/SMUFL-ACCIDENTALS.md` §8.)
+- **The empty-well hints** — `.accidental-well.is-empty::before`,
+  `.alteration-well.is-empty::before/::after` and
   `.fthora-well.is-empty::before`. These are the one place outside the
   resolvers where a codepoint is written by hand, and they are the price of
   showing the *real* signs an empty well takes rather than an abstract mark:
@@ -267,8 +302,12 @@ is small and localized. What changes:
   shifts. The martyria's hint is drawn from plain rectangles and is exempt.
 
 Everything else is untouched: the six tables (§2), the two compatibility
-tables (§3), the ladder (§5), the pickers (`byzantine-ui.js`), `readScaleData`,
-and the chart in `app.js`. In particular, the register→mark-set rule (§4) is
+tables (§3), the ladder (§5), `readScaleData`, and the chart in `app.js`. The
+well and picker *machinery* — opening, committing, dismissing, the grouped-list
+builder, search — is shared, notation-agnostic code in `symbols-ui.js`; only
+the three Byzantine picker *builders* (`buildAlterationPicker`,
+`buildFthoraPicker`, `buildMartyriaPicker`), the martyria draft and the ladder
+stay in `byzantine-ui.js`. In particular, the register→mark-set rule (§4) is
 resolver logic, not model logic — a new font's resolvers re-derive it for
 that font's own anchors; they do not inherit Neanes's answer.
 
@@ -277,13 +316,16 @@ offset tuning: they place a sign from its *measured ink*, not from an assumed
 baseline position, so a face whose ink sits on the other side of the baseline
 from Neanes's still lands correctly with zero changes to the drawing code.
 
-**A new font's proportions need no chart changes.** All four chart paths size
-the room they keep at the ends of the stack from one quantity, `signExtent` in
-`render()` — the wider (horizontal) or taller (vertical) of the **martyria and
-the gutter run** actually present in the scale, a run being a degree's
-alteration and fthora together (§11). Whichever a new face draws bigger, the
-clearance follows it, and a scale carrying only one sign reserves room from
-that sign.
+**A new Byzantine font's proportions need no chart changes.** In Byzantine
+notation, all four chart paths size the room they keep at the ends of the
+stack from one quantity, `signExtent` in `render()` — the wider (horizontal)
+or taller (vertical) of the **martyria and the gutter run** actually present
+in the scale, a run being a degree's alteration and fthora together (§11).
+Whichever a new face draws bigger, the clearance follows it, and a scale
+carrying only one sign reserves room from that sign. Generic notation follows
+an analogous but distinct rule — its overhang is sized from the gutter run
+alone, an accidental if any, deliberately never from the note name — see
+`docs/ARCHITECTURE.md`'s Chart Rendering → Sizing.
 
 `BYZ_SIGN_GAP` in `app.js` — the space between an alteration and its fthora —
 is the one number here settled by eye rather than measured. At 40px it is 8px,
@@ -295,26 +337,32 @@ at again the same way.
 
 ---
 
-## 7. Font loading and `byzFontReady`
+## 7. Font loading and `symbolFontsReady`
 
-PUA codepoints have no fallback glyph, so a chart drawn before the Neanes face
-has actually loaded shows blank boxes, and its ink measurements are taken
-against whatever fallback font the browser substituted. `loadByzantineFont()`
-in `app.js` asks `document.fonts` to load the face and, once it resolves,
-calls `render()` again — that second `render()` is what fixes the blank-box
-problem, because it is the first render that measures and draws against the
-real Neanes metrics. The spec it hands `document.fonts.load()` is
-`byzantineFont(BYZ_FONT_SIZE)`, the very string the chart draws with, so the
-preloaded face cannot drift from the drawn one when the font changes (§6).
+PUA codepoints have no fallback glyph, so a chart drawn before a face has
+actually loaded shows blank boxes, and its ink measurements are taken against
+whatever fallback font the browser substituted. `loadSymbolFonts()` in
+`app.js` asks `document.fonts` to load **both** vendored faces — Neanes and
+Bravura Text — and, once every one that can resolve has, calls `render()`
+again — that second `render()` is what fixes the blank-box problem, because
+it is the first render that measures and draws against the real metrics. The
+specs it hands `document.fonts.load()` are `byzantineFont(BYZ_FONT_SIZE)` and
+`smuflFont(SMUFL_FONT_SIZE)`, the very strings the chart draws with, so a
+preloaded face cannot drift from the drawn one when either font changes (§6).
+A face that fails to load is warned about *by name*, on the console, and does
+not stop the other from loading — one broken font file must not blank the
+notation that still works — and the repaint happens once both faces have
+settled, not once per face.
 
-`app.js` also sets a module-level flag, `byzFontReady = true`, in that same
-callback. **It is a deliberate readiness observable with no production
-consumer** — nothing in `app.js`, `byzantine.js` or `byzantine-ui.js` reads
-it. It exists so a test (or a future debugging session) can ask "has the face
-resolved yet?" without depending on timing. Do not "clean it up" as dead code,
-and do not wire it into the render path — the redraw that follows the font
-promise is what does the actual work; the flag is a byproduct of it, not a
-guard on it.
+`app.js` also sets a module-level flag, `symbolFontsReady = loaded.every(Boolean)`,
+in that same callback — `true` only when every requested face resolved,
+`false` if any one of them failed. **It is a deliberate readiness observable
+with no production consumer** — nothing in `app.js`, `byzantine.js`,
+`smufl.js`, `symbols-ui.js` or `byzantine-ui.js` reads it. It exists so a test
+(or a future debugging session) can ask "have the faces resolved yet?"
+without depending on timing. Do not "clean it up" as dead code, and do not
+wire it into the render path — the redraw that follows the font promises is
+what does the actual work; the flag is a byproduct of it, not a guard on it.
 
 ---
 
@@ -322,7 +370,7 @@ guard on it.
 
 Three places show a whole martyria — a Notes row in the picker, a Genus row in
 the picker, and the well on the note row — and they must agree, because the user
-reads them against each other. `glyphBoxPlacement()` (`byzantine-ui.js`) routes
+reads them against each other. `glyphBoxPlacement()` (`symbols-ui.js`) routes
 all three to the same placement, so there is one mechanism and not three.
 
 **Every martyria shares one baseline.** `martyriaInkRange()` (`byzantine.js`)
@@ -438,9 +486,10 @@ alpha channel for the drawn area.
 - **Results are kept**, because a rasterisation per sign is not free: the
   martyria vocabulary is a few hundred of them, about 145ms in WebKit against
   3ms where `measureText` is used. `resetInkMeasurements()` drops them, and
-  `loadByzantineFont()` calls it when the face arrives (§7) — measurements taken
-  against a fallback face must not outlive it. An empty scan is never cached, so
-  a sign measured before its glyph existed is simply measured again.
+  `loadSymbolFonts()` calls it once both faces have settled (§7) — measurements
+  taken against a fallback face must not outlive it. An empty scan is never
+  cached, so a sign measured before its glyph existed is simply measured
+  again.
 - **Accuracy is one pixel at `BYZ_FONT_SIZE`**, and the anti-aliased fringe
   grows the box symmetrically, so the *centre* — which is what every caller
   actually uses — is unaffected.
@@ -536,28 +585,43 @@ a simpler model would hide the bugs it is there to catch:
 
 ## 11. A gutter run
 
-The gutter beside the separators holds a **run** of signs, not one sign: a
-degree's alteration and then its fthora, `[alterationText, fthoraText]` with
-the empties dropped. The alteration comes first because it qualifies the
-fthora, which is how a psaltic accidental is written. A degree carrying only
-one of the two draws that one in the same place — a well the user filled must
-never draw nothing.
+The gutter beside the separators holds a **run** of signs, not one sign — and
+the run is **no longer Byzantine-only**. `signRunOf(noteItem, notation)`
+(`app.js`) derives it from `SYMBOL_WELLS` filtered by the current notation
+(`docs/ARCHITECTURE.md`'s Notation section), so what the run holds and the
+order it holds it in is one fact, read off the same table the editor builds
+its wells from — not a rule restated in the chart. In Byzantine notation a run
+is up to two parts, `[alterationText, fthoraText]` with the empties dropped,
+the alteration first because it qualifies the fthora, which is how a psaltic
+accidental is written. In Generic it is at most one part, the accidental —
+see [`docs/SMUFL-ACCIDENTALS.md`](SMUFL-ACCIDENTALS.md). A degree carrying
+only some of its wells draws those, in the same place a full run would — a
+well the user filled must never draw nothing, and a run of one is not a
+special case anywhere below.
 
-Three helpers in `app.js` own the layout:
+Three helpers in `app.js` own the layout, and none of them mention Byzantine
+by name — a run's face is passed in, from `symbolFontFor(notation)`:
 
 - `glyphRunExtent(parts, font)` — the run's ink width (parts plus one
   `BYZ_SIGN_GAP` between each) and its height (the tallest part's). It
-  measures **ink, never the advance**, which is 0 for every alteration.
+  measures **ink, never the advance**, which is 0 for every Byzantine sign of
+  alteration and irrelevant for a Generic run, which never has a second part
+  to gap against.
 - `maxRunExtent(runs, font)` — the widest and tallest run. The maximum is over
-  *whole runs*, i.e. over degrees, not per sign: a scale where one degree
-  carries an alteration and another a fthora needs a gutter one sign wide, not
-  one sized for a pair that never occurs.
-- `drawByzantineSigns(parts, x, y, align, vAlign)` — anchors the **run as a
+  *whole runs*, i.e. over degrees, not per sign: a Byzantine scale where one
+  degree carries an alteration and another a fthora needs a gutter one sign
+  wide, not one sized for a pair that never occurs.
+- `drawSignRun(parts, x, y, align, vAlign, font)` — anchors the **run as a
   whole** horizontally and **each part independently** vertically at the same
-  `y`. That single rule is what serves both orientations: a horizontal chart
-  anchors `"bottom"` at the gutter's inner edge, so the pair's ink bottoms sit
-  on one line; a vertical chart anchors `"right"` there, so the fthora keeps
-  exactly the position it had before there was anything to its left.
+  `y`. That single rule is what serves both orientations, both notations, and
+  runs of one part or two alike: a horizontal chart anchors `"bottom"` at the
+  gutter's inner edge, so a run's ink bottoms sit on one line; a vertical
+  chart anchors `"right"` there, so the second part (when there is one) keeps
+  exactly the position it had before there was a first part to its left.
 
-`drawByzantineMark` is still the single-sign primitive underneath, and is what
-`drawNoteLabel` uses to draw a martyria — a martyria is one sign, not a run.
+`drawSymbol(text, x, y, align, vAlign, font)` — renamed from
+`drawByzantineMark`, for the same reason `drawSignRun` was — is still the
+single-sign primitive underneath, and is what `drawNoteLabel` uses to draw a
+martyria: a martyria is one sign, not a run, and it is never Generic (a typed
+note name draws through `ctx.fillText`, not through this function — see
+`docs/ARCHITECTURE.md`'s Chart Rendering → Text layout).
