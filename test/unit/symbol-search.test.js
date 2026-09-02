@@ -19,6 +19,15 @@ test("normalising text for search", async (t) => {
     assert.equal(h.app.normalizeForSearch("Büyük mücenneb"), "buyuk mucenneb");
     assert.equal(h.app.normalizeForSearch("Ţurkish"), "turkish");
   });
+
+  await t.test("folds the dashes, because nobody types a typographic minus", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    // The Răileanu and mixed-Sagittal labels are written with U+2212 MINUS
+    // SIGN, which is not the key on anyone's keyboard.
+    assert.equal(h.app.normalizeForSearch("−1/4 tone flat"), "-1/4 tone flat");
+    assert.equal(h.app.normalizeForSearch("–2 — 3"), "-2 - 3");
+  });
 });
 
 test("splitting a query into words", async (t) => {
@@ -56,6 +65,16 @@ test("matching a query against a label", async (t) => {
     t.after(() => h.close());
     assert.equal(h.app.matchesQuery("Küçük mücenneb (flat)", ["kucuk"]), true);
     assert.equal(h.app.matchesQuery("Küçük mücenneb (flat)", ["küçük"]), true);
+  });
+
+  await t.test("reaches a typographic minus from the hyphen key", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    assert.equal(
+      h.app.matchesQuery("−1/4 tone flat", Array.from(h.app.searchWords("-1/4"))),
+      true,
+      "the Răileanu labels are unreachable if the query's hyphen does not fold"
+    );
   });
 
   await t.test("matches everything on an empty word list", () => {

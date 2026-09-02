@@ -171,12 +171,21 @@ function makeSymbolWellsHTML(notation) {
 // is lowercased, diacritic-folded and split on whitespace, and *every* word
 // must be found as a substring, in any order — so "quarter flat" narrows where
 // "quarter" alone does not. Folding both sides means `raileanu` reaches
-// "Răileanu" and `kucuk` reaches "Küçük", which is the point: nobody types a
-// breve to find a flat.
+// "Răileanu", `kucuk` reaches "Küçük" and `-1/4` reaches "−1/4", which is the
+// point: nobody types a breve to find a flat, or a minus sign to find a comma.
 // ---------------------------------------------------------------------------
 
 function normalizeForSearch(text) {
-  return String(text).toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+  return String(text)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    // The Răileanu and mixed-Sagittal labels are written with U+2212 MINUS
+    // SIGN, and no keyboard has one. Folding the dashes on both sides is the
+    // same move as folding the diacritics: what the reader can type must reach
+    // what the catalogue is printed with.
+    // U+2010…U+2015 are the hyphens and dashes, U+2212 the minus sign.
+    .replace(/[\u2010-\u2015\u2212]/g, "-");
 }
 
 function searchWords(query) {
