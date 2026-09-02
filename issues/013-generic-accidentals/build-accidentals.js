@@ -8,11 +8,18 @@
  * hand when SMuFL moves, and its *output* is what ships. It has no
  * dependencies — two JSON files and a template string.
  *
+ * The metadata is pinned to a commit, not to `gh-pages`: that branch is the
+ * live site, so fetching its HEAD would quietly hand a future maintainer a
+ * different SMuFL under a comment that still says 1.4. This is the commit the
+ * committed table was generated from — bump it deliberately, and expect the
+ * table to change when you do.
+ *
+ *   SMUFL=14acb17a6a479036f38e337396ed605fc4197b23   # w3c/smufl gh-pages, 2026-08-24
  *   mkdir -p issues/013-generic-accidentals/smufl-metadata
- *   curl -sSfo issues/013-generic-accidentals/smufl-metadata/ranges.json \
- *     https://raw.githubusercontent.com/w3c/smufl/gh-pages/metadata/ranges.json
- *   curl -sSfo issues/013-generic-accidentals/smufl-metadata/glyphnames.json \
- *     https://raw.githubusercontent.com/w3c/smufl/gh-pages/metadata/glyphnames.json
+ *   curl -sSfLo issues/013-generic-accidentals/smufl-metadata/ranges.json \
+ *     https://raw.githubusercontent.com/w3c/smufl/$SMUFL/metadata/ranges.json
+ *   curl -sSfLo issues/013-generic-accidentals/smufl-metadata/glyphnames.json \
+ *     https://raw.githubusercontent.com/w3c/smufl/$SMUFL/metadata/glyphnames.json
  *
  *   node issues/013-generic-accidentals/build-accidentals.js            # to stdout
  *   node issues/013-generic-accidentals/build-accidentals.js --write    # into smufl.js
@@ -202,6 +209,13 @@ if (!process.argv.includes("--write")) {
   const begin = source.indexOf(BEGIN);
   const end = source.indexOf(END);
   if (begin < 0 || end < 0) throw new Error(`Markers not found in ${SMUFL_JS}`);
+  // Both markers are quoted verbatim in docs/SMUFL-ACCIDENTALS.md, so the day
+  // someone pastes that explanation into smufl.js's own header this splice
+  // would silently swallow or duplicate a region. Fail instead.
+  if (source.indexOf(BEGIN, begin + 1) >= 0 || source.indexOf(END, end + 1) >= 0) {
+    throw new Error(`Markers appear more than once in ${SMUFL_JS}`);
+  }
+  if (end < begin) throw new Error(`Markers are out of order in ${SMUFL_JS}`);
   fs.writeFileSync(
     SMUFL_JS,
     source.slice(0, begin) + BEGIN + "\n\n" + body + "\n" + source.slice(end),
