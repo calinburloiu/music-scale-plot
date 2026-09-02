@@ -69,7 +69,7 @@ test("the test harness", async (t) => {
 
     assert.deepEqual(
       h.scriptFiles.map((f) => path.basename(f)),
-      ["byzantine.js", "smufl.js", "symbols-ui.js", "byzantine-ui.js", "app.js"],
+      ["byzantine.js", "smufl.js", "persistence.js", "symbols-ui.js", "byzantine-ui.js", "app.js"],
       "the load order is load-bearing: smufl.js before symbols-ui.js, which names " +
         "byzantine-ui.js's picker builders, and app.js last because it wires the page up"
     );
