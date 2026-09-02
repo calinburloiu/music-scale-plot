@@ -1462,13 +1462,6 @@ body {
     flex: 1 1 0;
     min-width: 0;
   }
-  .chart-toolbar button {
-    width: auto;
-    flex: 1 1 0;
-  }
-  .chart-toolbar #save-png {
-    margin-left: calc(5.25rem + 0.45rem);
-  }
 }
 
 /* --- Motion --- */
