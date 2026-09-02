@@ -368,6 +368,17 @@ At load time, and again on `pageshow`, `initUI()` resets the settings and the ed
 - Editor inputs are styled for comfortable editing.
 - The two panels are responsive: on narrow viewports they stack vertically instead of side-by-side.
 - The canvas panel uses `position: sticky` so the chart stays visible while scrolling a long editor list.
+- **The left column is a fixed width** (`35rem`) rather than sized to its content, so switching
+  Notation or Mode cannot resize the Settings and Scale Editor panels or move the Chart beside
+  them. The four combinations want four different widths — a note row's right-hand block is a
+  well and a name box in Generic but three wells in Byzantine, and the widest line is the note
+  row in Absolute mode where it is the interval row in Relative — and `35rem` clears the widest
+  of them. The surplus falls into the gap in the middle of a row, since every right-hand block
+  is `margin-left: auto`. Both breakpoints override it with `width: 100%`.
+- Nothing in the page may push it sideways: the chart panel carries `min-width: 0` and
+  `overflow-x: auto` so a wide canvas scrolls inside its own panel rather than widening the
+  container, and the interval row's label cluster is `flex: 0 1 auto` so that it can give way
+  on a narrow phone, as the note-name box above it already does.
 
 ## Summary
 

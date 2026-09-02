@@ -103,8 +103,21 @@ body {
 
 /* --- Left Column --- */
 
+/* Fixed, not shrink-wrapped. A note row's right-hand block is a well and a name
+   box in Generic but three wells in Byzantine, and in Absolute mode the widest
+   line is the note row where in Relative it is the interval row — so a column
+   sized to its content changed width on the Notation and the Mode dropdowns,
+   moving the Chart panel with it. 35rem clears the widest of the four
+   combinations (Generic + Absolute, which needs 553.19px at the default font)
+   with a little to spare; the surplus falls into the gap in the middle of a
+   row, because every right-hand block is already `margin-left: auto`.
+
+   Both responsive breakpoints below override this with `width: 100%`, so the
+   number only applies where there are two columns to balance. */
 .left-column {
   flex: 0 0 auto;
+  width: 35rem;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -909,7 +922,12 @@ body {
    is three wells and two gaps. The label is `flex: 1 1 auto`, so it fills
    whatever is left in each — no JavaScript decides this. */
 .interval-row .interval-label-cluster {
-  flex: 0 0 auto;
+  /* Shrinkable, though it almost never shrinks: `width` is the size it wants
+     and gets whenever the row has the room. Fixed at `0 0 auto` it was the one
+     thing in the row that could not give, so on a narrow phone it pushed the
+     page sideways while the note-name box above it shrank as asked. */
+  flex: 0 1 auto;
+  min-width: 0;
   margin-left: auto;
   display: flex;
   align-items: center;
@@ -1090,8 +1108,17 @@ body {
 
 /* === Chart Panel ============================================ */
 
+/* `min-width: 0` and `overflow-x: auto` together are what keep the *page* from
+   scrolling sideways. A flex item's automatic minimum size is its content's,
+   so without them the toolbar's intrinsic width propped this panel open and
+   the container overflowed the viewport on every screen too narrow for both
+   columns — the left one is a fixed width and does not shrink. The phone
+   breakpoint already said exactly this for the same reason; it belongs in the
+   base rule, where it costs a wide screen nothing. */
 .chart-panel {
   flex: 1;
+  min-width: 0;
+  overflow-x: auto;
   position: sticky;
   top: 2rem;
   align-self: flex-start;
@@ -1242,9 +1269,6 @@ body {
     min-width: 0;
     max-width: 100%;
   }
-  /* Allow chart canvas to scroll inside its panel rather than forcing the
-     whole panel wider than the viewport. */
-  .chart-panel { overflow-x: auto; }
   .panel h2 {
     font-size: 1.35rem;
     margin-bottom: 1rem;
