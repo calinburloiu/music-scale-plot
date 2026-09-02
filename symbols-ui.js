@@ -287,12 +287,6 @@ function buildGroupedPicker(panel, spec) {
 
   panel.appendChild(body);
   centerPickerGlyphs(panel, spec.font);
-  // The group titles are needed again when the query changes, and a panel is
-  // torn down and rebuilt on every open, so they ride on the panel — the same
-  // reason a row's symbols ride on the row.
-  panel.dataset.groupTitles = JSON.stringify(
-    spec.groups.map((group) => [group.id, group.title || ""])
-  );
 }
 
 /** `{ alteration: id }` — a well's data-* key is its kind. */
@@ -320,8 +314,8 @@ function makeWellData(kind, id) {
  */
 function filterGroupedPicker(panel, query) {
   const words = searchWords(query);
-  const titles = JSON.parse(panel.dataset.groupTitles || "[]");
-  const survivors = new Set();
+  const body = panel.querySelector("[data-scroller]");
+  if (!body) return;
 
   if (words.length > 0) {
     for (const el of panel.querySelectorAll("[data-scroller]")) {
@@ -329,29 +323,66 @@ function filterGroupedPicker(panel, query) {
     }
   }
 
-  for (const [id, title] of titles) {
-    const wholeGroup = matchesQuery(title, words);
-    let any = false;
-    for (const option of panel.querySelectorAll('.sym-option[data-group-of="' + id + '"]')) {
-      const label = option.querySelector(".sym-label");
+  // One walk of the list in document order. A heading precedes its own options,
+  // so the group it opens is settled when the next heading, the next group's
+  // options, a rule or the end of the list closes it — which is also what makes
+  // the titles readable off the headings themselves rather than out of a copy
+  // serialised onto the panel.
+  let heading = null;
+  let groupId = null;
+  let wholeGroup = false;
+  let anyInGroup = false;
+  let groupsSurviving = 0;
+  const separators = [];
+  let empty = null;
+
+  function closeGroup() {
+    if (heading) heading.hidden = !anyInGroup;
+    if (anyInGroup) groupsSurviving++;
+    heading = null;
+    groupId = null;
+    wholeGroup = false;
+    anyInGroup = false;
+  }
+
+  for (const el of body.children) {
+    if (el.classList.contains("sym-group-title")) {
+      closeGroup();
+      heading = el;
+      groupId = el.dataset.groupOf;
+      wholeGroup = matchesQuery(el.textContent, words);
+    } else if (el.classList.contains("sym-separator")) {
+      // A rule only separates two things. What is above it is settled; what is
+      // below it is not, so it is decided once the walk is done.
+      closeGroup();
+      separators.push({ element: el, above: groupsSurviving });
+    } else if (el.classList.contains("sym-empty")) {
+      empty = el;
+    } else {
+      const of = el.dataset.groupOf;
+      // None sits outside every group, so no filter can hide it: it is the only
+      // way to clear a well.
+      if (of === undefined) {
+        el.hidden = false;
+        continue;
+      }
+      // An untitled group — the fthora's compatible and other runs — has no
+      // heading to open it, so its first option does.
+      if (of !== groupId) closeGroup();
+      groupId = of;
+      const label = el.querySelector(".sym-label");
       const show = wholeGroup || matchesQuery(label ? label.textContent : "", words);
-      option.hidden = !show;
-      if (show) any = true;
+      el.hidden = !show;
+      if (show) anyInGroup = true;
     }
-    const heading = panel.querySelector('.sym-group-title[data-group-of="' + id + '"]');
-    if (heading) heading.hidden = !any;
-    if (any) survivors.add(id);
+  }
+  closeGroup();
+
+  for (const separator of separators) {
+    separator.element.hidden = !(separator.above > 0 && groupsSurviving > separator.above);
   }
 
-  for (const separator of panel.querySelectorAll(".sym-separator[data-separator-after]")) {
-    const at = titles.findIndex(([id]) => id === separator.dataset.separatorAfter);
-    const above = titles.slice(0, at + 1).some(([id]) => survivors.has(id));
-    const below = titles.slice(at + 1).some(([id]) => survivors.has(id));
-    separator.hidden = !(above && below);
-  }
-
-  const empty = panel.querySelector(".sym-empty");
-  if (empty) empty.hidden = survivors.size > 0;
+  if (empty) empty.hidden = groupsSurviving > 0;
 }
 
 // ---------------------------------------------------------------------------
