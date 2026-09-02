@@ -1538,6 +1538,48 @@ test("Generic notation with an accidental", async (t) => {
     );
   });
 
+  await t.test("sizes the end clearance from the gutter run alone, never from the note name", () => {
+    // Horizontal is the only orientation where a Generic name could reach the
+    // clearance at all: maxNoteHeight is measured in Byzantine only, so
+    // vertically the run is already the whole of signExtent. A name is
+    // ordinary text the chart has always let overflow into the text area
+    // beside it, and an accidental must not silently change that.
+    const long = "Ultramarine"; // 158.4px in the ink model — well past 2 × CANVAS_PADDING
+    const short = "Do";
+
+    const widthWith = (names, accidentals) => {
+      const h = loadApp();
+      t.after(() => h.close());
+      buildRelativeScale(h, ["9/8"], { names });
+      selectOption(h, "orientation", "horizontal");
+      noteRows(h).forEach((row, i) => {
+        if (accidentals[i]) h.app.writeNoteSign(row, "accidental", accidentals[i]);
+      });
+      h.app.render();
+      return parseFloat(h.canvas().style.width);
+    };
+
+    // The text area is the wider of the note name and the interval row's own
+    // text, so the floor "9/8" sets is part of what a name has to beat.
+    const intervalTextWidth = measureTextWidth("9/8", '21px "SF Mono", monospace');
+    const textAreaOf = (name) =>
+      Math.max(measureTextWidth(name, "24px sans-serif"), intervalTextWidth);
+    const nameDelta = textAreaOf(long) - textAreaOf(short);
+
+    closeTo(
+      widthWith([long, long], [null, null]) - widthWith([short, short], [null, null]),
+      nameDelta,
+      1e-6,
+      "a long name widens the text area and nothing else — it must not reserve end clearance too"
+    );
+    closeTo(
+      widthWith([long, long], [SHARP, SHARP]) - widthWith([short, short], [SHARP, SHARP]),
+      nameDelta,
+      1e-6,
+      "with a run in the gutter the clearance still tracks the run, not the name beside it"
+    );
+  });
+
   await t.test("measures a composed accidental wider than its two glyphs alone", () => {
     const pair = genericChart(t, ["sagittalEvoPlus4", null]);
 
