@@ -6,6 +6,12 @@
   font-display: block;
 }
 
+@font-face {
+  font-family: "Bravura Text";
+  src: url("fonts/BravuraText.woff2") format("woff2");
+  font-display: block;
+}
+
 *,
 *::before,
 *::after {
@@ -363,7 +369,6 @@ body {
 
 .note-row .note-name {
   width: 9rem;
-  margin-left: auto;
   font-family: 'DM Sans', sans-serif;
   font-size: 0.93rem;
   padding: 0.5rem 0.75rem;
@@ -392,12 +397,14 @@ body {
 
 /* Both sets of controls live on every note row; CSS decides which are visible,
    so a switch discards nothing. */
+.note-row .accidental-well-wrapper,
 .note-row .alteration-well-wrapper,
 .note-row .fthora-well-wrapper,
 .note-row .martyria-well-wrapper { display: none; }
 
 #editor.notation-byzantine .note-row .note-name { display: none; }
 
+#editor.notation-generic .note-row .accidental-well-wrapper,
 #editor.notation-byzantine .note-row .alteration-well-wrapper,
 #editor.notation-byzantine .note-row .fthora-well-wrapper,
 #editor.notation-byzantine .note-row .martyria-well-wrapper {
@@ -406,12 +413,15 @@ body {
   flex: 0 0 auto;
 }
 
-/* .note-name carried the right-alignment; the first visible well takes it on,
-   so this belongs to whichever well is leftmost. */
+/* .note-name used to carry the right-alignment; the leftmost *visible* element
+   of the row's right-hand block takes it on, which is a different element in
+   each notation. */
+#editor.notation-generic .note-row .accidental-well-wrapper,
 #editor.notation-byzantine .note-row .alteration-well-wrapper { margin-left: auto; }
 
 /* --- Symbol wells --- */
 
+.accidental-well,
 .alteration-well,
 .fthora-well,
 .martyria-well {
@@ -432,9 +442,20 @@ body {
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
+.accidental-well:hover,
 .alteration-well:hover,
 .fthora-well:hover,
 .martyria-well:hover { border-color: var(--ink); }
+
+/* The other face, and the one thing an Evo pair cannot do without: the U+0020
+   spacer between a sagittal and its apotome is collapsed away by normal
+   white-space handling, and the pair goes tight. (`ctx.fillText` needs nothing
+   — a canvas paints the glyphs it is handed.) */
+.accidental-well {
+  font-family: "Bravura Text", serif;
+  font-size: 30px;
+  white-space: pre;
+}
 
 /* A fthora or a sign of alteration carries far less ink than a martyria: the
    widest of those two families spans 0.84em where a martyria spans 1.21, and
@@ -479,6 +500,7 @@ body {
 
 /* An empty well says which sign it takes. The dashed border and the faint ink
    are what keep the hint from reading as a filled well. */
+.accidental-well.is-empty,
 .alteration-well.is-empty,
 .fthora-well.is-empty,
 .martyria-well.is-empty {
@@ -508,12 +530,25 @@ body {
    Unlike the martyria's bars these need the webfont, which `font-display:
    block` withholds for up to three seconds on a cold load. The well is blank
    until then — which is what it would show anyway. */
+.accidental-well.is-empty::before,
 .alteration-well.is-empty::before,
 .alteration-well.is-empty::after,
 .fthora-well.is-empty::before {
   display: block;
   line-height: 1;
   color: var(--ink-faint);
+}
+
+/* accidentalFlat then accidentalSharp — the well's own vocabulary, drawn faint.
+   Unlike Neanes' signs these carry real advances, so the pair is one string
+   with the font's own spacing between them, and it needs no `white-space: pre`
+   because there is no space in it. The transform is inkCenteringShiftEm()'s
+   answer for that string in Bravura Text, read out of the app and written here
+   because CSS cannot call it. Change the glyphs and you must read it out again. */
+.accidental-well.is-empty::before {
+  content: "\E260\E262";
+  font-size: 30px;
+  transform: translate(-0.0000em, 0.0365em);
 }
 
 /* yfesisGeniki, then diesisGeniki, each riding on the same carrier a well's own
@@ -552,6 +587,7 @@ body {
 
 /* --- Symbol pickers --- */
 
+.accidental-picker,
 .alteration-picker,
 .fthora-picker,
 .martyria-picker {
@@ -570,11 +606,18 @@ body {
     0 14px 38px -10px rgba(30, 20, 10, 0.38);
 }
 
+/* The accidental well is the leftmost element of the row's right-hand block, so
+   its panel opens rightward; the Byzantine wells sit at the row's right edge
+   and theirs open leftward. */
+.accidental-picker { left: 0; right: auto; max-width: 22rem; }
+
 /* The lists are tall, so they scroll inside their panel — which never flips
    up: a scrolling panel cannot escape the editor. */
+.accidental-picker.open,
 .alteration-picker.open,
 .fthora-picker.open { display: block; }
 
+.accidental-picker-body,
 .alteration-picker-body,
 .fthora-picker-body {
   max-height: 320px;
@@ -636,6 +679,16 @@ body {
 .sym-glyph:empty {
   border-style: dashed;
   background: none;
+}
+
+/* SMuFL descriptions run long ("5 comma up, (5C), 1° up [22 27 …] …"), so this
+   one list wraps where the Byzantine lists never need to. */
+.accidental-picker .sym-option { white-space: normal; }
+
+.accidental-picker .sym-glyph {
+  font-family: "Bravura Text", serif;
+  font-size: 32px;
+  white-space: pre;
 }
 
 .martyria-picker.open { display: block; }

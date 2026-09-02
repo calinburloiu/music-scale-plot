@@ -87,6 +87,30 @@ const CARRIER_CODE = 0x00a0;
 const CARRIER_ADVANCE_RATIO = 0.007;
 const GENIKI_CODES = [0xe1f4, 0xe204];
 
+// Bravura Text's accidentals. Two things set them apart from Neanes' marks: a
+// *real advance* (they are not combining marks), and ink sitting entirely above
+// the baseline — measured in the research at +0.680 … +0.122 em for U+E262, so
+// the descent is negative here as it is for a fthora. One span covers every
+// accidental range the catalogue uses (U+E260–U+EE6F); it cannot collide with
+// the Neanes blocks above, which all sit below U+E210.
+const SMUFL_ACCIDENTAL_FIRST = 0xe260;
+const SMUFL_ACCIDENTAL_LAST = 0xee6f;
+const SMUFL_ACCIDENTAL_ASCENT_RATIO = 0.68;
+const SMUFL_ACCIDENTAL_DESCENT_RATIO = -0.122;
+
+// The ½ staff space an Evo pair is composed with: 100 font units of 1000
+// against Bravura Text's 200-unit staff space. Modelled only for that face —
+// every other font keeps an ordinary space, so no existing measurement moves.
+const SMUFL_SPACE_ADVANCE_RATIO = 0.1;
+
+function isSmuflFont(font) {
+  return String(font).includes("Bravura Text");
+}
+
+function isSmuflAccidental(code) {
+  return code >= SMUFL_ACCIDENTAL_FIRST && code <= SMUFL_ACCIDENTAL_LAST;
+}
+
 /** 0 low, 1 middle, 2 high — or -1 when the codepoint is not a note letter. */
 function letterOctave(code) {
   if (code < LETTER_FIRST || code > LETTER_LAST) return -1;
@@ -116,6 +140,7 @@ function fontSizeOf(font) {
 function measureTextInk(text, font) {
   const size = fontSizeOf(font);
   const chars = [...String(text)];
+  const smufl = isSmuflFont(font);
 
   let pen = 0;
   let left = 0;
@@ -133,6 +158,12 @@ function measureTextInk(text, font) {
     const code = ch.codePointAt(0);
     if (code === CARRIER_CODE) {
       pen += size * CARRIER_ADVANCE_RATIO;
+      return;
+    }
+    if (code === 0x20 && smufl) {
+      // No ink, half a staff space of advance — which is what makes a composed
+      // Evo pair measure exactly one gap wider than its two glyphs alone.
+      pen += size * SMUFL_SPACE_ADVANCE_RATIO;
       return;
     }
     left = inked ? Math.min(left, pen + size * INK_LEFT_BEARING_RATIO)
@@ -155,6 +186,9 @@ function measureTextInk(text, font) {
       charTop = -size * MARK_ABOVE_ASCENT_RATIO;
     } else if (code >= MARK_BELOW_FIRST && code <= MARK_BELOW_LAST) {
       charBottom = size * MARK_BELOW_DESCENT_RATIO;
+    } else if (smufl && isSmuflAccidental(code)) {
+      charTop = -size * SMUFL_ACCIDENTAL_ASCENT_RATIO;
+      charBottom = size * SMUFL_ACCIDENTAL_DESCENT_RATIO;
     } else if (octave === 0) {
       charTop += size * LOW_REGISTER_DROP_RATIO;
       charBottom += size * LOW_REGISTER_DROP_RATIO;
@@ -470,6 +504,12 @@ module.exports = {
   GENIKI_DESCENT_RATIO,
   FONT_ASCENT_RATIO,
   FONT_DESCENT_RATIO,
+  SMUFL_ACCIDENTAL_FIRST,
+  SMUFL_ACCIDENTAL_LAST,
+  SMUFL_ACCIDENTAL_ASCENT_RATIO,
+  SMUFL_ACCIDENTAL_DESCENT_RATIO,
+  isSmuflFont,
+  isSmuflAccidental,
   anchorInk,
   pngFixture,
   pngChunkTypes,

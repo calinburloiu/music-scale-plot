@@ -113,10 +113,11 @@ test("the test harness", async (t) => {
     assert.deepEqual(
       Array.from(h.app.SYMBOL_WELLS, (w) => [w.kind, w.notation]),
       [
+        ["accidental", "generic"],
         ["alteration", "byzantine"],
         ["fthora", "byzantine"],
       ],
-      "the accidental joins this table in a later task; until then it holds the Byzantine two"
+      "the accidental is drawn left of the name, so it leads the table"
     );
     for (const well of h.app.SYMBOL_WELLS) {
       assert.equal(typeof well.font, "string", `${well.kind} must name the face it is boxed in`);

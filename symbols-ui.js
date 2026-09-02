@@ -34,6 +34,16 @@
 // builders live in byzantine-ui.js, which loads *after* this file.
 const SYMBOL_WELLS = freezeTable([
   {
+    kind: "accidental",
+    notation: "generic",
+    title: "Accidental",
+    font: smuflFont(),
+    build: function (panel, row) {
+      buildAccidentalPicker(panel, row);
+    },
+    resolve: resolveAccidentalGlyphs,
+  },
+  {
     kind: "alteration",
     notation: "byzantine",
     title: "Sign of alteration",
@@ -54,6 +64,11 @@ const SYMBOL_WELLS = freezeTable([
     resolve: resolveFthoraGlyph,
   },
 ]);
+
+/** Built in Task 5. */
+function buildAccidentalPicker(panel, row) {
+  throw new Error("buildAccidentalPicker: not implemented yet");
+}
 
 // Not a row of the table above (it has no single vocabulary and no single
 // click), but it is a well and it has a place in the row's order.
@@ -435,12 +450,18 @@ function refreshNoteRowWells(row) {
 }
 
 /**
- * Re-measures every well. Called once the Neanes face resolves: a well filled
+ * Re-measures every well. Called once the symbol faces resolve: a well filled
  * before then was measured against fallback metrics, and the offset it stored
  * is wrong for the glyph now on screen.
+ *
+ * Goes through `editor` rather than a fresh `document.querySelectorAll`, the
+ * way `closeSymbolPickers` already does: `editor` is a stable reference
+ * captured at load time, so this still finds the rows if it runs after the
+ * document itself has gone — the settle side of a font promise can fire long
+ * after the page that asked for it has been torn down.
  */
 function refreshAllNoteRowWells() {
-  for (const row of document.querySelectorAll("#editor .note-row")) refreshNoteRowWells(row);
+  for (const row of editor.querySelectorAll(".note-row")) refreshNoteRowWells(row);
 }
 
 /** Snapshot of a row's symbol attributes, for carrying across a rebuild. */

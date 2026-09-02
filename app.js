@@ -72,7 +72,7 @@ const NOTE_TEXT_HEIGHT = 28;
 
 let displayZoom = 1;
 let audioCtx = null;
-let byzFontReady = false;
+let symbolFontsReady = false;
 
 function getAudioContext() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -93,7 +93,11 @@ function getNotation() {
 }
 
 function onNotationChange() {
-  editor.classList.toggle("notation-byzantine", getNotation() === "byzantine");
+  const byzantine = getNotation() === "byzantine";
+  // Both classes, because both halves of a note row need one to key off: the
+  // accidental well and the name box in Generic, the three wells in Byzantine.
+  editor.classList.toggle("notation-byzantine", byzantine);
+  editor.classList.toggle("notation-generic", !byzantine);
   render();
 }
 
@@ -249,17 +253,20 @@ function computeRelativeDisplay(prevAbsStr, nextAbsStr) {
 function makeNoteRowHTML(degree, mode, absoluteValue) {
   const playBtn = '<button class="play-note" title="Play note">&#9654;</button>';
   const labelHtml = "<label>Note " + degree + "</label>";
-  const nameInput = '<input type="text" class="note-name" placeholder="name">';
+  // Every row carries both notations' controls always, in the order the chart
+  // draws them; CSS decides which half shows, so a switch discards nothing.
+  const nameBlock =
+    makeSymbolWellsHTML("generic") +
+    '<input type="text" class="note-name" placeholder="name">' +
+    makeSymbolWellsHTML("byzantine");
   if (mode === "absolute") {
     const isFirst = degree === 1;
     const val = isFirst ? getUnisonValue() : (absoluteValue !== undefined ? absoluteValue : "");
     const absInput = '<input type="text" class="absolute-interval" placeholder="' +
       getIntervalPlaceholder() + '" value="' + val + '"' + (isFirst ? " disabled" : "") + ">";
-    return playBtn + labelHtml + absInput + '<span class="abs-cents-label"></span>' +
-      nameInput + makeSymbolWellsHTML("byzantine");
+    return playBtn + labelHtml + absInput + '<span class="abs-cents-label"></span>' + nameBlock;
   }
-  return playBtn + labelHtml + '<span class="cumulative-cents"></span>' +
-    nameInput + makeSymbolWellsHTML("byzantine");
+  return playBtn + labelHtml + '<span class="cumulative-cents"></span>' + nameBlock;
 }
 
 function makeIntervalRowHTML(value, mode) {
@@ -370,6 +377,7 @@ function readScaleData() {
         type: "note",
         degree: degree,
         name: nameEl ? nameEl.value.trim() : "",
+        accidental: symbols.accidental,
         alteration: symbols.alteration,
         fthora: symbols.fthora,
         martyria: symbols.martyria,
@@ -1340,37 +1348,56 @@ function onScaleModeChange() {
 }
 
 /**
- * Asks for the Neanes face and redraws once it resolves.
+ * Asks for both symbol faces and redraws once they have settled.
  *
- * PUA codepoints have no fallback glyph, so a chart drawn before the face
- * arrives shows blank boxes and measures with fallback metrics. The spec is
- * the one the chart itself draws with — `byzantineFont()` is the only place
- * the family name is written — so a font swap cannot preload the wrong face.
- * Guarded, because jsdom (and old browsers) have no FontFaceSet.
+ * PUA codepoints have no fallback glyph, so a chart drawn before a face
+ * arrives shows blank boxes and measures with fallback metrics. The specs are
+ * the ones the chart itself draws with — `byzantineFont()` and `smuflFont()`
+ * are the only places the family names are written — so a font swap cannot
+ * preload the wrong face. Guarded, because jsdom (and old browsers) have no
+ * FontFaceSet.
+ *
+ * A face that never arrives is warned about *by name* and does not stop the
+ * other: a missing or corrupt font file is otherwise invisible to anyone but
+ * the person who vendored it, and one broken face must not blank the notation
+ * that still works. The repaint happens once, when both have settled, not once
+ * per face.
  */
-function loadByzantineFont() {
+function loadSymbolFonts() {
   const fonts = document.fonts;
   if (!fonts || typeof fonts.load !== "function") return null;
-  return fonts
-    .load(byzantineFont(BYZ_FONT_SIZE))
-    .then(function () {
-      return fonts.ready;
+
+  const faces = [
+    { name: "Neanes", spec: byzantineFont(BYZ_FONT_SIZE) },
+    { name: "Bravura Text", spec: smuflFont(SMUFL_FONT_SIZE) },
+  ];
+
+  return Promise.all(
+    faces.map(function (face) {
+      return fonts.load(face.spec).then(
+        function () {
+          return true;
+        },
+        function (error) {
+          console.warn("Symbols: the " + face.name + " face failed to load.", error);
+          return false;
+        }
+      );
     })
-    .then(function () {
-      byzFontReady = true;
+  )
+    .then(function (loaded) {
+      return fonts.ready.then(function () {
+        return loaded;
+      });
+    })
+    .then(function (loaded) {
+      symbolFontsReady = loaded.every(Boolean);
       // The wells stored an ink offset measured against fallback metrics, and
       // so did every cache behind them — a repaint that reused those would be
       // no repaint at all.
       resetInkMeasurements();
       refreshAllNoteRowWells();
       render();
-    })
-    .catch(function (error) {
-      // The face never arrived. The chart keeps drawing rather than failing,
-      // but with fallback metrics and no glyphs — wrong in both content and
-      // layout — so say so: a missing or corrupt font file is otherwise
-      // invisible to anyone but the person who vendored it.
-      console.warn("Byzantine notation: the Neanes face failed to load.", error);
     });
 }
 
@@ -1732,4 +1759,4 @@ function initUI() {
 // covers a bfcache restore too.
 initUI();
 window.addEventListener("pageshow", initUI);
-loadByzantineFont();
+loadSymbolFonts();
