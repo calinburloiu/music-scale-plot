@@ -101,6 +101,20 @@ the row holds — storing the glyph string instead would leave the picker
 unable to tell which of `accidentalSharp`, `raileanuPlusTwoQuarterTones` or
 `sagittalEvoPlus6` a bare "♯" was supposed to mean.
 
+**An empty well opens where the reader last was.** `LAST_PICKED_SIGN`
+(`symbols-ui.js`) records the id every well kind was last *clicked* to — at the
+click, not in `writeNoteSign`, so a sign the martyria ladder propagates is not
+mistaken for a choice, and never `""`, because clearing a well is not a place
+to come back to. `buildAccidentalPicker` passes it as the spec's `recent`, the
+grouped builder marks that row `is-recent` (only ever on a panel with nothing
+committed, so it can never be mistaken for `is-selected`), and
+`pickerRevealTarget` prefers `is-selected`, then `is-recent`. Without it, a
+reader giving eight notes a Wyschnegradsky accidental would scroll past
+twenty-three categories eight times. It is view state and nothing else reads
+it: not in the DOM, not in `readScaleData()`, and empty again after a reload.
+The alteration and fthora pickers pass no `recent` — their lists are short
+enough that the top of one is never far away.
+
 `smuflAccidentalById(id)` is a flat `Map` over every category's entries,
 built lazily on first call — the catalogue is 501 entries, and a page that
 never opens the accidental picker never needs the index.

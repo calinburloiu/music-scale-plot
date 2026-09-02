@@ -65,6 +65,28 @@ const SYMBOL_WELLS = freezeTable([
   },
 ]);
 
+// ---------------------------------------------------------------------------
+// Where a picker was left.
+//
+// A well remembers nothing — the row's data-* attribute is the whole model —
+// but the *reader* is somewhere in a long list, and an empty well would send
+// them back to the top of it. The last sign committed to a well of each kind
+// is kept here so a picker that has no committed entry of its own can still
+// open where the reader last was. It is view state, not scale data: nothing
+// reads it but `pickerRevealTarget`, and a reload starts it empty.
+// ---------------------------------------------------------------------------
+
+const LAST_PICKED_SIGN = {};
+
+/** Records a user's pick. Clearing a well is not a place to come back to. */
+function rememberPickedSign(kind, id) {
+  if (id) LAST_PICKED_SIGN[kind] = id;
+}
+
+function lastPickedSign(kind) {
+  return LAST_PICKED_SIGN[kind] || "";
+}
+
 /**
  * None, then the whole SMuFL catalogue under 28 headings, with no rule.
  *
@@ -83,6 +105,11 @@ function buildAccidentalPicker(panel, row) {
   buildGroupedPicker(panel, {
     kind: "accidental",
     committed: row.dataset.accidental || "",
+    // 501 entries is far too many to scroll from the top every time; a reader
+    // adding accidentals to a scale works out of one category. The alteration
+    // and fthora pickers ask for none — their lists are short enough that the
+    // top of them is never far away.
+    recent: lastPickedSign("accidental"),
     font: panelWell(panel).font,
     separatorAfter: null,
     groups: SMUFL_ACCIDENTAL_CATEGORIES.map((category) => ({
@@ -169,7 +196,7 @@ function matchesQuery(text, words) {
 //
 // One builder for every single-value picker. Its spec is data:
 //
-//   { kind, committed, font, groups, separatorAfter }
+//   { kind, committed, recent, font, groups, separatorAfter }
 //   groups: [{ id, title, options: [{ id, glyph, label, mutedGlyph, selected }] }]
 //
 // `title` may be empty, and then no heading is drawn — the fthora's compatible
@@ -229,6 +256,10 @@ function buildGroupedPicker(panel, spec) {
       });
       element.dataset.groupOf = group.id;
       if (spec.committed === option.id) element.classList.add("is-selected");
+      // Only ever on a panel with nothing committed, so the two classes never
+      // land on the same list: `is-selected` says what the well holds,
+      // `is-recent` only says where to open.
+      else if (!spec.committed && spec.recent === option.id) element.classList.add("is-recent");
       body.appendChild(element);
     }
     if (spec.separatorAfter === group.id) {
@@ -627,16 +658,20 @@ function scrollTopToReveal(optionTop, optionHeight, viewHeight, scrollHeight, al
  * `{ element, align }`, or null when the top of the list is already right.
  *
  * The committed choice, when there is one — a picker opening on row 1 of
- * twenty-one otherwise hides the very letter the row holds. When there is
- * none, the notes list falls back to its middle octave: that is the register a
- * scale is written in unless it says otherwise, and it is a far better place to
- * start reading than "None" at the top. Neither single-value list has octaves
- * and both offer None as their first row, so they have nothing to fall back to
- * and stay put.
+ * twenty-one otherwise hides the very letter the row holds. Failing that, the
+ * entry the same kind of well was last given (`is-recent`, only ever set on a
+ * panel with nothing committed), which is what keeps a reader adding
+ * accidentals inside one category of 501 entries. Failing both, the notes list
+ * falls back to its middle octave: that is the register a scale is written in
+ * unless it says otherwise, and it is a far better place to start reading than
+ * "None" at the top. A list with none of the three — a fthora picker on an
+ * empty well — stays put, and None at its top is already the right answer.
  */
 function pickerRevealTarget(scroller) {
   const selected = scroller.querySelector(".is-selected");
   if (selected) return { element: selected, align: "center" };
+  const recent = scroller.querySelector(".is-recent");
+  if (recent) return { element: recent, align: "center" };
   const middle = scroller.querySelector('[data-group="mid"]');
   return middle ? { element: middle, align: "start" } : null;
 }
@@ -728,6 +763,9 @@ function selectSymbolOption(option) {
   const well = SYMBOL_WELLS.find((w) => option.classList.contains(w.kind + "-option"));
   if (well) {
     writeNoteSign(row, well.kind, option.dataset[well.kind]);
+    // Here rather than in `writeNoteSign`, which the martyria ladder also
+    // calls: what a ladder propagates is not a place the reader chose.
+    rememberPickedSign(well.kind, option.dataset[well.kind]);
     closeAllDropdowns();
     render();
     return;

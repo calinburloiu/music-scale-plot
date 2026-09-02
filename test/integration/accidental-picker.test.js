@@ -158,6 +158,114 @@ test("the accidentals picker", async (t) => {
   });
 });
 
+test("what the accidentals picker scrolls to when it opens", async (t) => {
+  // 501 entries under 28 headings: a picker that always opened at the top
+  // would make a reader working through one category scroll back down to it
+  // for every note. The committed entry answers that on a well that holds
+  // one; on an empty well the answer is the entry that was picked last,
+  // because the next accidental almost always comes from the same category.
+
+  await t.test("opens on nothing at all before anything has been picked", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const panel = openWell(h, noteRows(h)[0], "accidental");
+    const scroller = panel.querySelector('[data-scroller="accidental"]');
+
+    assert.equal(
+      h.app.pickerRevealTarget(scroller),
+      null,
+      "with no history and no commitment, None at the top of the list is the right place"
+    );
+  });
+
+  await t.test("opens on the entry this row holds", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    pickAccidental(h, row, "accidentalKoron");
+    const panel = openWell(h, row, "accidental");
+
+    const target = h.app.pickerRevealTarget(panel.querySelector('[data-scroller="accidental"]'));
+
+    assert.equal(
+      target.element,
+      panel.querySelector('.accidental-option[data-accidental="accidentalKoron"]'),
+      "the entry the row holds is the one the reader is looking for"
+    );
+    assert.equal(target.align, "center");
+  });
+
+  await t.test("opens an empty well on the entry picked last, on another row", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    pickAccidental(h, noteRows(h)[0], "accidentalKomaSharp");
+    const panel = openWell(h, noteRows(h)[1], "accidental");
+
+    const target = h.app.pickerRevealTarget(panel.querySelector('[data-scroller="accidental"]'));
+
+    assert.equal(
+      target.element,
+      panel.querySelector('.accidental-option[data-accidental="accidentalKomaSharp"]'),
+      "the next accidental almost always comes from the category the last one came from"
+    );
+    assert.equal(target.align, "center");
+  });
+
+  await t.test("does not pretend the remembered entry is committed", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    pickAccidental(h, noteRows(h)[0], "accidentalKomaSharp");
+    const row = noteRows(h)[1];
+    const panel = openWell(h, row, "accidental");
+
+    assert.equal(
+      panel.querySelector(".accidental-option.is-selected"),
+      null,
+      "an empty well has chosen nothing; only where it opens is remembered"
+    );
+    assert.equal(row.dataset.accidental, undefined);
+  });
+
+  await t.test("prefers the row's own entry over the one picked last", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    pickAccidental(h, noteRows(h)[0], "accidentalKoron");
+    pickAccidental(h, noteRows(h)[1], "accidentalKomaSharp");
+    const panel = openWell(h, noteRows(h)[0], "accidental");
+
+    const target = h.app.pickerRevealTarget(panel.querySelector('[data-scroller="accidental"]'));
+
+    assert.equal(
+      target.element,
+      panel.querySelector('.accidental-option[data-accidental="accidentalKoron"]'),
+      "what this row holds beats what another row was given"
+    );
+  });
+
+  await t.test("does not remember None, which is nowhere in particular", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    pickAccidental(h, row, "accidentalKomaSharp");
+    pickAccidental(h, row, "");
+    const panel = openWell(h, noteRows(h)[1], "accidental");
+
+    const target = h.app.pickerRevealTarget(panel.querySelector('[data-scroller="accidental"]'));
+
+    assert.equal(
+      target.element,
+      panel.querySelector('.accidental-option[data-accidental="accidentalKomaSharp"]'),
+      "clearing a well is not a choice of where to read from next"
+    );
+  });
+});
+
 test("searching the accidentals picker", async (t) => {
   await t.test("shows the ten Sagittal categories entire for `sagittal`", () => {
     const h = loadApp();

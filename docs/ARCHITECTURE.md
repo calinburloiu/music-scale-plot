@@ -70,8 +70,11 @@ picker is the one that takes two clicks and has no search, because it commits a 
 Notes column only narrows the Genus column beside it (and resets the genus to None), and the
 genus click commits. See **Notation** below.
 
-A picker opens on the choice the row already holds, scrolled into view; a martyria picker
-with nothing set opens on the middle octave rather than the top of a twenty-one row list.
+A picker opens on the choice the row already holds, scrolled into view. On a well that holds
+nothing the fallback differs by picker: the accidentals picker opens on the entry an
+accidental well was last given, so a reader working through one of 28 categories is not sent
+back to the top of 501 rows for every note, and a martyria picker opens on the middle octave
+rather than the top of a twenty-one row list.
 The martyria well, the picker's note rows and the picker's genus rows all place their glyph
 the same way, on one baseline shared by the whole martyria vocabulary, so a letter lands at
 the height the face draws it — which is the only thing distinguishing a low-octave letter
