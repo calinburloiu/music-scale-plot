@@ -634,7 +634,42 @@ test("waiting for the symbol faces", async (t) => {
     await new Promise((resolve) => setImmediate(resolve));
 
     assert.deepEqual(h.jsdomErrors, [], "the rejection escaped as an unhandled error");
+    assert.deepEqual(
+      { ...h.app.symbolFontsReady },
+      { Neanes: false, "Bravura Text": false },
+      "a face that never arrived is not ready"
+    );
     assert.ok(h.ctx.callsOf("fillRect").length > 0, "the chart must still be drawn");
+  });
+
+  // The readiness observable has no production consumer by design
+  // (docs/BYZANTINE-SYMBOLS.md §7). It is per face because the faces fail
+  // independently: one missing file must not make the notation that still
+  // works report itself unusable.
+  await t.test("reports each face's readiness on its own", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.deepEqual(
+      { ...h.app.symbolFontsReady },
+      { Neanes: true, "Bravura Text": true },
+      "both faces resolved, so both must say so"
+    );
+  });
+
+  await t.test("marks only the face that failed, leaving the other ready", async () => {
+    const h = loadApp({ fonts: { reject: ["Bravura Text"] } });
+    t.after(() => h.close());
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.deepEqual(
+      { ...h.app.symbolFontsReady },
+      { Neanes: true, "Bravura Text": false },
+      "a working Neanes chart must not be reported unready because Bravura is missing"
+    );
   });
 
   // Switching notation hides one half of every note row. A picker left open in

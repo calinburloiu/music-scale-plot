@@ -317,7 +317,7 @@ Two consequences worth knowing:
 | `AudioContext` | `FakeAudioContext` | Records oscillators, gains and every scheduled parameter change. |
 | `HTMLAnchorElement.click` | records `{download, href}` | jsdom cannot navigate or download. |
 | `window.devicePixelRatio` | `2` by default | `loadApp({ devicePixelRatio: 3 })` to vary it. |
-| `document.fonts` | `load()` and `ready` both resolve immediately | jsdom implements no `FontFaceSet`, and `app.js` waits on one before its first real paint. `loadApp({ fonts: false })` removes `document.fonts` entirely, to exercise the codepath that guards against browsers (and jsdom's own default state) with no `FontFaceSet` at all; `loadApp({ fonts: "reject" })` makes the face fail to load, as a missing or corrupt font file would. |
+| `document.fonts` | `load()` and `ready` both resolve immediately | jsdom implements no `FontFaceSet`, and `app.js` waits on one before its first real paint. `loadApp({ fonts: false })` removes `document.fonts` entirely, to exercise the codepath that guards against browsers (and jsdom's own default state) with no `FontFaceSet` at all; `loadApp({ fonts: "reject" })` makes every face fail to load, as a missing or corrupt font file would; `loadApp({ fonts: { reject: ["Bravura Text"] } })` fails only the faces named, because one file can go missing without the other; `loadApp({ fonts: "ready-reject" })` lets the faces load but never lets the set become ready, which is the plainest way to the tail of the chain. |
 
 Because `measureText` is a model rather than real metrics, a test that needs an
 expected canvas size or ink box computes it with the exported

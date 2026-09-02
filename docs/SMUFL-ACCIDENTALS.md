@@ -297,7 +297,9 @@ or its category's title, so without the word this category was unreachable by
 the most obvious query there is. With it, `flat` reaches exactly the five
 lowering entries and `sharp` exactly the five raising ones — the natural
 matches neither, which is right. `răileanu`, `raileanu` (search is
-diacritic-folded), `tone`, `1/4` and `natural` all still reach it.
+diacritic-folded), `tone`, `1/4`, `-1/4` (it is dash-folded too, so the
+hyphen key reaches the U+2212 these labels are written with) and `natural`
+all still reach it.
 
 ---
 

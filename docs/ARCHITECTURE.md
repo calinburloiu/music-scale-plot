@@ -203,8 +203,10 @@ vocabulary, their resolver and the face they draw in; they are rows in `SYMBOL_W
 (`symbols-ui.js`) rather than parallel code paths, and the class names and selectors are
 derived from that table. All three are built by the same `buildGroupedPicker(panel, spec)`,
 which also gives all three a search field: a text input that narrows the list to categories
-whose title, or options whose label, match every word of the query, case- and
-diacritic-insensitive (`matchesQuery`/`normalizeForSearch`, `symbols-ui.js`). A click on one
+whose title, or options whose label, match every word of the query, case-,
+diacritic- and dash-insensitive (`matchesQuery`/`normalizeForSearch`,
+`symbols-ui.js` — the dashes because the catalogue is printed with U+2212 and
+no keyboard has one). A click on one
 of their rows commits and closes. The martyria's picker stays bespoke and has **no**
 search — two columns, a three-field draft that the Notes column moves and the Genus column
 commits, genus rows that preview the whole composition, and ladder propagation on the commit.

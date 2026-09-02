@@ -61,8 +61,10 @@ function buildExportEpilogue(names) {
  * @param {number} [options.devicePixelRatio=2] value app.js reads into its DPR constant
  * @param {boolean|string} [options.fonts=true] set to `false` to boot with no
  *   `document.fonts` at all, as in jsdom's default state and in old browsers, or to
- *   `"reject"` to have the face fail to load, as a missing or corrupt file would,
- *   or to `"ready-reject"` to have the faces load but the set never become ready
+ *   `"reject"` to have every face fail to load, as a missing or corrupt file
+ *   would, to `{ reject: ["Bravura Text"] }` to fail only the faces named — one
+ *   file can go missing without the other — or to `"ready-reject"` to have the
+ *   faces load but the set never become ready
  * @param {Object<string,string>} [options.restored] CSS selector to value, written
  *   into every matching control *before* the scripts run — the way a browser
  *   restores form state across a soft reload
@@ -132,7 +134,13 @@ function loadApp(options = {}) {
   // paint, because PUA codepoints have no fallback glyph.
   const fontLoads = [];
   if (options.fonts !== false) {
-    const rejects = options.fonts === "reject";
+    const rejectAll = options.fonts === "reject";
+    const rejectNamed =
+      options.fonts && typeof options.fonts === "object" && Array.isArray(options.fonts.reject)
+        ? options.fonts.reject
+        : [];
+    const rejects = (spec) =>
+      rejectAll || rejectNamed.some((family) => String(spec).includes(family));
     // A FontFaceSet whose `ready` rejects: the faces themselves resolve, so the
     // per-face handlers see nothing wrong and the failure only reaches the tail
     // of the chain. The no-op catch is on this promise alone, so Node does not
@@ -147,7 +155,7 @@ function loadApp(options = {}) {
       value: {
         load(spec) {
           fontLoads.push(spec);
-          return rejects
+          return rejects(spec)
             ? Promise.reject(new Error(`stub: ${spec} could not be loaded`))
             : Promise.resolve([]);
         },

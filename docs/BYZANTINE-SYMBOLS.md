@@ -362,15 +362,29 @@ not stop the other from loading — one broken font file must not blank the
 notation that still works — and the repaint happens once both faces have
 settled, not once per face.
 
-`app.js` also sets a module-level flag, `symbolFontsReady = loaded.every(Boolean)`,
-in that same callback — `true` only when every requested face resolved,
-`false` if any one of them failed. **It is a deliberate readiness observable
-with no production consumer** — nothing in `app.js`, `byzantine.js`,
-`smufl.js`, `symbols-ui.js` or `byzantine-ui.js` reads it. It exists so a test
-(or a future debugging session) can ask "have the faces resolved yet?"
-without depending on timing. Do not "clean it up" as dead code, and do not
-wire it into the render path — the redraw that follows the font promises is
-what does the actual work; the flag is a byproduct of it, not a guard on it.
+`app.js` also keeps a module-level record, `symbolFontsReady`, of which faces
+resolved — `{ Neanes: true, "Bravura Text": false }` and so on, each entry set
+by that face's own handler. **It is a deliberate readiness observable with no
+production consumer** — nothing in `app.js`, `byzantine.js`, `smufl.js`,
+`symbols-ui.js` or `byzantine-ui.js` reads it. It exists so a test (or a
+future debugging session) can ask "have the faces resolved yet?" without
+depending on timing. Do not "clean it up" as dead code, and do not wire it
+into the render path — the redraw that follows the font promises is what does
+the actual work; the record is a byproduct of it, not a guard on it.
+
+It is **per face** rather than one boolean over all of them. The faces fail
+independently, and the whole point of §7's per-name warning is that one
+broken file must not blank the notation that still works — so an answer of
+"not ready" that cannot say *which* face is missing would contradict the
+behaviour it is observing. A single `every(...)` over the two would report a
+perfectly good Neanes chart as unready because Bravura Text never arrived.
+
+The tail of the chain carries a `.catch` of its own. Nothing awaits
+`loadSymbolFonts()` at the call site, so without one a throw in
+`resetInkMeasurements()`, `refreshAllNoteRowWells()` or `render()` — or a
+`FontFaceSet` whose `ready` rejects — would be an unhandled rejection, on a
+chart still drawn with fallback metrics and no word to the reader about why
+it never improved.
 
 ---
 

@@ -72,6 +72,11 @@ const NOTE_TEXT_HEIGHT = 28;
 
 let displayZoom = 1;
 let audioCtx = null;
+// Which vendored faces have resolved, by name. A readiness observable with no
+// production consumer by design — see docs/BYZANTINE-SYMBOLS.md §7. Per face,
+// because the faces fail independently and a missing Bravura Text says nothing
+// about whether Neanes arrived.
+const symbolFontsReady = { Neanes: false, "Bravura Text": false };
 
 function getAudioContext() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1405,9 +1410,14 @@ function loadSymbolFonts() {
 
   return Promise.all(
     faces.map(function (face) {
-      return fonts.load(face.spec).catch(function (error) {
-        console.warn("Symbols: the " + face.name + " face failed to load.", error);
-      });
+      return fonts.load(face.spec).then(
+        function () {
+          symbolFontsReady[face.name] = true;
+        },
+        function (error) {
+          console.warn("Symbols: the " + face.name + " face failed to load.", error);
+        }
+      );
     })
   )
     .then(function () {
