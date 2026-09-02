@@ -453,25 +453,29 @@ itself where a codepoint is written by hand:
 
 ```css
 .accidental-well.is-empty::before {
-  content: "\E260\E262";
+  content: "\E260\20\E262";
   font-size: 30px;
-  transform: translate(-0.0000em, 0.0365em);
+  transform: translate(0, 0.0365em);
 }
 ```
 
-`U+E260` then `U+E262` — a flat, then a sharp, from the well's own
-vocabulary, drawn faint (`color: var(--ink-faint)`), the same rule
+`U+E260`, `U+0020`, `U+E262` — a flat, a space, then a sharp, from the well's
+own vocabulary, drawn faint (`color: var(--ink-faint)`), the same rule
 `docs/BYZANTINE-SYMBOLS.md` §6 states for the alteration and fthora hints:
 CSS `content` takes a literal codepoint and nothing else, so it cannot call
 `resolveAccidentalGlyphs`. Unlike the alteration hint's two geniki — each a
 zero-advance mark needing its own pseudo-element and its own nudge — a flat
-and a sharp both have real advances, so the pair is **one string with the
-font's own spacing between them**, a single `::before` exactly like the
-fthora hint's shape. It needs no `white-space: pre`: there is no `U+0020` in
-this particular pair. The `transform` is `inkCenteringShiftEm()`'s answer for
-that exact string in Bravura Text, read out of the running app and written
-here because CSS cannot compute it — change the hint's glyphs and this offset
-has to be read out again.
+and a sharp both have real advances, so the pair is **one string**, a single
+`::before` exactly like the fthora hint's shape. The spacer is not optional:
+SMuFL sets zero side bearings (§6), so without it the two abut exactly at the
+ink and the hint reads as one mark rather than two signs. It is the same
+`U+0020` an Evo pair uses, and it survives here for the same reason — because
+`.accidental-well` sets `white-space: pre`. The `transform` is
+`inkCenteringShiftEm()`'s answer for that exact string in Bravura Text, read
+out of the running app and written here because CSS cannot compute it; adding
+the spacer did not move it, because a space carries no ink and each glyph's
+ink spans its whole advance. Change the hint's glyphs and this offset has to
+be read out again.
 
 ---
 

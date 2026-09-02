@@ -547,14 +547,19 @@ body {
   color: var(--ink-faint);
 }
 
-/* accidentalFlat then accidentalSharp — the well's own vocabulary, drawn faint.
-   Unlike Neanes' signs these carry real advances, so the pair is one string
-   with the font's own spacing between them, and it needs no `white-space: pre`
-   because there is no space in it. The transform is inkCenteringShiftEm()'s
-   answer for that string in Bravura Text, read out of the app and written here
-   because CSS cannot call it. Change the glyphs and you must read it out again. */
+/* accidentalFlat, a space, then accidentalSharp — the well's own vocabulary,
+   drawn faint. Unlike Neanes' signs these carry real advances, so the pair is
+   one string rather than a pseudo-element each; but SMuFL sets zero side
+   bearings, so with nothing between them the two abut exactly at the ink and
+   read as one mark. `\20` is U+0020, Bravura Text's own half staff space —
+   the same spacer a composed Sagittal Evo pair uses, and it survives here only
+   because `.accidental-well` sets `white-space: pre`. The transform is
+   inkCenteringShiftEm()'s answer for that string in Bravura Text, read out of
+   the app and written here because CSS cannot call it: a space carries no ink
+   and both glyphs' ink spans their whole advance, so it is what the unspaced
+   pair measured too. Change the glyphs and you must read it out again. */
 .accidental-well.is-empty::before {
-  content: "\E260\E262";
+  content: "\E260\20\E262";
   font-size: 30px;
   transform: translate(0, 0.0365em);
 }
