@@ -19,7 +19,7 @@ const {
   pickFthora,
   pickMartyria,
   savedScaleFile,
-  openScaleFile,
+  pickScaleFile,
 } = require("../helpers/harness.js");
 
 /** Clicks Save ▸ Save As Music Scale Plot file, the way a user reaches it. */
@@ -216,7 +216,7 @@ test("escaping interval values that came from a file", async (t) => {
     const saved = savedScaleFile(h).text;
 
     fireClick(h, h.document.getElementById("new-file"));
-    await openScaleFile(h, saved);
+    await pickScaleFile(h, saved);
 
     assert.equal(
       intervalRows(h)[0].querySelector(".interval").value,
@@ -235,7 +235,7 @@ test("escaping interval values that came from a file", async (t) => {
     const saved = savedScaleFile(h).text;
 
     fireClick(h, h.document.getElementById("new-file"));
-    await openScaleFile(h, saved);
+    await pickScaleFile(h, saved);
 
     assert.equal(
       noteRows(h)[1].querySelector(".absolute-interval").value,
@@ -262,7 +262,7 @@ test("escaping interval values that came from a file", async (t) => {
       chart: { style: "boxes", orientation: "vertical", zoom: 100 },
     });
 
-    await openScaleFile(h, fileText);
+    await pickScaleFile(h, fileText);
 
     assert.equal(h.document.querySelectorAll("#editor img").length, 0, "no <img> was injected");
     assert.equal(h.document.querySelectorAll("#editor b").length, 0, "no <b> was injected");
@@ -283,6 +283,11 @@ test("opening a scale document", async (t) => {
     selectOption(h, "interval-type", "edo");
     typeInto(h, h.document.getElementById("edo-divisions"), "72");
     selectOption(h, "scale-mode", "absolute");
+    // Chosen before the colours: getActivePalette() follows chart-style
+    // ("lines" -> PALETTE_DARK), so the colours below are picked from the
+    // palette this scale will actually use, and none of them gets remapped
+    // by onChartStyleChange() later in this fixture.
+    selectOption(h, "chart-style", "lines");
     // Degrees chosen so every consecutive gap (5, 7, 8 steps) is distinct: two
     // interval rows with the same underlying value are "the same interval"
     // to the app's own colour/label sync (CLAUDE.md, Color sync), which would
@@ -291,7 +296,7 @@ test("opening a scale document", async (t) => {
     buildAbsoluteScale(h, ["0", "5", "12", "20"], {
       names: ["rast", "dugah", "segah", "chargah"],
       labels: ["s", "", "s"],
-      colors: ["#CCFFCC", "#FFFFFF", "#CCFFCC"],
+      colors: ["#006600", "#000000", "#006600"],
     });
     selectOption(h, "base-note", "9");
     selectOption(h, "orientation", "horizontal");
@@ -310,7 +315,7 @@ test("opening a scale document", async (t) => {
     fireClick(h, h.document.getElementById("new-file"));
     assert.equal(noteRows(h).length, 2, "New really did reset it");
 
-    await openScaleFile(h, saved);
+    await pickScaleFile(h, saved);
 
     const valueOf = (id) => h.document.getElementById(id).value;
     assert.equal(valueOf("scale-name"), "Hicaz");
@@ -318,6 +323,7 @@ test("opening a scale document", async (t) => {
     assert.equal(valueOf("edo-divisions"), "72");
     assert.equal(valueOf("scale-mode"), "absolute");
     assert.equal(valueOf("base-note"), "9");
+    assert.equal(valueOf("chart-style"), "lines", "the file's \"segments\" reads back as the DOM's \"lines\"");
     assert.equal(valueOf("orientation"), "horizontal");
     assert.equal(valueOf("zoom"), "75");
     assert.equal(valueOf("notation"), "byzantine");
@@ -337,7 +343,7 @@ test("opening a scale document", async (t) => {
     );
     assert.deepEqual(
       intervalRows(h).map((r) => r.querySelector(".color-swatch").dataset.color),
-      ["#CCFFCC", "#FFFFFF", "#CCFFCC"]
+      ["#006600", "#000000", "#006600"]
     );
     assert.deepEqual(
       noteRows(h).map((r) => r.dataset.martyriaNote),
@@ -364,7 +370,7 @@ test("opening a scale document", async (t) => {
     const saved = savedScaleFile(h).text;
 
     fireClick(h, h.document.getElementById("new-file"));
-    await openScaleFile(h, saved);
+    await pickScaleFile(h, saved);
 
     assert.equal(h.document.getElementById("notation").value, "byzantine");
     assert.equal(noteRows(h)[0].dataset.martyriaNote, "midPa", "the visible half");
@@ -401,7 +407,7 @@ test("opening a scale document", async (t) => {
       chart: { style: "boxes", orientation: "vertical", zoom: 100 },
     });
 
-    await openScaleFile(h, fileText);
+    await pickScaleFile(h, fileText);
 
     assert.equal(noteRows(h)[0].dataset.martyriaNote, "midKe");
     assert.equal(noteRows(h)[1].dataset.martyriaNote, undefined, "the empty well stays empty");
@@ -424,7 +430,7 @@ test("opening a scale document", async (t) => {
     buildRelativeScale(h, ["9/8", "10/9"], { names: ["do", "re", "mi"] });
     const before = noteRows(h).map((r) => r.querySelector(".note-name").value);
 
-    await openScaleFile(h, '{"formatVersion": 1, "settings": {"baseNote": 12}}');
+    await pickScaleFile(h, '{"formatVersion": 1, "settings": {"baseNote": 12}}');
 
     assert.deepEqual(
       noteRows(h).map((r) => r.querySelector(".note-name").value),
@@ -448,10 +454,10 @@ test("opening a scale document", async (t) => {
     await saveScale(h);
     const good = savedScaleFile(h).text;
 
-    await openScaleFile(h, "{ not json");
+    await pickScaleFile(h, "{ not json");
     assert.equal(h.document.getElementById("toolbar-message").textContent, "Not a valid JSON file.");
 
-    await openScaleFile(h, good);
+    await pickScaleFile(h, good);
     assert.equal(h.document.getElementById("toolbar-message").hidden, true);
   });
 
@@ -516,7 +522,7 @@ test("opening a scale document", async (t) => {
     t.after(() => h.close());
 
     buildRelativeScale(h, ["9/8", "10/9"]);
-    await openScaleFile(h, new Error("could not read file"));
+    await pickScaleFile(h, new Error("could not read file"));
 
     assert.equal(noteRows(h).length, 3, "nothing changed");
     const message = h.document.getElementById("toolbar-message");

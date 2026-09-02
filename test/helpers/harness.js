@@ -436,8 +436,15 @@ function savedScaleFile(harness) {
  * Pass an `Error` as `text` to make the file's own `text()` reject with it,
  * the way a real read failure would — everything else about the call stays
  * the same.
+ *
+ * Named `pickScaleFile`, not `openScaleFile`: persistence-ui.js's own
+ * top-level `async function openScaleFile` is auto-exported to `h.app` under
+ * that same name (docs/TESTING.md §5), so a test file that imported both
+ * would have two `openScaleFile`s with different signatures in scope — a
+ * maintainer writing `openScaleFile(h)` expecting the app's Open flow would
+ * silently get this fallback-input helper instead.
  */
-function openScaleFile(harness, text, fileName = "scale.musp.json") {
+function pickScaleFile(harness, text, fileName = "scale.musp.json") {
   const input = harness.document.getElementById("open-file-input");
   const file = {
     name: fileName,
@@ -557,7 +564,7 @@ module.exports = {
   buildAbsoluteScale,
   pickColor,
   savedScaleFile,
-  openScaleFile,
+  pickScaleFile,
   openWell,
   pickAlteration,
   pickAccidental,
