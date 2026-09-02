@@ -97,6 +97,13 @@ const SMUFL_ACCIDENTAL_FIRST = 0xe260;
 const SMUFL_ACCIDENTAL_LAST = 0xee6f;
 const SMUFL_ACCIDENTAL_ASCENT_RATIO = 0.68;
 const SMUFL_ACCIDENTAL_DESCENT_RATIO = -0.122;
+// Only the *vertical* extent is modelled on the real face. Horizontally these
+// keep the generic ink ratios, so their ink overhangs the advance on both
+// sides — where real SMuFL sets the side bearings to zero and the advance is
+// exactly the bounding box (research §1). Nothing measures the difference
+// today, and the composed-pair gap is unaffected because both sides shift
+// equally; but do not write a test that assumes `advance === right - left`
+// here, because this model does not give you that.
 
 // The ½ staff space an Evo pair is composed with: 100 font units of 1000
 // against Bravura Text's 200-unit staff space. Modelled only for that face —

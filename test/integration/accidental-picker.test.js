@@ -14,6 +14,7 @@ const {
   setNotation,
   typeInto,
 } = require("../helpers/harness.js");
+const { closeTo } = require("../helpers/assertions.js");
 
 /** Every option that a filter has left visible, excluding the always-on None. */
 function visibleOptions(panel) {
@@ -491,5 +492,51 @@ test("searching the accidentals picker", async (t) => {
     fireClick(h, option);
 
     assert.equal(row.dataset.accidental, "accidentalKoron");
+  });
+
+  await t.test("seats the well and its picker row on one measurement", () => {
+    // The offset is measured once, at SMUFL_FONT_SIZE, and reported in em, so
+    // the same number seats a 30px well and a 32px picker row alike. Bravura
+    // Text is the face where those two sizes actually differ, so it is the one
+    // that would catch a shift that had quietly become px.
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    pickAccidental(h, row, "accidentalSharp");
+    const panel = openWell(h, row, "accidental");
+
+    const inkOf = (el) => el.querySelector(".glyph-ink");
+    const option = panel.querySelector('.accidental-option[data-accidental="accidentalSharp"]');
+    const well = row.querySelector(".accidental-well");
+
+    for (const axis of ["--ink-dx", "--ink-dy"]) {
+      const fromOption = inkOf(option).style.getPropertyValue(axis);
+      assert.notEqual(fromOption, "", `the picker row carries no ${axis} to compare`);
+      assert.equal(
+        inkOf(well).style.getPropertyValue(axis),
+        fromOption,
+        `the well and its picker row must seat the same glyph identically on ${axis}, ` +
+          "whatever size each is displayed at"
+      );
+    }
+
+    // And the reason one number can serve both: the shift is em, so it does not
+    // move when the size does. Measured at the two sizes CSS actually displays
+    // this glyph at.
+    const glyph = h.app.resolveAccidentalGlyphs("accidentalSharp");
+    const ctx = h.app.wellMeasuringContext();
+    const at = (size) =>
+      h.app.inkCenteringShiftEm(ctx, glyph, "middle", null, h.app.smuflFont(size));
+
+    for (const axis of ["dx", "dy"]) {
+      closeTo(
+        at(30)[axis],
+        at(32)[axis],
+        1e-9,
+        `${axis} changing with the size means px wearing an em suffix, which would ` +
+          "seat the 30px well and the 32px picker row differently"
+      );
+    }
   });
 });
