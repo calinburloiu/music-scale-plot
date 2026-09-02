@@ -1603,6 +1603,7 @@ function closeAllDropdowns() {
     if (row) row.classList.remove("dropdown-open");
   }
   closeSymbolPickers();
+  closeSaveMenu();
 }
 
 function setSwatchColor(swatch, hex) {

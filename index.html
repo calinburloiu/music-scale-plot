@@ -14,9 +14,17 @@
     <button type="button" id="open-file" class="toolbar-btn" aria-label="Open" title="Open">
       <img src="icons/open.svg" alt="">
     </button>
-    <button type="button" id="save-menu" class="toolbar-btn" aria-label="Save" title="Save">
-      <img src="icons/save.svg" alt="">
-    </button>
+    <div class="save-menu-wrapper">
+      <button type="button" id="save-menu" class="toolbar-btn has-caret" aria-label="Save" title="Save"
+              aria-haspopup="menu" aria-expanded="false">
+        <img src="icons/save.svg" alt="">
+      </button>
+      <div class="save-menu-panel" id="save-menu-panel" role="menu">
+        <button type="button" role="menuitem" id="save-scale">Save As Music Scale Plot file</button>
+        <hr>
+        <button type="button" role="menuitem" id="save-png">Save As PNG</button>
+      </div>
+    </div>
     <span class="toolbar-separator"></span>
     <button type="button" id="add-note" class="toolbar-btn" aria-label="Add note" title="Add note">
       <img src="icons/add-note.svg" alt="">
@@ -143,9 +151,6 @@
       <h2>Chart</h2>
       <div class="chart-toolbar">
         <div class="chart-toolbar-row">
-          <button id="save-png">Save as PNG</button>
-        </div>
-        <div class="chart-toolbar-row">
           <label for="chart-style">Style</label>
           <select id="chart-style">
             <option value="boxes">Boxes</option>
@@ -173,6 +178,7 @@
   <script src="persistence.js" defer></script>
   <script src="symbols-ui.js" defer></script>
   <script src="byzantine-ui.js" defer></script>
+  <script src="persistence-ui.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

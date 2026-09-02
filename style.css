@@ -1135,6 +1135,57 @@ body {
 .toolbar-btn:disabled { background: transparent; cursor: not-allowed; }
 .toolbar-btn:disabled img { opacity: 0.3; }
 
+.save-menu-wrapper { position: relative; }
+
+/* The caret is a CSS triangle rather than a sixth .svg, so it follows the
+   button's own colour instead of being baked like the icons. */
+.toolbar-btn.has-caret::after {
+  content: '';
+  margin-left: 0.15rem;
+  border: 3px solid transparent;
+  border-top-color: var(--ink);
+  border-bottom: 0;
+  opacity: 0.72;
+}
+
+.save-menu-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  min-width: 15rem;
+  padding: 0.3rem;
+  background: var(--paper-fade);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  box-shadow: 0 10px 24px -12px rgba(30, 20, 10, 0.5);
+}
+
+.save-menu-panel.open { display: block; }
+
+.save-menu-panel button {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.save-menu-panel button:hover { background: var(--paper-deep); }
+
+.save-menu-panel hr {
+  margin: 0.25rem 0.3rem;
+  border: 0;
+  border-top: 1px solid var(--rule-soft);
+}
+
 .toolbar-separator {
   width: 1px;
   height: 1.4rem;
@@ -1197,11 +1248,6 @@ body {
   letter-spacing: 0.09em;
 }
 
-/* Save button row has no label — indent so it lines up with the dropdowns below */
-.chart-toolbar #save-png {
-  margin-left: calc(7rem + 0.6rem);
-}
-
 .chart-toolbar select {
   flex: 0 0 auto;
   width: 10rem;
@@ -1237,35 +1283,6 @@ body {
   min-width: 3em;
   text-align: right;
   color: var(--ink-soft);
-}
-
-.chart-toolbar button {
-  flex: 0 0 auto;
-  width: 10rem;
-  padding: 0.55rem 1.1rem;
-  background: var(--ink);
-  color: var(--paper);
-  border: 1px solid var(--ink);
-  border-radius: 3px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition: background 0.18s, border-color 0.18s, transform 0.18s, box-shadow 0.18s;
-  box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.28);
-}
-
-.chart-toolbar button:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 14px -4px rgba(138, 46, 26, 0.42);
-}
-
-.chart-toolbar button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.28);
 }
 
 #chart {

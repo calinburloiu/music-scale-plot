@@ -3,6 +3,7 @@ paths:
   - "app.js"
   - "byzantine.js"
   - "byzantine-ui.js"
+  - "persistence-ui.js"
   - "smufl.js"
   - "persistence.js"
   - "symbols-ui.js"

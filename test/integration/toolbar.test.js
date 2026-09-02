@@ -76,3 +76,74 @@ test("the toolbar", async (t) => {
     assert.equal(message.getAttribute("role"), "alert");
   });
 });
+
+test("the Save menu", async (t) => {
+  await t.test("opens under the Save button and says so", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const button = h.document.getElementById("save-menu");
+    const panel = h.document.getElementById("save-menu-panel");
+    assert.equal(button.getAttribute("aria-haspopup"), "menu");
+    assert.equal(button.getAttribute("aria-expanded"), "false");
+    assert.equal(panel.classList.contains("open"), false);
+
+    fireClick(h, button);
+    assert.equal(panel.classList.contains("open"), true);
+    assert.equal(button.getAttribute("aria-expanded"), "true");
+  });
+
+  await t.test("closes on a second click of the button", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const button = h.document.getElementById("save-menu");
+    fireClick(h, button);
+    fireClick(h, button);
+    assert.equal(h.document.getElementById("save-menu-panel").classList.contains("open"), false);
+    assert.equal(button.getAttribute("aria-expanded"), "false");
+  });
+
+  await t.test("closes with every other transient overlay", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    fireClick(h, h.document.getElementById("save-menu"));
+    // closeAllDropdowns() means "close every transient overlay" — the colour
+    // dropdowns, the symbol pickers and now this.
+    h.app.closeAllDropdowns();
+    assert.equal(h.document.getElementById("save-menu-panel").classList.contains("open"), false);
+  });
+
+  await t.test("closes when a click lands outside it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    fireClick(h, h.document.getElementById("save-menu"));
+    fireClick(h, h.document.body);
+    assert.equal(h.document.getElementById("save-menu-panel").classList.contains("open"), false);
+  });
+
+  await t.test("holds the two save items, the PNG one moved from the Chart panel", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const panel = h.document.getElementById("save-menu-panel");
+    assert.deepEqual(
+      [...panel.querySelectorAll("button")].map((b) => b.textContent.trim()),
+      ["Save As Music Scale Plot file", "Save As PNG"]
+    );
+    assert.equal(h.document.getElementById("save-png").closest("#save-menu-panel"), panel);
+    assert.equal(h.el(".chart-toolbar #save-png"), null, "it no longer sits in the Chart panel");
+  });
+
+  await t.test("still exports a PNG from its new home", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    fireClick(h, h.document.getElementById("save-menu"));
+    fireClick(h, h.document.getElementById("save-png"));
+    assert.equal(h.downloads.length, 1, "no PNG was exported");
+    assert.equal(h.downloads[0].download, "scale.png");
+  });
+});
