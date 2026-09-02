@@ -1079,76 +1079,77 @@ body {
   box-shadow: 0 0 0 1.5px var(--ink);
 }
 
-/* --- Editor controls --- */
+/* === Toolbar ================================================= */
 
-.editor-controls {
+/* z-index 200 clears the symbol pickers' 100. Both live in the root stacking
+   context — a picker escapes the editor panel into it (see Motion, below) — so
+   200 is the number "always on top" actually has to beat. */
+#toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 200;
   display: flex;
-  gap: 0.55rem;
-  margin-top: 1.5rem;
-  padding-top: 1.1rem;
-  border-top: 1px solid var(--rule);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 2rem;
+  background: var(--paper-warm);
+  border-bottom: 1px solid var(--rule);
+  box-shadow: 0 2px 10px -8px rgba(30, 20, 10, 0.55);
 }
 
-#add-note,
-#remove-note {
-  padding: 0.55rem 1.05rem;
+/* An SVG loaded through <img> renders in an isolated document that no page CSS
+   reaches, so `currentColor` never resolves and each file's ink is baked at
+   --ink. Every state is therefore opacity plus the button's own background —
+   which is also why all five buttons share one treatment rather than Add note
+   keeping its old filled-primary emphasis. */
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
+  border: 0;
   border-radius: 3px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition: background 0.18s, color 0.18s, border-color 0.18s, transform 0.18s, box-shadow 0.18s;
-}
-
-#add-note {
-  background: var(--ink);
-  color: var(--paper);
-  border: 1px solid var(--ink);
-  box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.28);
-}
-
-#add-note::before,
-#remove-note::before {
-  display: inline-block;
-  margin-right: 0.45em;
-  font-family: 'Fraunces', serif;
-  font-weight: 400;
-  font-size: 1.1em;
-  line-height: 0;
-  vertical-align: -1px;
-}
-
-#add-note::before    { content: '+'; }
-#remove-note::before { content: '\2212'; } /* − minus */
-
-#add-note:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 14px -4px rgba(138, 46, 26, 0.42);
-}
-
-#add-note:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.28);
-}
-
-#remove-note {
   background: transparent;
-  color: var(--ink-soft);
-  border: 1px solid var(--rule);
+  cursor: pointer;
+  transition: background 0.15s;
 }
 
-#remove-note:hover:not(:disabled) {
-  background: var(--paper-deep);
-  color: var(--ink);
-  border-color: var(--ink-soft);
+.toolbar-btn img {
+  width: 1.2rem;
+  height: 1.2rem;
+  opacity: 0.72;
+  pointer-events: none;
+  transition: opacity 0.15s;
 }
 
-#remove-note:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
+.toolbar-btn:hover:not(:disabled),
+.toolbar-btn:focus-visible,
+.toolbar-btn:active:not(:disabled) { background: var(--paper-deep); }
+
+.toolbar-btn:hover:not(:disabled) img,
+.toolbar-btn:focus-visible img { opacity: 1; }
+
+.toolbar-btn:disabled { background: transparent; cursor: not-allowed; }
+.toolbar-btn:disabled img { opacity: 0.3; }
+
+.toolbar-separator {
+  width: 1px;
+  height: 1.4rem;
+  margin: 0 0.35rem;
+  background: var(--rule);
+}
+
+#toolbar-message {
+  flex: 1 0 100%;
+  margin-top: 0.35rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 3px;
+  background: rgba(138, 46, 26, 0.1);
+  color: var(--accent);
+  font-size: 0.82rem;
 }
 
 /* === Chart Panel ============================================ */
@@ -1427,13 +1428,6 @@ body {
   }
   .chart-toolbar #save-png {
     margin-left: calc(5.25rem + 0.45rem);
-  }
-
-  /* Editor controls: stack neatly */
-  #add-note,
-  #remove-note {
-    padding: 0.5rem 0.85rem;
-    font-size: 0.78rem;
   }
 }
 

@@ -7,6 +7,26 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="toolbar" role="toolbar" aria-label="File and scale actions">
+    <button type="button" id="new-file" class="toolbar-btn" aria-label="New" title="New">
+      <img src="icons/new.svg" alt="">
+    </button>
+    <button type="button" id="open-file" class="toolbar-btn" aria-label="Open" title="Open">
+      <img src="icons/open.svg" alt="">
+    </button>
+    <button type="button" id="save-menu" class="toolbar-btn" aria-label="Save" title="Save">
+      <img src="icons/save.svg" alt="">
+    </button>
+    <span class="toolbar-separator"></span>
+    <button type="button" id="add-note" class="toolbar-btn" aria-label="Add note" title="Add note">
+      <img src="icons/add-note.svg" alt="">
+    </button>
+    <button type="button" id="remove-note" class="toolbar-btn" aria-label="Remove last note" title="Remove last note">
+      <img src="icons/remove-note.svg" alt="">
+    </button>
+    <div id="toolbar-message" role="alert" hidden></div>
+    <input type="file" id="open-file-input" accept=".musp.json,application/json" hidden>
+  </div>
   <div class="container">
     <div class="left-column">
     <div class="panel settings-panel">
@@ -116,10 +136,6 @@
             <div class="martyria-picker"></div>
           </div>
         </div>
-      </div>
-      <div class="editor-controls">
-        <button id="add-note">Add note</button>
-        <button id="remove-note">Remove last note</button>
       </div>
     </div>
     </div>
