@@ -315,6 +315,30 @@ function makeIntervalRowHTML(value, mode) {
     labelCluster;
 }
 
+/**
+ * A note row, built and painted but not yet in the document.
+ *
+ * `resetScaleToDefault`, `addNote` and `applyDocumentState` all want the same
+ * six lines — element, classes, degree, markup, wells — so they say it once
+ * here. `refreshNoteRowWells` works on a detached row: it measures on its own
+ * offscreen context and never reads layout.
+ */
+function makeNoteRowElement(degree, mode, absoluteValue) {
+  const row = document.createElement("div");
+  row.className = "row note-row";
+  row.dataset.degree = degree;
+  row.innerHTML = makeNoteRowHTML(degree, mode, absoluteValue);
+  refreshNoteRowWells(row);
+  return row;
+}
+
+function makeIntervalRowElement(value, mode) {
+  const row = document.createElement("div");
+  row.className = "row interval-row";
+  row.innerHTML = makeIntervalRowHTML(value, mode);
+  return row;
+}
+
 function getDefaultAbsoluteForNewNote() {
   const noteRows = editor.querySelectorAll(".note-row");
   const type = getIntervalType();
@@ -340,16 +364,9 @@ function addNote() {
   const defaultVal = getDefaultIntervalValue();
   const prevNoteRow = [...editor.querySelectorAll(".note-row")].at(-1);
 
-  const intervalRow = document.createElement("div");
-  intervalRow.className = "row interval-row";
-  intervalRow.innerHTML = makeIntervalRowHTML(defaultVal, mode);
-
-  const noteRow = document.createElement("div");
-  noteRow.className = "row note-row";
-  noteRow.dataset.degree = degree;
+  const intervalRow = makeIntervalRowElement(defaultVal, mode);
   const absVal = mode === "absolute" ? getDefaultAbsoluteForNewNote() : undefined;
-  noteRow.innerHTML = makeNoteRowHTML(degree, mode, absVal);
-  refreshNoteRowWells(noteRow);
+  const noteRow = makeNoteRowElement(degree, mode, absVal);
 
   editor.appendChild(intervalRow);
   editor.appendChild(noteRow);
@@ -1203,26 +1220,10 @@ function resetScaleToDefault() {
 
   editor.innerHTML = "";
 
-  const noteRow1 = document.createElement("div");
-  noteRow1.className = "row note-row";
-  noteRow1.dataset.degree = 1;
-  noteRow1.innerHTML = makeNoteRowHTML(1, mode);
-  refreshNoteRowWells(noteRow1);
-
-  const intervalRow = document.createElement("div");
-  intervalRow.className = "row interval-row";
-  intervalRow.innerHTML = makeIntervalRowHTML(defaultVal, mode);
-
-  const noteRow2 = document.createElement("div");
-  noteRow2.className = "row note-row";
-  noteRow2.dataset.degree = 2;
-  // In absolute mode, Note 2's absolute = the relative default (stacked on unison)
-  noteRow2.innerHTML = makeNoteRowHTML(2, mode, defaultVal);
-  refreshNoteRowWells(noteRow2);
-
-  editor.appendChild(noteRow1);
-  editor.appendChild(intervalRow);
-  editor.appendChild(noteRow2);
+  editor.appendChild(makeNoteRowElement(1, mode));
+  editor.appendChild(makeIntervalRowElement(defaultVal, mode));
+  // In absolute mode, Note 2's absolute = the relative default (stacked on unison).
+  editor.appendChild(makeNoteRowElement(2, mode, defaultVal));
 
   updateRemoveBtn();
   updateAllLabels();
