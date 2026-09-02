@@ -70,6 +70,12 @@ function buildExportEpilogue(names) {
  *   restores form state across a soft reload
  * @param {string} [options.inkMetrics="exact"] `"union"` reports every ink box
  *   unioned with the text's advance rect and its baseline, the way WebKit does
+ * @param {boolean|object} [options.fileSystemAccess] installs `showSaveFilePicker`
+ *   and `showOpenFilePicker` stubs. **Absent by default**, so most tests exercise
+ *   the download / file-input fallback — the path every browser reaches. Pass
+ *   `{ text }` to say what the open picker hands back, `{ saveAborts: true }` or
+ *   `{ openAborts: true }` to have the picker reject with an AbortError, the way
+ *   a cancelled dialog does
  * @returns {object} harness
  */
 function loadApp(options = {}) {
@@ -172,6 +178,39 @@ function loadApp(options = {}) {
     downloads.push({ download: this.download, href: this.href });
   };
 
+  // --- File System Access -------------------------------------------------
+  // Absent unless a test asks for it: Firefox, Safari and every file:// page
+  // reach the fallback, so that is the path most tests should be on.
+  const writtenFiles = [];
+  const filePickerCalls = [];
+  if (options.fileSystemAccess) {
+    const settings = options.fileSystemAccess === true ? {} : options.fileSystemAccess;
+    const abort = () =>
+      Promise.reject(new window.DOMException("The user aborted a request.", "AbortError"));
+
+    window.showSaveFilePicker = function showSaveFilePicker(pickerOptions) {
+      filePickerCalls.push({ picker: "save", options: pickerOptions });
+      if (settings.saveAborts) return abort();
+      return Promise.resolve({
+        createWritable: () =>
+          Promise.resolve({
+            write: (data) => {
+              writtenFiles.push({ name: pickerOptions.suggestedName, text: String(data) });
+              return Promise.resolve();
+            },
+            close: () => Promise.resolve(),
+          }),
+      });
+    };
+
+    window.showOpenFilePicker = function showOpenFilePicker(pickerOptions) {
+      filePickerCalls.push({ picker: "open", options: pickerOptions });
+      if (settings.openAborts) return abort();
+      const text = settings.text === undefined ? "" : settings.text;
+      return Promise.resolve([{ getFile: () => Promise.resolve({ text: () => Promise.resolve(text) }) }]);
+    };
+  }
+
   // Written before any script runs — Firefox restores form state while parsing,
   // so the app can boot against controls that already carry the user's values.
   applyRestoredState(document, options.restored);
@@ -210,6 +249,10 @@ function loadApp(options = {}) {
     ctx: context,
     /** `{ download, href }` for every anchor click (i.e. every PNG export). */
     downloads,
+    /** `{ name, text }` for every file written through showSaveFilePicker. */
+    writtenFiles,
+    /** `{ picker, options }` for every File System Access picker call. */
+    filePickerCalls,
     /** Every `toDataURL()` call made on the chart canvas. */
     dataUrls,
     /** Every font spec passed to `document.fonts.load()`. */
@@ -364,6 +407,18 @@ function pickColor(harness, intervalRow, hex) {
 }
 
 /**
+ * The scale document the app last handed to `<a download>`, read back out of
+ * the data: URL — the same mechanism savePNG() uses, so no URL.createObjectURL
+ * shim is needed and the existing anchor recorder does the work.
+ */
+function savedScaleFile(harness) {
+  const download = harness.downloads[harness.downloads.length - 1];
+  if (!download) throw new Error("Nothing was downloaded");
+  const comma = download.href.indexOf(",");
+  return { name: download.download, text: decodeURIComponent(download.href.slice(comma + 1)) };
+}
+
+/**
  * Clicks a well and returns its picker panel. `kind` is `"alteration"`,
  * `"fthora"` or `"martyria"`.
  */
@@ -471,6 +526,7 @@ module.exports = {
   buildRelativeScale,
   buildAbsoluteScale,
   pickColor,
+  savedScaleFile,
   openWell,
   pickAlteration,
   pickAccidental,
