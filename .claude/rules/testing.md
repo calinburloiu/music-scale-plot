@@ -3,6 +3,7 @@ paths:
   - "app.js"
   - "byzantine.js"
   - "byzantine-ui.js"
+  - "smufl.js"
   - "index.html"
   - "style.css"
   - "test/**/*.js"

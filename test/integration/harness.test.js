@@ -67,9 +67,12 @@ test("the test harness", async (t) => {
     const h = loadApp();
     t.after(() => h.close());
 
-    const names = h.scriptFiles.map((f) => path.basename(f));
-    assert.ok(names.includes("byzantine.js"), `byzantine.js was never run, got ${names}`);
-    assert.equal(names.at(-1), "app.js", "app.js must run last: it wires the page up");
+    assert.deepEqual(
+      h.scriptFiles.map((f) => path.basename(f)),
+      ["byzantine.js", "smufl.js", "byzantine-ui.js", "app.js"],
+      "the load order is load-bearing: smufl.js must precede anything that reads its catalogue, " +
+        "and app.js must run last because it wires the page up"
+    );
   });
 
   await t.test("re-exports top-level names from every script, not just app.js", () => {
