@@ -114,8 +114,8 @@ Sagittal Evo pairs need and what Extended Helmholtz-Ellis and Johnston would nee
 length.
 
 Entries are **per category**. The same codepoint therefore appears as several entries with
-several labels — `U+E262` is `accidentalSharp` "Sharp" in Standard, `raileanuPlusTwoQuarterTones`
-"+2/4 tone" in Răileanu, and part of `sagittalEvoPlus4` in mixed Sagittal. That is what
+several labels — `U+E261` is `accidentalNatural` "Natural" in Standard, `raileanuNatural`
+"Natural" in Răileanu, and `sagittalEvoZero` "0 (natural)" in mixed Sagittal. That is what
 issue #13 means by "some accidentals (even with the same code point) may appear in more
 than one group", and it is what lets the picker re-open on the entry the user actually
 chose.

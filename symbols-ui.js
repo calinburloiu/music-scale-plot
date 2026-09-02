@@ -270,11 +270,24 @@ function makeWellData(kind, id) {
  * own label, and its heading appears because at least one option under it
  * survived. A rule only separates two things, so it goes when either side of
  * it empties.
+ *
+ * A committed entry can open the panel scrolled deep into a 505-entry list; a
+ * query that actually narrows the results must not leave the reader at that
+ * old offset in a much shorter one, so a real filter snaps every scroller
+ * back to the top. Clearing the query back to empty is not itself a
+ * narrowing filter — it puts the untouched catalogue back, and leaves the
+ * scroll position exactly where the reader had it.
  */
 function filterGroupedPicker(panel, query) {
   const words = searchWords(query);
   const titles = JSON.parse(panel.dataset.groupTitles || "[]");
   const survivors = new Set();
+
+  if (words.length > 0) {
+    for (const el of panel.querySelectorAll("[data-scroller]")) {
+      el.scrollTop = 0;
+    }
+  }
 
   for (const [id, title] of titles) {
     const wholeGroup = matchesQuery(title, words);

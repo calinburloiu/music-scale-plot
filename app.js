@@ -377,14 +377,14 @@ function readScaleData() {
         type: "note",
         absVal: absInp ? absInp.value.trim() : "",
       });
+      // Spread rather than hand-list: a new SYMBOL_WELLS row's field would
+      // otherwise reach `symbols` but not the note item, and signRunOf()
+      // would silently draw nothing for it.
       items.push({
         type: "note",
         degree: degree,
         name: nameEl ? nameEl.value.trim() : "",
-        accidental: symbols.accidental,
-        alteration: symbols.alteration,
-        fthora: symbols.fthora,
-        martyria: symbols.martyria,
+        ...symbols,
       });
     } else {
       const intInp = row.querySelector(".interval");
@@ -505,9 +505,20 @@ function signRunOf(noteItem, notation) {
     .filter(Boolean);
 }
 
-/** The face a notation draws its symbols in — the gutter's and the label's. */
+/**
+ * The face a notation draws its symbols in — the gutter's and the label's.
+ * Derived from SYMBOL_WELLS rather than hardcoded, so the two agree by
+ * construction: every well of a notation already names its own `font`, and
+ * they all agree within a notation (byzantineFont() for "byzantine",
+ * smuflFont() for "generic"), so the first match speaks for the notation as a
+ * whole — including the martyria well, which is not itself a SYMBOL_WELLS row
+ * but shares "byzantine"'s font by the same convention.
+ */
 function symbolFontFor(notation) {
-  return notation === "byzantine" ? byzantineFont(BYZ_FONT_SIZE) : smuflFont(SMUFL_FONT_SIZE);
+  const well = SYMBOL_WELLS.find(function (well) {
+    return well.notation === notation;
+  });
+  return well ? well.font : smuflFont(SMUFL_FONT_SIZE);
 }
 
 /** The widest and tallest ink among `texts`, ignoring the empty ones. */

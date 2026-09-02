@@ -16,6 +16,7 @@ const {
   pickFthora,
 } = require("../helpers/harness.js");
 const { closeTo, equalArray } = require("../helpers/assertions.js");
+const { SMUFL_SPACE_ADVANCE_RATIO } = require("../helpers/canvas-stub.js");
 
 // These tests assert the *geometry* render() computes — sizes, positions and
 // draw order — not the appearance of the result. See docs/TESTING.md.
@@ -1549,7 +1550,7 @@ test("Generic notation with an accidental", async (t) => {
 
     closeTo(
       composed.right - composed.left - (bare.right - bare.left),
-      pair.app.SMUFL_FONT_SIZE * 0.1,
+      pair.app.SMUFL_FONT_SIZE * SMUFL_SPACE_ADVANCE_RATIO,
       1e-6,
       "the U+0020 spacer is half a staff space of real advance, and it must reach the canvas"
     );

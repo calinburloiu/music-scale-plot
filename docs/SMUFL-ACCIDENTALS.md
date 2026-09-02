@@ -78,12 +78,11 @@ entry is a one-element array, so nothing in the resolver or the picker
 special-cases length.
 
 **Entries are per category.** The same codepoint therefore shows up as
-several entries with several labels — `U+E262` is `accidentalSharp` "Sharp"
-in Standard accidentals, `raileanuPlusTwoQuarterTones` "+2/4 tone" in
-Răileanu, and part of `sagittalEvoPlus6`/`sagittalEvoPlus4` in mixed
-Sagittal. That is exactly what lets the picker re-open on the entry the user
-actually chose (§8), rather than on whichever category happens to list the
-glyph first.
+several entries with several labels — `U+E261` is `accidentalNatural`
+"Natural" in Standard accidentals, `raileanuNatural` "Natural" in Răileanu,
+and `sagittalEvoZero` "0 (natural)" in mixed Sagittal. That is exactly what
+lets the picker re-open on the entry the user actually chose (§8), rather
+than on whichever category happens to list the glyph first.
 
 **Ids are unique across the whole catalogue.** For the 26 categories that are
 SMuFL ranges, an entry's id **is** the canonical SMuFL glyph name — the same

@@ -508,6 +508,7 @@ module.exports = {
   SMUFL_ACCIDENTAL_LAST,
   SMUFL_ACCIDENTAL_ASCENT_RATIO,
   SMUFL_ACCIDENTAL_DESCENT_RATIO,
+  SMUFL_SPACE_ADVANCE_RATIO,
   isSmuflFont,
   isSmuflAccidental,
   anchorInk,

@@ -103,15 +103,17 @@ test("the accidentals picker", async (t) => {
     t.after(() => h.close());
     const row = noteRows(h)[0];
 
-    // U+E262 is an entry in three categories. Storing the entry id rather than
-    // the glyph is what lets the picker know which one the user meant.
-    pickAccidental(h, row, "sagittalEvoPlus6");
+    // U+E261 is an entry in three categories — Standard's accidentalNatural,
+    // Răileanu's raileanuNatural and mixed Sagittal's sagittalEvoZero. Storing
+    // the entry id rather than the glyph is what lets the picker know which
+    // one the user meant.
+    pickAccidental(h, row, "sagittalEvoZero");
     const panel = openWell(h, row, "accidental");
 
     const selected = [...panel.querySelectorAll(".accidental-option.is-selected")];
     assert.deepEqual(
       selected.map((option) => option.dataset.accidental),
-      ["sagittalEvoPlus6"]
+      ["sagittalEvoZero"]
     );
   });
 
@@ -272,6 +274,44 @@ test("searching the accidentals picker", async (t) => {
 
     assert.equal(visibleOptions(panel).length, 505);
     assert.equal(panel.querySelector(".sym-empty").hidden, true);
+  });
+
+  await t.test("scrolls back to the top when a query narrows the results", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    const panel = openWell(h, row, "accidental");
+    const scroller = panel.querySelector('[data-scroller="accidental"]');
+    // As if the picker opened scrolled deep into the 505 on a committed entry.
+    scroller.scrollTop = 2400;
+
+    typeInto(h, panel.querySelector(".sym-search"), "flat");
+
+    assert.equal(
+      scroller.scrollTop,
+      0,
+      "the old offset left the reader mid-list instead of at the top of the 156 survivors"
+    );
+  });
+
+  await t.test("leaves the scroll position alone when the query is cleared back to empty", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    const panel = openWell(h, row, "accidental");
+    const scroller = panel.querySelector('[data-scroller="accidental"]');
+    // As if the picker opened scrolled deep into the 505 on a committed entry.
+    scroller.scrollTop = 2400;
+
+    typeInto(h, panel.querySelector(".sym-search"), "");
+
+    assert.equal(
+      scroller.scrollTop,
+      2400,
+      "clearing the query restores every option, but it is not a narrowing filter and must not move the scroller"
+    );
   });
 
   await t.test("commits the row that is clicked after a filter, not the one above it", () => {

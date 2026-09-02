@@ -11,8 +11,8 @@
 // Single-glyph entries are a one-element array, so nothing special-cases length.
 //
 // Entries are per category, so the same codepoint appears as several entries
-// with several labels — U+E262 is "Sharp" in Standard, "+2/4 tone" in Răileanu
-// and "+6 (sharp)" in mixed Sagittal. That is what lets a picker re-open on the
+// with several labels — U+E261 is "Natural" in Standard, "Natural" in Răileanu
+// and "0 (natural)" in mixed Sagittal. That is what lets a picker re-open on the
 // entry the user actually chose. Ids are unique across the whole catalogue: for
 // the 26 SMuFL ranges the id *is* the canonical glyph name.
 

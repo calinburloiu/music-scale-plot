@@ -556,7 +556,7 @@ body {
 .accidental-well.is-empty::before {
   content: "\E260\E262";
   font-size: 30px;
-  transform: translate(-0.0000em, 0.0365em);
+  transform: translate(0, 0.0365em);
 }
 
 /* yfesisGeniki, then diesisGeniki, each riding on the same carrier a well's own
