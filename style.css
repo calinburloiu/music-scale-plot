@@ -587,16 +587,24 @@ body {
   transform: translate(0.0151em, 0.4644em);
 }
 
+/* The martyria's hint is two bars rather than a sign, so nothing measures its
+   weight for it: at 2px they were twice the stroke of the Neanes glyphs hinting
+   the two wells to their left (about 0.8px at 31px), and the well read as one
+   holding a martyria rather than as an empty one. A hairline matches them.
+
+   Placed from the centre outwards rather than from the top down, so the pair
+   stays centred at whatever `--well-size` is — the phone breakpoint shrinks the
+   box to 28px. 2.5px each side of the middle keeps the 5px gap they had. */
 .martyria-well.is-empty::before,
 .martyria-well.is-empty::after {
   content: "";
   position: absolute;
-  height: 2px;
+  height: 1px;
   background: var(--ink-faint);
 }
 
-.martyria-well.is-empty::before { width: 14px; top: 12px; }
-.martyria-well.is-empty::after  { width:  8px; top: 19px; }
+.martyria-well.is-empty::before { width: 14px; bottom: calc(50% + 2.5px); }
+.martyria-well.is-empty::after  { width:  8px; top:    calc(50% + 2.5px); }
 
 /* --- Symbol pickers --- */
 
