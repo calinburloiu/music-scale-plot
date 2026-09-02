@@ -61,9 +61,14 @@ function resolveAccidentalGlyphs(id)  // "" for an unknown id, else String.fromC
 ```
 
 `freezeTable()` — `Object.freeze` on the array and on every element of it — is
-the same helper `byzantine.js`'s six tables use (`docs/BYZANTINE-SYMBOLS.md`
-§2); a category and an entry are frozen the same way a note or a fthora row
-is.
+the same helper four of `byzantine.js`'s six tables use — `BYZ_NOTES`,
+`BYZ_GENERA`, `BYZ_FTHORES` and `BYZ_ALTERATIONS` (`docs/BYZANTINE-SYMBOLS.md`
+§2) — so a category and an entry are frozen the same way a note or a fthora
+row is. The other two, `MARTYRIA_COMPATIBILITY` and `FTHORES_COMPATIBILITY`,
+are not arrays of rows but maps from a note id to an array, so they are
+frozen a different way instead: `Object.freeze(Object.fromEntries(...))` on
+the outer map, with `Object.freeze` on each inner array — the row-freezing
+helper does not fit a shape that has no rows.
 
 **`codes` is an array, not a single codepoint.** An accidental is a
 *sequence*: the four Sagittal Evo pairs need two glyphs and a spacer between

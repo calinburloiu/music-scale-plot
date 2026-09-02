@@ -47,9 +47,10 @@ without a concrete reason that cannot be met by the standard library.
 
 ## 2. Test-driven development is mandatory
 
-Every change to `app.js`, `byzantine.js`, `byzantine-ui.js`, `index.html` or
-`style.css` that affects behaviour follows the red/green/refactor loop. No
-exceptions for "small" changes; small changes are where regressions hide.
+Every change to `app.js`, `byzantine.js`, `smufl.js`, `symbols-ui.js`,
+`byzantine-ui.js`, `index.html` or `style.css` that affects behaviour follows
+the red/green/refactor loop. No exceptions for "small" changes; small changes
+are where regressions hide.
 
 ### RED — write a failing test first
 
