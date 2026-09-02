@@ -198,6 +198,82 @@ test("what a saved document carries", async (t) => {
   });
 });
 
+test("escaping interval values that came from a file", async (t) => {
+  // makeNoteRowHTML/makeIntervalRowHTML build their markup by string
+  // concatenation, then set it via innerHTML. Every other caller passes
+  // app-computed text, but applyDocumentState() (persistence-ui.js) is the
+  // first caller that can pass an arbitrary string straight out of a file:
+  // validateScaleDocument only requires an interval to be "a string or a
+  // finite number" (persistence.js), with no character restrictions.
+  const TRICKY = '9"8<b>weird</b>';
+
+  await t.test("round-trips a relative interval containing quote and angle-bracket characters", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    buildRelativeScale(h, [TRICKY]);
+    await saveScale(h);
+    const saved = savedScaleFile(h).text;
+
+    fireClick(h, h.document.getElementById("new-file"));
+    await openScaleFile(h, saved);
+
+    assert.equal(
+      intervalRows(h)[0].querySelector(".interval").value,
+      TRICKY,
+      "the box must come back holding exactly what was typed"
+    );
+  });
+
+  await t.test("round-trips an absolute interval containing quote and angle-bracket characters", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    selectOption(h, "scale-mode", "absolute");
+    buildAbsoluteScale(h, ["1/1", TRICKY]);
+    await saveScale(h);
+    const saved = savedScaleFile(h).text;
+
+    fireClick(h, h.document.getElementById("new-file"));
+    await openScaleFile(h, saved);
+
+    assert.equal(
+      noteRows(h)[1].querySelector(".absolute-interval").value,
+      TRICKY,
+      "the box must come back holding exactly what was typed"
+    );
+  });
+
+  await t.test("opening a crafted document with markup in an interval injects no element into #editor", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const payload = '"><img src=x onerror="window.__pwned=true">';
+    const fileText = JSON.stringify({
+      formatVersion: 1,
+      settings: { notation: "generic", baseNote: 0 },
+      scaleEditor: {
+        mode: "relativeIntervals",
+        intervalType: { type: "ratio" },
+        intervals: [payload],
+        noteProperties: [{}, {}],
+        intervalProperties: [{ color: "#CCFFCC", label: "" }],
+      },
+      chart: { style: "boxes", orientation: "vertical", zoom: 100 },
+    });
+
+    await openScaleFile(h, fileText);
+
+    assert.equal(h.document.querySelectorAll("#editor img").length, 0, "no <img> was injected");
+    assert.equal(h.document.querySelectorAll("#editor b").length, 0, "no <b> was injected");
+    assert.equal(
+      intervalRows(h)[0].querySelector(".interval").value,
+      payload,
+      "the raw text lands in the input's value instead"
+    );
+  });
+});
+
 test("opening a scale document", async (t) => {
   await t.test("round-trips a full scale through Save, New and Open", async () => {
     const h = loadApp();

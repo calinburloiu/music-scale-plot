@@ -274,6 +274,20 @@ function computeRelativeDisplay(prevAbsStr, nextAbsStr) {
   return value === "" ? "" : intervalToDisplayString(value);
 }
 
+/**
+ * Escapes a value for safe interpolation into an HTML attribute inside a
+ * string later assigned to `innerHTML`. `makeNoteRowHTML`'s absolute branch
+ * and `makeIntervalRowHTML`'s relative branch are the only two sites that
+ * interpolate a caller-supplied value into an attribute; every other value
+ * built here is app-computed. `applyDocumentState` (persistence-ui.js) is the
+ * first caller able to pass an arbitrary string straight out of a file, so an
+ * unescaped `"` truncated the attribute (silent data loss) and an unescaped
+ * `<` let a crafted file inject a live element into #editor.
+ */
+function escapeAttribute(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
 function makeNoteRowHTML(degree, mode, absoluteValue) {
   const playBtn = '<button class="play-note" title="Play note">&#9654;</button>';
   const labelHtml = "<label>Note " + degree + "</label>";
@@ -287,7 +301,7 @@ function makeNoteRowHTML(degree, mode, absoluteValue) {
     const isFirst = degree === 1;
     const val = isFirst ? getUnisonValue() : (absoluteValue !== undefined ? absoluteValue : "");
     const absInput = '<input type="text" class="absolute-interval" placeholder="' +
-      getIntervalPlaceholder() + '" value="' + val + '"' + (isFirst ? " disabled" : "") + ">";
+      getIntervalPlaceholder() + '" value="' + escapeAttribute(val) + '"' + (isFirst ? " disabled" : "") + ">";
     return playBtn + labelHtml + absInput + '<span class="abs-cents-label"></span>' + nameBlock;
   }
   return playBtn + labelHtml + '<span class="cumulative-cents"></span>' + nameBlock;
@@ -311,7 +325,7 @@ function makeIntervalRowHTML(value, mode) {
     return '<span class="relative-cents-display"></span>' + labelCluster;
   }
   return '<input type="text" class="interval" placeholder="' +
-    getIntervalPlaceholder() + '" value="' + value + '">' +
+    getIntervalPlaceholder() + '" value="' + escapeAttribute(value) + '">' +
     '<span class="cents-label"></span>' +
     labelCluster;
 }
