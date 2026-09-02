@@ -37,7 +37,15 @@
   /* The editor's right-hand column. A note row lays out
      [well] gap [name box] in Generic and [well] gap [well] gap [well] in
      Byzantine; the interval row's cluster is [swatch] gap [label] and takes the
-     same total width in each. */
+     same total width in each.
+
+     --well-size is also the *height* of every control on those two rows — the
+     wells, the swatch, the name box and the label. A text box left to size
+     itself from its font would be a different height from the square beside it
+     (DM Sans' 1.25em line box puts the name box at 40px against a 34px well)
+     and would change height again on a font the reader has and we did not, so
+     the boxes are given this height outright and their vertical padding drops
+     to 0: the browser centres a single-line input's text in the content box. */
   --well-size: 34px;
   --row-gap: 0.625rem;
   --name-box-width: 9rem;
@@ -390,9 +398,10 @@ body {
 
 .note-row .note-name {
   width: var(--name-box-width);
+  height: var(--well-size);
   font-family: 'DM Sans', sans-serif;
   font-size: 0.93rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0 0.75rem;
   border: 1px solid var(--rule);
   background: var(--paper-fade);
   border-radius: 3px;
@@ -425,11 +434,21 @@ body {
 
 #editor.notation-byzantine .note-row .note-name { display: none; }
 
+/* `flex`, not `block`: a well is an inline-flex button, so a block wrapper puts
+   it on a line box, and a line box is as tall as the wrapper's font strut needs
+   *plus* whatever the button's own baseline asks for below it. The wrapper came
+   out 1.5-3px taller than the 34px button, the button sat at the top of it, and
+   `.row`'s `align-items: center` then centred the wrapper rather than the well.
+   Worse, each well asked for a different amount: an empty martyria's hint is two
+   absolutely-positioned bars, so that button has no in-flow baseline at all and
+   dropped a further 0.75px against its neighbours, and a well changed height the
+   moment it was filled. A flex container has no line boxes, so the wrapper is
+   exactly its button and every well centres on the same line. */
 #editor.notation-generic .note-row .accidental-well-wrapper,
 #editor.notation-byzantine .note-row .alteration-well-wrapper,
 #editor.notation-byzantine .note-row .fthora-well-wrapper,
 #editor.notation-byzantine .note-row .martyria-well-wrapper {
-  display: block;
+  display: flex;
   position: relative;
   flex: 0 0 auto;
 }
@@ -963,7 +982,8 @@ body {
 .interval-row .interval-label {
   flex: 1 1 auto;
   min-width: 0;
-  padding: 0.4rem 0.6rem;
+  height: var(--well-size);
+  padding: 0 0.6rem;
   border: 1px solid var(--rule);
   border-radius: 3px;
   background: var(--paper-fade);
@@ -990,7 +1010,11 @@ body {
 
 /* --- Color picker --- */
 
+/* `flex` for the same reason the well wrappers are flex: the swatch is a
+   button on a line box otherwise, which left the wrapper 3px taller than it and
+   the swatch 1.2-1.5px above the label it sits beside. */
 .color-picker-wrapper {
+  display: flex;
   position: relative;
   flex: 0 0 auto;
 }
@@ -1338,7 +1362,7 @@ body {
   .note-row .note-name {
     width: 5.5rem;
     font-size: 0.82rem;
-    padding: 0.4rem 0.5rem;
+    padding: 0 0.5rem;
   }
   .note-row .cumulative-cents {
     width: auto;
@@ -1362,7 +1386,7 @@ body {
   }
   .interval-row .interval-label {
     font-size: 0.76rem;
-    padding: 0.32rem 0.45rem;
+    padding: 0 0.45rem;
   }
 
   /* Absolute-mode inputs match the relative interval width */

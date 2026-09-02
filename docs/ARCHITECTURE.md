@@ -146,6 +146,20 @@ Generic notation, the alteration well in Byzantine. Clicking it opens a palette 
 uses, via the `#editor.notation-generic`/`.notation-byzantine` class, so the interval row's
 width formula and the note row's actual layout stay one fact at every breakpoint.
 
+`--well-size` is the **height** of every control on those two rows as well as the side of a
+well: the wells, the swatch, the name box and the label are all given it outright. A text box
+left to size itself from its font is a different height from the square beside it — DM Sans'
+1.25em line box puts the name box at 40px against a 34px well — and would be a different
+height again under a fallback face, so the height is stated rather than inherited from
+whichever font loaded. Their vertical padding is 0 for the same reason; a browser centres a
+single-line input's text in the content box on its own. The two well wrappers
+(`.<kind>-well-wrapper`, `.color-picker-wrapper`) are flex containers rather than blocks,
+because a block wrapper puts its inline-flex button on a line box, and the line box's own
+strut and baseline made the wrapper taller than the button and left the button sitting at its
+top — which is what tilted the three Byzantine wells against each other, an empty martyria
+worst of all, its hint being absolutely positioned and so leaving the button no in-flow
+baseline at all.
+
 ### Initial state
 
 The editor starts with Note 1, one interval (ratio defaulting to `9/8`, label empty), and Note 2. Both note name fields are initially empty. The user fills in only what they need — names and labels are optional and omitted from the chart when left blank.
