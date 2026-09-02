@@ -36,8 +36,13 @@ function scriptPaths(html) {
   return [...html.matchAll(SCRIPT_SRC)].map((m) => path.join(ROOT, m[1]));
 }
 
-/** Matches a top-level (column 0) declaration in a script. */
-const TOP_LEVEL_DECLARATION = /^(?:function|const|let|var)\s+([A-Za-z_$][\w$]*)/gm;
+/**
+ * Matches a top-level (column 0) declaration in a script — including an
+ * `async function`, so `async function saveScaleFile` and its Open-side
+ * sibling `openScaleFile` are exported to tests exactly like any other
+ * top-level function (docs/TESTING.md §5).
+ */
+const TOP_LEVEL_DECLARATION = /^(?:async\s+)?(?:function|const|let|var)\s+([A-Za-z_$][\w$]*)/gm;
 
 function topLevelNames(source) {
   const names = new Set();
@@ -75,7 +80,9 @@ function buildExportEpilogue(names) {
  *   the download / file-input fallback — the path every browser reaches. Pass
  *   `{ text }` to say what the open picker hands back, `{ saveAborts: true }` or
  *   `{ openAborts: true }` to have the picker reject with an AbortError, the way
- *   a cancelled dialog does
+ *   a cancelled dialog does, or `{ saveFails: true }` / `{ openFails: true }` to
+ *   have it reject with an ordinary Error, the way a real failure (permission
+ *   denied, disk full, a broken handle) does — distinct from a cancelled dialog
  * @returns {object} harness
  */
 function loadApp(options = {}) {
@@ -187,10 +194,12 @@ function loadApp(options = {}) {
     const settings = options.fileSystemAccess === true ? {} : options.fileSystemAccess;
     const abort = () =>
       Promise.reject(new window.DOMException("The user aborted a request.", "AbortError"));
+    const fail = (message) => Promise.reject(new Error(message));
 
     window.showSaveFilePicker = function showSaveFilePicker(pickerOptions) {
       filePickerCalls.push({ picker: "save", options: pickerOptions });
       if (settings.saveAborts) return abort();
+      if (settings.saveFails) return fail("stub: showSaveFilePicker failed");
       return Promise.resolve({
         createWritable: () =>
           Promise.resolve({
@@ -206,6 +215,7 @@ function loadApp(options = {}) {
     window.showOpenFilePicker = function showOpenFilePicker(pickerOptions) {
       filePickerCalls.push({ picker: "open", options: pickerOptions });
       if (settings.openAborts) return abort();
+      if (settings.openFails) return fail("stub: showOpenFilePicker failed");
       const text = settings.text === undefined ? "" : settings.text;
       return Promise.resolve([{ getFile: () => Promise.resolve({ text: () => Promise.resolve(text) }) }]);
     };
@@ -419,6 +429,19 @@ function savedScaleFile(harness) {
 }
 
 /**
+ * Hands the hidden file input a file and fires `change`, the way a browser does
+ * once the user has picked one in the fallback dialog. The handler reads the
+ * file asynchronously, so this resolves on the next macrotask — `await` it.
+ */
+function openScaleFile(harness, text, fileName = "scale.musp.json") {
+  const input = harness.document.getElementById("open-file-input");
+  const file = { name: fileName, text: () => Promise.resolve(text) };
+  Object.defineProperty(input, "files", { value: [file], configurable: true });
+  fireChange(harness, input);
+  return new Promise((resolve) => harness.window.setTimeout(resolve, 0));
+}
+
+/**
  * Clicks a well and returns its picker panel. `kind` is `"alteration"`,
  * `"fthora"` or `"martyria"`.
  */
@@ -527,6 +550,7 @@ module.exports = {
   buildAbsoluteScale,
   pickColor,
   savedScaleFile,
+  openScaleFile,
   openWell,
   pickAlteration,
   pickAccidental,

@@ -19,6 +19,7 @@ const {
   pickFthora,
   pickMartyria,
   savedScaleFile,
+  openScaleFile,
 } = require("../helpers/harness.js");
 
 /** Clicks Save ▸ Save As Music Scale Plot file, the way a user reaches it. */
@@ -139,6 +140,18 @@ test("saving a scale document", async (t) => {
       "choosing not to save is not an error to report"
     );
   });
+
+  await t.test("shows an error when the Save dialog fails for another reason", async () => {
+    const h = loadApp({ fileSystemAccess: { saveFails: true } });
+    t.after(() => h.close());
+
+    await saveScale(h);
+
+    assert.equal(h.writtenFiles.length, 0);
+    const message = h.document.getElementById("toolbar-message");
+    assert.equal(message.hidden, false);
+    assert.equal(message.textContent, "Could not save the file.");
+  });
 });
 
 test("what a saved document carries", async (t) => {
@@ -182,5 +195,243 @@ test("what a saved document carries", async (t) => {
     assert.deepEqual(notes[0].byzantine.martyria, { note: "highKe" }, "ticks 0 is omitted");
     assert.deepEqual(notes[1].byzantine.martyria, { note: "highZo", ticks: 1 });
     assert.deepEqual(notes[2].byzantine.martyria, { note: "highNi", ticks: 1 });
+  });
+});
+
+test("opening a scale document", async (t) => {
+  await t.test("round-trips a full scale through Save, New and Open", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    typeInto(h, h.document.getElementById("scale-name"), "Hicaz");
+    selectOption(h, "interval-type", "edo");
+    typeInto(h, h.document.getElementById("edo-divisions"), "72");
+    selectOption(h, "scale-mode", "absolute");
+    // Degrees chosen so every consecutive gap (5, 7, 8 steps) is distinct: two
+    // interval rows with the same underlying value are "the same interval"
+    // to the app's own colour/label sync (CLAUDE.md, Color sync), which would
+    // propagate row 2's colour and label onto row 1 while this fixture is
+    // still being typed in — nothing to do with Open.
+    buildAbsoluteScale(h, ["0", "5", "12", "20"], {
+      names: ["rast", "dugah", "segah", "chargah"],
+      labels: ["s", "", "s"],
+      colors: ["#CCFFCC", "#FFFFFF", "#CCFFCC"],
+    });
+    selectOption(h, "base-note", "9");
+    selectOption(h, "orientation", "horizontal");
+    typeInto(h, h.document.getElementById("zoom"), "75");
+    setNotation(h, "byzantine");
+    // High Ke on the first degree pushes the three above it into the tick
+    // octave, which is the only way the UI reaches a tick — and the state the
+    // file most needs to carry, since without it the scale reloads an octave
+    // wrong.
+    pickMartyria(h, noteRows(h)[0], { note: "highKe", genus: "alpha" });
+    pickFthora(h, noteRows(h)[2], "diatonicPa");
+
+    await saveScale(h);
+    const saved = savedScaleFile(h).text;
+
+    fireClick(h, h.document.getElementById("new-file"));
+    assert.equal(noteRows(h).length, 2, "New really did reset it");
+
+    await openScaleFile(h, saved);
+
+    const valueOf = (id) => h.document.getElementById(id).value;
+    assert.equal(valueOf("scale-name"), "Hicaz");
+    assert.equal(valueOf("interval-type"), "edo");
+    assert.equal(valueOf("edo-divisions"), "72");
+    assert.equal(valueOf("scale-mode"), "absolute");
+    assert.equal(valueOf("base-note"), "9");
+    assert.equal(valueOf("orientation"), "horizontal");
+    assert.equal(valueOf("zoom"), "75");
+    assert.equal(valueOf("notation"), "byzantine");
+
+    assert.equal(noteRows(h).length, 4);
+    assert.deepEqual(
+      noteRows(h).map((r) => r.querySelector(".absolute-interval").value),
+      ["0", "5", "12", "20"]
+    );
+    assert.deepEqual(
+      noteRows(h).map((r) => r.querySelector(".note-name").value),
+      ["rast", "dugah", "segah", "chargah"]
+    );
+    assert.deepEqual(
+      intervalRows(h).map((r) => r.querySelector(".interval-label").value),
+      ["s", "", "s"]
+    );
+    assert.deepEqual(
+      intervalRows(h).map((r) => r.querySelector(".color-swatch").dataset.color),
+      ["#CCFFCC", "#FFFFFF", "#CCFFCC"]
+    );
+    assert.deepEqual(
+      noteRows(h).map((r) => r.dataset.martyriaNote),
+      ["highKe", "highZo", "highNi", "highPa"]
+    );
+    assert.deepEqual(
+      noteRows(h).map((r) => r.dataset.martyriaTicks),
+      ["0", "1", "1", "1"],
+      "the octave ticks came back"
+    );
+    assert.equal(noteRows(h)[0].dataset.martyriaGenus, "alpha");
+    assert.equal(noteRows(h)[2].dataset.fthora, "diatonicPa");
+  });
+
+  await t.test("restores both notations' halves, not just the visible one", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    pickAccidental(h, noteRows(h)[0], "accidentalSharp");
+    typeInto(h, noteRows(h)[0].querySelector(".note-name"), "hicaz");
+    setNotation(h, "byzantine");
+    pickMartyria(h, noteRows(h)[0], { note: "midPa", genus: "alpha" });
+    await saveScale(h);
+    const saved = savedScaleFile(h).text;
+
+    fireClick(h, h.document.getElementById("new-file"));
+    await openScaleFile(h, saved);
+
+    assert.equal(h.document.getElementById("notation").value, "byzantine");
+    assert.equal(noteRows(h)[0].dataset.martyriaNote, "midPa", "the visible half");
+    assert.equal(noteRows(h)[0].dataset.accidental, "accidentalSharp", "the hidden half too");
+    assert.equal(noteRows(h)[0].querySelector(".note-name").value, "hicaz");
+  });
+
+  await t.test("does not rerun the ladder or the colour sync over the file's own values", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    setNotation(h, "byzantine");
+    setNoteCount(h, 3);
+    // Deliberately unladdered: two rows a degree apart carrying the same letter
+    // is something the ladder would never produce, and reopening must not
+    // "fix" it — the file's martyrias are authoritative, per degree.
+    const fileText = JSON.stringify({
+      formatVersion: 1,
+      settings: { notation: "byzantine", baseNote: 0 },
+      scaleEditor: {
+        mode: "relativeIntervals",
+        intervalType: { type: "ratio" },
+        intervals: ["9/8", "9/8"],
+        noteProperties: [
+          { byzantine: { martyria: { note: "midKe" } } },
+          {},
+          { byzantine: { martyria: { note: "midPa" } } },
+        ],
+        intervalProperties: [
+          { color: "#CCFFCC", label: "a" },
+          { color: "#FFCCCC", label: "b" },
+        ],
+      },
+      chart: { style: "boxes", orientation: "vertical", zoom: 100 },
+    });
+
+    await openScaleFile(h, fileText);
+
+    assert.equal(noteRows(h)[0].dataset.martyriaNote, "midKe");
+    assert.equal(noteRows(h)[1].dataset.martyriaNote, undefined, "the empty well stays empty");
+    assert.equal(noteRows(h)[2].dataset.martyriaNote, "midPa");
+    assert.deepEqual(
+      intervalRows(h).map((r) => r.querySelector(".color-swatch").dataset.color),
+      ["#CCFFCC", "#FFCCCC"],
+      "two 9/8 rows keep the different colours the file gave them"
+    );
+    assert.deepEqual(
+      intervalRows(h).map((r) => r.querySelector(".interval-label").value),
+      ["a", "b"]
+    );
+  });
+
+  await t.test("leaves the editor untouched when the file is bad, and says why", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    buildRelativeScale(h, ["9/8", "10/9"], { names: ["do", "re", "mi"] });
+    const before = noteRows(h).map((r) => r.querySelector(".note-name").value);
+
+    await openScaleFile(h, '{"formatVersion": 1, "settings": {"baseNote": 12}}');
+
+    assert.deepEqual(
+      noteRows(h).map((r) => r.querySelector(".note-name").value),
+      before,
+      "a rejected file must never leave a half-loaded editor"
+    );
+    const message = h.document.getElementById("toolbar-message");
+    assert.equal(message.hidden, false);
+    assert.equal(
+      message.textContent,
+      "settings.baseNote must be a whole number from 0 to 11 (0 = C), got 12."
+    );
+  });
+
+  await t.test("clears an old message once a good file opens", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // Save first: saveScaleFile() clears the bar itself, so saving after the
+    // bad open would make this pass for the wrong reason.
+    await saveScale(h);
+    const good = savedScaleFile(h).text;
+
+    await openScaleFile(h, "{ not json");
+    assert.equal(h.document.getElementById("toolbar-message").textContent, "Not a valid JSON file.");
+
+    await openScaleFile(h, good);
+    assert.equal(h.document.getElementById("toolbar-message").hidden, true);
+  });
+
+  await t.test("uses the real Open dialog where the browser has one", async () => {
+    const h = loadApp({ fileSystemAccess: true });
+    t.after(() => h.close());
+
+    // Save first so the picker hands back a document this app actually wrote.
+    await saveScale(h);
+    const saved = h.writtenFiles[0].text;
+    h.window.showOpenFilePicker = () =>
+      Promise.resolve([{ getFile: () => Promise.resolve({ text: () => Promise.resolve(saved) }) }]);
+
+    typeInto(h, h.document.getElementById("scale-name"), "changed");
+    fireClick(h, h.document.getElementById("open-file"));
+    await new Promise((resolve) => h.window.setTimeout(resolve, 0));
+
+    assert.equal(h.document.getElementById("scale-name").value, "");
+  });
+
+  await t.test("says nothing when the user cancels the Open dialog", async () => {
+    const h = loadApp({ fileSystemAccess: { openAborts: true } });
+    t.after(() => h.close());
+
+    buildRelativeScale(h, ["9/8", "10/9"]);
+    fireClick(h, h.document.getElementById("open-file"));
+    await new Promise((resolve) => h.window.setTimeout(resolve, 0));
+
+    assert.equal(noteRows(h).length, 3, "nothing changed");
+    assert.equal(h.document.getElementById("toolbar-message").hidden, true);
+  });
+
+  await t.test("shows an error when the Open dialog fails for another reason", async () => {
+    const h = loadApp({ fileSystemAccess: { openFails: true } });
+    t.after(() => h.close());
+
+    buildRelativeScale(h, ["9/8", "10/9"]);
+    fireClick(h, h.document.getElementById("open-file"));
+    await new Promise((resolve) => h.window.setTimeout(resolve, 0));
+
+    assert.equal(noteRows(h).length, 3, "nothing changed");
+    const message = h.document.getElementById("toolbar-message");
+    assert.equal(message.hidden, false);
+    assert.equal(message.textContent, "Could not open the file.");
+  });
+
+  await t.test("opens the fallback file dialog when there is no picker", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const input = h.document.getElementById("open-file-input");
+    let clicks = 0;
+    input.click = () => { clicks++; };
+
+    fireClick(h, h.document.getElementById("open-file"));
+    assert.equal(clicks, 1);
+    assert.equal(input.getAttribute("accept"), ".musp.json,application/json");
   });
 });

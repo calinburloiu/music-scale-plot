@@ -208,3 +208,137 @@ function downloadScaleFile(fileName, text) {
 }
 
 saveScaleItem.addEventListener("click", saveScaleFile);
+
+// --- writing the page ------------------------------------------------------
+
+function applyNoteState(row, note) {
+  const nameInput = row.querySelector(".note-name");
+  if (nameInput) nameInput.value = note.generic.name;
+  // Through the sanctioned writers, so a well is painted exactly as a picker
+  // would have painted it.
+  writeNoteSign(row, "accidental", note.generic.accidental);
+  writeNoteSign(row, "alteration", note.byzantine.alteration);
+  writeNoteSign(row, "fthora", note.byzantine.fthora);
+  const martyria = note.byzantine.martyria;
+  if (martyria) writeMartyria(row, martyria.note, martyria.genus, martyria.ticks);
+  else clearMartyria(row);
+}
+
+function applyIntervalState(row, properties) {
+  const swatch = row.querySelector(".color-swatch");
+  if (swatch) setSwatchColor(swatch, properties.color);
+  const label = row.querySelector(".interval-label");
+  if (label) label.value = properties.label;
+}
+
+/**
+ * Rebuilds the whole page from a validated document.
+ *
+ * **Every control is set by direct value assignment, firing no events.**
+ * Dispatching `change` on #interval-type runs onIntervalTypeChange() ->
+ * resetScaleToDefault(), and on #scale-mode runs the mode converter — either
+ * would destroy the very scale being loaded. What those handlers do usefully is
+ * done by hand below, in order.
+ */
+function applyDocumentState(doc) {
+  closeAllDropdowns();
+
+  const editorDoc = doc.scaleEditor;
+
+  scaleNameInput.value = doc.name;
+  notationSelect.value = doc.settings.notation;
+  baseNoteSelect.value = String(doc.settings.baseNote);
+  intervalTypeSelect.value = editorDoc.intervalType.type;
+  edoDivisionsInput.value =
+    editorDoc.intervalType.divisionCount === undefined
+      ? edoDivisionsInput.defaultValue
+      : String(editorDoc.intervalType.divisionCount);
+  scaleModeSelect.value = SCALE_MODE_NAMES[editorDoc.mode];
+  styleSelect.value = CHART_STYLE_NAMES[doc.chart.style];
+  orientationSelect.value = doc.chart.orientation;
+  zoomSlider.value = String(doc.chart.zoom);
+
+  const isEdo = editorDoc.intervalType.type === "edo";
+  edoSettingsRow.style.display = isEdo ? "" : "none";
+  if (isEdo) updateEdoCentsLabel();
+  updateZoom();
+  // For the editor's notation-generic / notation-byzantine class, which is all
+  // CSS needs to decide which half of every note row shows.
+  onNotationChange();
+
+  const mode = scaleModeSelect.value;
+  const notes = editorDoc.noteProperties;
+
+  editor.innerHTML = "";
+  for (let i = 0; i < notes.length; i++) {
+    if (i > 0) {
+      const value = mode === "absolute" ? "" : String(editorDoc.intervals[i - 1]);
+      const intervalRow = makeIntervalRowElement(value, mode);
+      applyIntervalState(intervalRow, editorDoc.intervalProperties[i - 1]);
+      editor.appendChild(intervalRow);
+    }
+    // In absolute mode the row builder pins Note 1 to the unison itself, which
+    // is what the file's first entry always is.
+    const absolute = mode === "absolute" ? String(editorDoc.intervals[i]) : undefined;
+    const noteRow = makeNoteRowElement(i + 1, mode, absolute);
+    applyNoteState(noteRow, notes[i]);
+    editor.appendChild(noteRow);
+  }
+
+  // Deliberately NOT called: propagateMartyriaLadder(), because the file's
+  // martyrias are authoritative per degree and the ladder would overwrite them
+  // from whichever row happened to be last; and syncIntervalColors(), likewise,
+  // because the file says what each interval looks like.
+  updateRemoveBtn();
+  updateAllLabels();
+  render();
+}
+
+// --- Open ------------------------------------------------------------------
+
+/** Parses, and on success replaces the page. Returns whether it took. */
+function loadScaleFileText(text) {
+  const result = parseScaleDocument(text);
+  if (!result.ok) {
+    showToolbarMessage(result.error);
+    return false;
+  }
+  applyDocumentState(result.doc);
+  clearToolbarMessage();
+  return true;
+}
+
+async function openScaleFile() {
+  closeSaveMenu();
+
+  if (typeof window.showOpenFilePicker === "function") {
+    let text;
+    try {
+      const [handle] = await window.showOpenFilePicker({
+        types: SCALE_FILE_PICKER_TYPES,
+        multiple: false,
+      });
+      text = await (await handle.getFile()).text();
+    } catch (error) {
+      // A cancelled dialog is not an error to report.
+      if (error && error.name === "AbortError") return;
+      showToolbarMessage("Could not open the file.");
+      return;
+    }
+    loadScaleFileText(text);
+    return;
+  }
+
+  // The fallback, for Firefox, Safari and every file:// page. The value is
+  // cleared first so picking the same file twice still fires `change`.
+  openFileInput.value = "";
+  openFileInput.click();
+}
+
+openBtn.addEventListener("click", openScaleFile);
+
+openFileInput.addEventListener("change", async function () {
+  const file = openFileInput.files && openFileInput.files[0];
+  if (!file) return;
+  loadScaleFileText(await file.text());
+});
