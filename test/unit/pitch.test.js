@@ -10,6 +10,7 @@ test("getFrequencyForDegree", async (t) => {
   await t.test("degree 1 is the base frequency", () => {
     const h = loadApp();
     t.after(() => h.close());
+    selectOption(h, "base-note", "9"); // A, 220 Hz — the default is C since #15
     buildRelativeScale(h, ["9/8", "10/9"]);
     closeTo(h.app.getFrequencyForDegree(1), 220);
   });
@@ -17,6 +18,7 @@ test("getFrequencyForDegree", async (t) => {
   await t.test("each degree multiplies the accumulated ratio", () => {
     const h = loadApp();
     t.after(() => h.close());
+    selectOption(h, "base-note", "9"); // A, 220 Hz — the default is C since #15
     buildRelativeScale(h, ["9/8", "10/9", "16/15"]);
     closeTo(h.app.getFrequencyForDegree(2), 220 * (9 / 8), 1e-9);
     closeTo(h.app.getFrequencyForDegree(3), 220 * (5 / 4), 1e-9, "9/8 * 10/9");
@@ -27,7 +29,7 @@ test("getFrequencyForDegree", async (t) => {
     const h = loadApp();
     t.after(() => h.close());
     buildRelativeScale(h, ["3/2"]);
-    selectOption(h, "base-note", "3"); // C, three semitones above A
+    selectOption(h, "base-note", "0"); // C, the default; three semitones above A
     const baseC = 220 * Math.pow(2, 3 / 12);
     closeTo(h.app.getFrequencyForDegree(1), baseC, 1e-9);
     closeTo(h.app.getFrequencyForDegree(2), baseC * 1.5, 1e-9);
@@ -36,6 +38,7 @@ test("getFrequencyForDegree", async (t) => {
   await t.test("skips unparseable intervals rather than poisoning the pitch", () => {
     const h = loadApp();
     t.after(() => h.close());
+    selectOption(h, "base-note", "9"); // A, 220 Hz — the default is C since #15
     buildRelativeScale(h, ["9/8", "oops", "10/9"]);
     closeTo(h.app.getFrequencyForDegree(2), 220 * (9 / 8), 1e-9);
     closeTo(h.app.getFrequencyForDegree(3), 220 * (9 / 8), 1e-9, "the broken interval contributes nothing");
@@ -45,6 +48,7 @@ test("getFrequencyForDegree", async (t) => {
   await t.test("falls back to the base frequency for a degree that does not exist", () => {
     const h = loadApp();
     t.after(() => h.close());
+    selectOption(h, "base-note", "9"); // A, 220 Hz — the default is C since #15
     buildRelativeScale(h, ["9/8"]);
     closeTo(h.app.getFrequencyForDegree(99), 220);
     closeTo(h.app.getFrequencyForDegree(0), 220);
@@ -53,6 +57,7 @@ test("getFrequencyForDegree", async (t) => {
   await t.test("an octave of intervals doubles the frequency", () => {
     const h = loadApp();
     t.after(() => h.close());
+    selectOption(h, "base-note", "9"); // A, 220 Hz — the default is C since #15
     buildRelativeScale(h, ["9/8", "10/9", "16/15", "9/8", "10/9", "9/8", "16/15"]);
     closeTo(h.app.getFrequencyForDegree(8), 440, 1e-9, "just diatonic major spans an octave");
   });
@@ -60,6 +65,7 @@ test("getFrequencyForDegree", async (t) => {
   await t.test("works with the cents interval type too", () => {
     const h = loadApp();
     t.after(() => h.close());
+    selectOption(h, "base-note", "9"); // A, 220 Hz — the default is C since #15
     selectOption(h, "interval-type", "cents");
     typeInto(h, intervalRows(h)[0].querySelector(".interval"), "1200");
     closeTo(h.app.getFrequencyForDegree(2), 440, 1e-9);
@@ -70,6 +76,7 @@ test("audio playback", async (t) => {
   await t.test("pressing a note's play button starts a triangle tone at that pitch", () => {
     const h = loadApp();
     t.after(() => h.close());
+    selectOption(h, "base-note", "9"); // A, 220 Hz — the default is C since #15
     buildRelativeScale(h, ["3/2"]);
 
     const playBtn = h.all("#editor .note-row")[1].querySelector(".play-note");

@@ -92,8 +92,13 @@ function getAudioContext() {
 }
 
 function getBaseFrequency() {
+  // Semitones above C. The wrap keeps the audible range at A220 … G#415, which
+  // is exactly the octave the old A-based encoding spanned — so every note that
+  // could be chosen before still sounds at the pitch it did. C=0 is the
+  // conventional pitch class, and it is what the .musp.json file stores, so the
+  // DOM and the file need no translation between them.
   const semitones = parseInt(baseNoteSelect.value, 10);
-  return 220 * Math.pow(2, semitones / 12);
+  return 220 * Math.pow(2, ((semitones + 3) % 12) / 12);
 }
 
 function getScaleMode() {
