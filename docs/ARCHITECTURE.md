@@ -302,7 +302,12 @@ different word for it, translated at the boundary by the bidirectional maps in
 **Cardinality**, for *n* notes (*n* ≥ 2): `noteProperties` has *n* entries; `intervalProperties`
 always has *n* − 1, one per interval *between* successive notes; `intervals` has *n* − 1 in
 relative mode and *n* in absolute mode, where the first entry is the unison the editor
-shows disabled on Note 1.
+shows disabled on Note 1. On Open, that first entry is always replaced by the unison
+regardless of what the file says: `makeNoteRowHTML` pins degree 1 to `getUnisonValue()`
+in absolute mode and never reads its `absoluteValue` argument. The app itself never
+writes anything else there, so this is a no-op for every file it produces; a hand-edited
+file with a non-unison value in that slot opens with `1/1` shown and no message, the one
+field in this format silently overwritten rather than rejected.
 
 **The writer omits anything at its default**, so an untouched note serialises as `{}` and
 a half with nothing set (`generic` or `byzantine`) disappears entirely. Defaults are `""`
