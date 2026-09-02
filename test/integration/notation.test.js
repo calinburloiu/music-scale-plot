@@ -605,8 +605,13 @@ test("waiting for the symbol faces", async (t) => {
 
     await new Promise((resolve) => setImmediate(resolve));
 
-    assert.ok(h.ctx.callsOf("fillRect").length > before, "the fallback-metrics paint was never replaced");
-    assert.equal(h.app.symbolFontsReady, true);
+    const drawn = h.ctx.callsOf("fillRect").length - before;
+    assert.ok(drawn > 0, "the fallback-metrics paint was never replaced");
+    assert.equal(
+      drawn,
+      1,
+      `two faces settling must repaint once, not once each; the default scale is one box and ${drawn} were drawn`
+    );
   });
 
   await t.test("boots without a FontFaceSet, because jsdom and old browsers have none", () => {
@@ -628,8 +633,23 @@ test("waiting for the symbol faces", async (t) => {
     await new Promise((resolve) => setImmediate(resolve));
 
     assert.deepEqual(h.jsdomErrors, [], "the rejection escaped as an unhandled error");
-    assert.equal(h.app.symbolFontsReady, false, "a face that never arrived is not ready");
     assert.ok(h.ctx.callsOf("fillRect").length > 0, "the chart must still be drawn");
+  });
+
+  // The faces can load and the repaint still fail — a FontFaceSet whose `ready`
+  // rejects is the plainest way in. Nothing awaits loadSymbolFonts() at the call
+  // site, so without a handler of its own the failure is an unhandled rejection
+  // and the reader is told nothing at all.
+  await t.test("warns when the repaint after the fonts settle fails", async () => {
+    const h = loadApp({ fonts: "ready-reject" });
+    t.after(() => h.close());
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.ok(
+      h.consoleWarnings.some((w) => /repaint/i.test(w)),
+      `the tail of the font chain must not fail silently, got ${JSON.stringify(h.consoleWarnings)}`
+    );
   });
 
   await t.test("warns once per face that fails, naming it", async () => {

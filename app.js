@@ -72,7 +72,6 @@ const NOTE_TEXT_HEIGHT = 28;
 
 let displayZoom = 1;
 let audioCtx = null;
-let symbolFontsReady = false;
 
 function getAudioContext() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -1400,30 +1399,28 @@ function loadSymbolFonts() {
 
   return Promise.all(
     faces.map(function (face) {
-      return fonts.load(face.spec).then(
-        function () {
-          return true;
-        },
-        function (error) {
-          console.warn("Symbols: the " + face.name + " face failed to load.", error);
-          return false;
-        }
-      );
-    })
-  )
-    .then(function (loaded) {
-      return fonts.ready.then(function () {
-        return loaded;
+      return fonts.load(face.spec).catch(function (error) {
+        console.warn("Symbols: the " + face.name + " face failed to load.", error);
       });
     })
-    .then(function (loaded) {
-      symbolFontsReady = loaded.every(Boolean);
+  )
+    .then(function () {
+      return fonts.ready;
+    })
+    .then(function () {
       // The wells stored an ink offset measured against fallback metrics, and
       // so did every cache behind them — a repaint that reused those would be
       // no repaint at all.
       resetInkMeasurements();
       refreshAllNoteRowWells();
       render();
+    })
+    // Nothing awaits this at the call site, so a throw in the repaint — or a
+    // font set that never becomes ready — would otherwise be an unhandled
+    // rejection and tell the reader nothing. The chart is still on screen,
+    // drawn with fallback metrics; say why it never improved.
+    .catch(function (error) {
+      console.warn("Symbols: the repaint after the fonts settled failed.", error);
     });
 }
 

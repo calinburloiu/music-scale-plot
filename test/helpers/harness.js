@@ -61,7 +61,8 @@ function buildExportEpilogue(names) {
  * @param {number} [options.devicePixelRatio=2] value app.js reads into its DPR constant
  * @param {boolean|string} [options.fonts=true] set to `false` to boot with no
  *   `document.fonts` at all, as in jsdom's default state and in old browsers, or to
- *   `"reject"` to have the face fail to load, as a missing or corrupt file would
+ *   `"reject"` to have the face fail to load, as a missing or corrupt file would,
+ *   or to `"ready-reject"` to have the faces load but the set never become ready
  * @param {Object<string,string>} [options.restored] CSS selector to value, written
  *   into every matching control *before* the scripts run — the way a browser
  *   restores form state across a soft reload
@@ -132,6 +133,16 @@ function loadApp(options = {}) {
   const fontLoads = [];
   if (options.fonts !== false) {
     const rejects = options.fonts === "reject";
+    // A FontFaceSet whose `ready` rejects: the faces themselves resolve, so the
+    // per-face handlers see nothing wrong and the failure only reaches the tail
+    // of the chain. The no-op catch is on this promise alone, so Node does not
+    // count the stub's own rejection as unhandled — what the app derives from
+    // it is still the app's to handle.
+    const ready =
+      options.fonts === "ready-reject"
+        ? Promise.reject(new Error("stub: the font set never became ready"))
+        : Promise.resolve();
+    ready.catch(() => {});
     Object.defineProperty(document, "fonts", {
       value: {
         load(spec) {
@@ -140,7 +151,7 @@ function loadApp(options = {}) {
             ? Promise.reject(new Error(`stub: ${spec} could not be loaded`))
             : Promise.resolve([]);
         },
-        ready: Promise.resolve(),
+        ready,
       },
       configurable: true,
     });
