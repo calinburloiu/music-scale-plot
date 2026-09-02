@@ -205,3 +205,53 @@ test("resetScaleToDefault", async (t) => {
     assert.equal(h.ctx.callsOf("fillRect").length, 1);
   });
 });
+
+test("the interval row's right-hand cluster", async (t) => {
+  await t.test("puts the colour swatch before the label, under the well above it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    for (const row of intervalRows(h)) {
+      const cluster = row.querySelector(".interval-label-cluster");
+      assert.deepEqual(
+        [...cluster.children].map((el) => el.className),
+        ["color-picker-wrapper", "interval-label"],
+        "the swatch sits under the leftmost well of the note row above it"
+      );
+    }
+  });
+
+  await t.test("keeps that order on a row the editor builds itself", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNoteCount(h, 3);
+
+    const cluster = intervalRows(h).at(-1).querySelector(".interval-label-cluster");
+    assert.deepEqual(
+      [...cluster.children].map((el) => el.className),
+      ["color-picker-wrapper", "interval-label"]
+    );
+  });
+
+  await t.test("keeps that order after a scale-mode rebuild", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    selectOption(h, "scale-mode", "absolute");
+
+    const cluster = intervalRows(h)[0].querySelector(".interval-label-cluster");
+    assert.deepEqual(
+      [...cluster.children].map((el) => el.className),
+      ["color-picker-wrapper", "interval-label"]
+    );
+  });
+
+  await t.test("still opens the colour dropdown from its new place", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = intervalRows(h)[0];
+
+    pickColor(h, row, h.app.getActivePalette()[3]);
+
+    assert.equal(row.querySelector(".color-swatch").dataset.color, h.app.getActivePalette()[3]);
+  });
+});

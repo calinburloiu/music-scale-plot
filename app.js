@@ -271,13 +271,17 @@ function makeNoteRowHTML(degree, mode, absoluteValue) {
 
 function makeIntervalRowHTML(value, mode) {
   const defaultColor = getActivePalette()[0];
+  // Swatch first: it sits under the leftmost well of the note row above — the
+  // accidental well in Generic, the alteration well in Byzantine — and the
+  // label then fills the rest, lining up with the name box or with the fthora
+  // and martyria pair. See docs/ARCHITECTURE.md, Scale Editor.
   const labelCluster =
     '<div class="interval-label-cluster">' +
-      '<input type="text" class="interval-label" placeholder="label">' +
       '<div class="color-picker-wrapper">' +
         '<button type="button" class="color-swatch" data-color="' + defaultColor + '" style="background:' + defaultColor + ';"></button>' +
         '<div class="color-dropdown"></div>' +
       '</div>' +
+      '<input type="text" class="interval-label" placeholder="label">' +
     '</div>';
   if (mode === "absolute") {
     return '<span class="relative-cents-display"></span>' + labelCluster;

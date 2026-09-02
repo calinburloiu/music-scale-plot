@@ -33,6 +33,14 @@
   --accent:      #8a2e1a;
   --accent-soft: #b85a3e;
   --focus-glow:  rgba(138, 46, 26, 0.14);
+
+  /* The editor's right-hand column. A note row lays out
+     [well] gap [name box] in Generic and [well] gap [well] gap [well] in
+     Byzantine; the interval row's cluster is [swatch] gap [label] and takes the
+     same total width in each. */
+  --well-size: 34px;
+  --row-gap: 0.625rem;
+  --name-box-width: 9rem;
 }
 
 body {
@@ -320,7 +328,7 @@ body {
 .row {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: var(--row-gap);
   position: relative;
 }
 
@@ -368,7 +376,7 @@ body {
 }
 
 .note-row .note-name {
-  width: 9rem;
+  width: var(--name-box-width);
   font-family: 'DM Sans', sans-serif;
   font-size: 0.93rem;
   padding: 0.5rem 0.75rem;
@@ -425,8 +433,8 @@ body {
 .alteration-well,
 .fthora-well,
 .martyria-well {
-  width: 34px;
-  height: 34px;
+  width: var(--well-size);
+  height: var(--well-size);
   padding: 0;
   border: 1px solid var(--rule);
   border-radius: 3px;
@@ -883,14 +891,21 @@ body {
   white-space: nowrap;
 }
 
-/* Right cluster: interval-label + color-swatch, same total width as the note-name above */
+/* The cluster takes the width of the block above it, which is not the same in
+   the two notations: Generic's is a well, a gap and the name box; Byzantine's
+   is three wells and two gaps. The label is `flex: 1 1 auto`, so it fills
+   whatever is left in each — no JavaScript decides this. */
 .interval-row .interval-label-cluster {
   flex: 0 0 auto;
   margin-left: auto;
-  width: 9rem;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--row-gap);
+  width: calc(var(--well-size) + var(--row-gap) + var(--name-box-width));
+}
+
+#editor.notation-byzantine .interval-row .interval-label-cluster {
+  width: calc(var(--well-size) * 3 + var(--row-gap) * 2);
 }
 
 .interval-row .interval-label {
@@ -929,8 +944,8 @@ body {
 }
 
 .color-swatch {
-  width: 22px;
-  height: 22px;
+  width: var(--well-size);
+  height: var(--well-size);
   border: 1px solid var(--rule);
   border-radius: 3px;
   cursor: pointer;
@@ -1251,6 +1266,10 @@ body {
   .scale-mode-row label { font-size: 0.68rem; }
 
   /* Editor rows: shrink note-name and right-cluster, tighten gaps */
+  #editor {
+    --name-box-width: 5.5rem;
+    --well-size: 28px;
+  }
   .row { gap: 0.4rem; }
 
   .note-row .note-name {
@@ -1277,10 +1296,6 @@ body {
   .interval-row .cents-label {
     min-width: 0;
     font-size: 0.66rem;
-  }
-  .interval-row .interval-label-cluster {
-    width: 5.5rem;
-    gap: 0.3rem;
   }
   .interval-row .interval-label {
     font-size: 0.76rem;
