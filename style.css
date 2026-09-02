@@ -1206,9 +1206,12 @@ body {
   background: var(--rule);
 }
 
+/* A sibling of #toolbar, not a flex child of it (a role="toolbar" accessible
+   subtree is meant to hold widgets, not a role="alert" live region) — the
+   side margins reproduce the inset the toolbar's own 2rem padding used to
+   give it, so it appears in the same place it always did. */
 #toolbar-message {
-  flex: 1 0 100%;
-  margin-top: 0.35rem;
+  margin: 0.35rem 2rem 0;
   padding: 0.4rem 0.6rem;
   border-radius: 3px;
   background: rgba(138, 46, 26, 0.1);

@@ -19,10 +19,10 @@
               aria-haspopup="menu" aria-expanded="false">
         <img src="icons/save.svg" alt="">
       </button>
-      <div class="save-menu-panel" id="save-menu-panel" role="menu">
-        <button type="button" role="menuitem" id="save-scale">Save As Music Scale Plot file</button>
+      <div class="save-menu-panel" id="save-menu-panel">
+        <button type="button" id="save-scale">Save As Music Scale Plot file</button>
         <hr>
-        <button type="button" role="menuitem" id="save-png">Save As PNG</button>
+        <button type="button" id="save-png">Save As PNG</button>
       </div>
     </div>
     <span class="toolbar-separator"></span>
@@ -32,9 +32,9 @@
     <button type="button" id="remove-note" class="toolbar-btn" aria-label="Remove last note" title="Remove last note">
       <img src="icons/remove-note.svg" alt="">
     </button>
-    <div id="toolbar-message" role="alert" hidden></div>
     <input type="file" id="open-file-input" accept=".musp.json,application/json" hidden>
   </div>
+  <div id="toolbar-message" role="alert" hidden></div>
   <div class="container">
     <div class="left-column">
     <div class="panel settings-panel">

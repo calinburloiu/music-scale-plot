@@ -25,10 +25,18 @@ test("the toolbar", async (t) => {
     const bar = toolbar(h);
     assert.ok(bar, "there is no #toolbar");
     assert.equal(bar.parentElement, h.document.body, "it must be a direct child of body");
+    // #toolbar-message sits between the two (Fix 3, issue #15): a role="alert"
+    // live region does not belong inside role="toolbar"'s accessible subtree,
+    // so it moved out to a sibling immediately after #toolbar.
     assert.equal(
       bar.nextElementSibling,
+      h.document.getElementById("toolbar-message"),
+      "the message bar follows it"
+    );
+    assert.equal(
+      h.document.getElementById("toolbar-message").nextElementSibling,
       h.el(".container"),
-      "the container follows it, so the toolbar is above the panels"
+      "the container follows that, so both are above the panels"
     );
   });
 
@@ -83,6 +91,19 @@ test("the toolbar", async (t) => {
     assert.equal(message.textContent, "");
     assert.equal(message.getAttribute("role"), "alert");
   });
+
+  await t.test("keeps the alert bar out of the toolbar's own accessible subtree", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // A role="toolbar" accessible subtree is meant to hold widgets, not a
+    // role="alert" live region — so the message bar sits immediately after
+    // #toolbar, not inside it, though it stays where it visually was.
+    const bar = toolbar(h);
+    const message = h.document.getElementById("toolbar-message");
+    assert.equal(bar.contains(message), false, "#toolbar-message must not be a descendant of #toolbar");
+    assert.equal(bar.nextElementSibling, message, "it must sit immediately after #toolbar");
+  });
 });
 
 test("the Save menu", async (t) => {
@@ -99,6 +120,22 @@ test("the Save menu", async (t) => {
     fireClick(h, button);
     assert.equal(panel.classList.contains("open"), true);
     assert.equal(button.getAttribute("aria-expanded"), "true");
+  });
+
+  await t.test("does not claim a menu role it does not implement", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // aria-haspopup="menu" + aria-expanded is what design §5.2 asked for. A
+    // role="menu"/"menuitem" pair is a contract for arrow keys, Home/End and
+    // Escape that this panel never implements, so it must not claim it.
+    const button = h.document.getElementById("save-menu");
+    const panel = h.document.getElementById("save-menu-panel");
+    assert.equal(button.getAttribute("aria-haspopup"), "menu");
+    assert.equal(panel.hasAttribute("role"), false);
+    for (const item of panel.querySelectorAll("button")) {
+      assert.equal(item.hasAttribute("role"), false, `${item.id} must not claim role="menuitem"`);
+    }
   });
 
   await t.test("closes on a second click of the button", () => {
