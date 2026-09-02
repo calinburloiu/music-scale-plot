@@ -432,10 +432,17 @@ function savedScaleFile(harness) {
  * Hands the hidden file input a file and fires `change`, the way a browser does
  * once the user has picked one in the fallback dialog. The handler reads the
  * file asynchronously, so this resolves on the next macrotask — `await` it.
+ *
+ * Pass an `Error` as `text` to make the file's own `text()` reject with it,
+ * the way a real read failure would — everything else about the call stays
+ * the same.
  */
 function openScaleFile(harness, text, fileName = "scale.musp.json") {
   const input = harness.document.getElementById("open-file-input");
-  const file = { name: fileName, text: () => Promise.resolve(text) };
+  const file = {
+    name: fileName,
+    text: () => (text instanceof Error ? Promise.reject(text) : Promise.resolve(text)),
+  };
   Object.defineProperty(input, "files", { value: [file], configurable: true });
   fireChange(harness, input);
   return new Promise((resolve) => harness.window.setTimeout(resolve, 0));

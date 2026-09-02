@@ -256,3 +256,60 @@ test("the toolbar message bar", async (t) => {
     assert.equal(message.textContent, "");
   });
 });
+
+test("the file keyboard shortcuts", async (t) => {
+  function press(h, key, init = { ctrlKey: true }) {
+    const event = new h.window.KeyboardEvent("keydown", {
+      key,
+      bubbles: true,
+      cancelable: true,
+      ...init,
+    });
+    h.document.dispatchEvent(event);
+    return event;
+  }
+
+  await t.test("Ctrl+S saves, taking the browser's Save dialog off the page", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const event = press(h, "s");
+    await new Promise((resolve) => h.window.setTimeout(resolve, 0));
+    assert.equal(event.defaultPrevented, true, "the browser must not save the page instead");
+    assert.equal(h.downloads.length, 1);
+    assert.equal(h.downloads[0].download, "scale.musp.json");
+  });
+
+  await t.test("Cmd+S saves too, for the Mac", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    press(h, "s", { metaKey: true });
+    await new Promise((resolve) => h.window.setTimeout(resolve, 0));
+    assert.equal(h.downloads.length, 1);
+  });
+
+  await t.test("Ctrl+O opens", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const input = h.document.getElementById("open-file-input");
+    let clicks = 0;
+    input.click = () => { clicks++; };
+
+    const event = press(h, "o");
+    assert.equal(event.defaultPrevented, true);
+    assert.equal(clicks, 1);
+  });
+
+  await t.test("leaves the plain and the alt-modified keys alone", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    press(h, "s", {});
+    press(h, "o", {});
+    press(h, "s", { ctrlKey: true, altKey: true });
+    await new Promise((resolve) => h.window.setTimeout(resolve, 0));
+    assert.equal(h.downloads.length, 0);
+  });
+});

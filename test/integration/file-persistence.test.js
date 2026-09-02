@@ -434,4 +434,17 @@ test("opening a scale document", async (t) => {
     assert.equal(clicks, 1);
     assert.equal(input.getAttribute("accept"), ".musp.json,application/json");
   });
+
+  await t.test("shows an error when the fallback file's own read fails", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    buildRelativeScale(h, ["9/8", "10/9"]);
+    await openScaleFile(h, new Error("could not read file"));
+
+    assert.equal(noteRows(h).length, 3, "nothing changed");
+    const message = h.document.getElementById("toolbar-message");
+    assert.equal(message.hidden, false);
+    assert.equal(message.textContent, "Could not open the file.");
+  });
 });

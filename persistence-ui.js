@@ -340,5 +340,31 @@ openBtn.addEventListener("click", openScaleFile);
 openFileInput.addEventListener("change", async function () {
   const file = openFileInput.files && openFileInput.files[0];
   if (!file) return;
-  loadScaleFileText(await file.text());
+  let text;
+  try {
+    text = await file.text();
+  } catch (error) {
+    showToolbarMessage("Could not open the file.");
+    return;
+  }
+  loadScaleFileText(text);
 });
+
+// --- keyboard shortcuts ----------------------------------------------------
+//
+// Ctrl/Cmd+O and Ctrl/Cmd+S. New gets no chord: the browser owns Ctrl+N and
+// will not give it up.
+
+function handleFileShortcut(event) {
+  if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+  const key = String(event.key).toLowerCase();
+  if (key === "o") {
+    event.preventDefault();
+    openScaleFile();
+  } else if (key === "s") {
+    event.preventDefault();
+    saveScaleFile();
+  }
+}
+
+document.addEventListener("keydown", handleFileShortcut);
