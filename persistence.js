@@ -123,3 +123,246 @@ function suggestedFileName(name) {
     .replace(/^-+|-+$/g, "");
   return (slug || "scale") + SCALE_FILE_EXTENSION;
 }
+
+// --- reading ---------------------------------------------------------------
+//
+// Everything is checked before anything is handed back, so a rejected file
+// leaves the editor exactly as it was — there is never a half-loaded scale.
+// Unknown keys are ignored, so a document from a future minor addition still
+// opens; symbol ids are resolved against the real tables, so a typo in a
+// hand-edited file is named rather than dropped into an empty well.
+
+function scaleFileError(message) {
+  return { ok: false, error: message };
+}
+
+function countOf(value) {
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function clampZoom(value) {
+  if (value === undefined || value === null) return 100;
+  const zoom = Math.round(Number(value));
+  if (!Number.isFinite(zoom)) return 100;
+  return Math.min(100, Math.max(10, zoom));
+}
+
+function parseScaleDocument(text) {
+  let raw;
+  try {
+    raw = JSON.parse(text);
+  } catch (error) {
+    return scaleFileError("Not a valid JSON file.");
+  }
+  return validateScaleDocument(raw);
+}
+
+function validateScaleDocument(raw) {
+  if (!isPlainObject(raw)) return scaleFileError("Not a Music Scale Plot file.");
+
+  const version = raw.formatVersion;
+  if (version === undefined) {
+    return scaleFileError("Not a Music Scale Plot file: no formatVersion.");
+  }
+  if (!Number.isInteger(version) || version < 1) {
+    return scaleFileError(
+      `Not a Music Scale Plot file: formatVersion must be a whole number, got ${JSON.stringify(version)}.`
+    );
+  }
+  if (version > SCALE_FILE_VERSION) {
+    return scaleFileError(
+      `This file was saved by a newer version of Music Scale Plot (format ${version}).`
+    );
+  }
+
+  if (raw.name !== undefined && typeof raw.name !== "string") {
+    return scaleFileError("name must be text.");
+  }
+  const name = raw.name === undefined ? "" : raw.name;
+
+  const settings = isPlainObject(raw.settings) ? raw.settings : {};
+  const notation = settings.notation === undefined ? "generic" : settings.notation;
+  if (!hasEnumWord(NOTATION_NAMES, notation)) {
+    return scaleFileError(
+      `settings.notation must be "generic" or "byzantine", got ${JSON.stringify(notation)}.`
+    );
+  }
+  const baseNote = settings.baseNote === undefined ? 0 : settings.baseNote;
+  if (!Number.isInteger(baseNote) || baseNote < 0 || baseNote > 11) {
+    return scaleFileError(
+      `settings.baseNote must be a whole number from 0 to 11 (0 = C), got ${JSON.stringify(baseNote)}.`
+    );
+  }
+
+  const editorRaw = isPlainObject(raw.scaleEditor) ? raw.scaleEditor : {};
+
+  const mode = editorRaw.mode === undefined ? "relativeIntervals" : editorRaw.mode;
+  if (!hasEnumWord(SCALE_MODE_NAMES, mode)) {
+    return scaleFileError(
+      `scaleEditor.mode must be "relativeIntervals" or "absoluteIntervals", got ${JSON.stringify(mode)}.`
+    );
+  }
+
+  const typeRaw = isPlainObject(editorRaw.intervalType) ? editorRaw.intervalType : {};
+  const type = typeRaw.type === undefined ? "ratio" : typeRaw.type;
+  if (!hasEnumWord(INTERVAL_TYPE_NAMES, type)) {
+    return scaleFileError(
+      `scaleEditor.intervalType.type must be "ratio", "edo" or "cents", got ${JSON.stringify(type)}.`
+    );
+  }
+  const intervalType = { type: type };
+  if (type === "edo") {
+    // Required here and written nowhere else: an EDO scale without it has no
+    // step size, so there is nothing sensible to fall back on.
+    if (!Number.isInteger(typeRaw.divisionCount) || typeRaw.divisionCount < 1) {
+      return scaleFileError(
+        "scaleEditor.intervalType.divisionCount must be a whole number of at least 1."
+      );
+    }
+    intervalType.divisionCount = typeRaw.divisionCount;
+  }
+
+  if (!Array.isArray(editorRaw.noteProperties) || editorRaw.noteProperties.length < 2) {
+    return scaleFileError("scaleEditor.noteProperties must list at least 2 notes.");
+  }
+  const noteCount = editorRaw.noteProperties.length;
+
+  if (countOf(editorRaw.intervalProperties) !== noteCount - 1) {
+    return scaleFileError(
+      `scaleEditor.intervalProperties has ${countOf(editorRaw.intervalProperties)} entries, ` +
+        `expected ${noteCount - 1}.`
+    );
+  }
+  // Relative intervals sit between the notes; absolute ones sit on them, and
+  // the first is the unison the editor shows disabled on Note 1.
+  const expectedIntervals = mode === "absoluteIntervals" ? noteCount : noteCount - 1;
+  if (countOf(editorRaw.intervals) !== expectedIntervals) {
+    return scaleFileError(
+      `scaleEditor.intervals has ${countOf(editorRaw.intervals)} entries, expected ${expectedIntervals}.`
+    );
+  }
+
+  const intervals = [];
+  for (let i = 0; i < editorRaw.intervals.length; i++) {
+    const item = editorRaw.intervals[i];
+    const usable =
+      typeof item === "string" || (typeof item === "number" && Number.isFinite(item));
+    if (!usable) return scaleFileError(`scaleEditor.intervals[${i}] must be a number or text.`);
+    intervals.push(item);
+  }
+
+  const noteProperties = [];
+  for (let i = 0; i < noteCount; i++) {
+    const note = validateNoteProperties(editorRaw.noteProperties[i], i + 1);
+    if (!note.ok) return note;
+    noteProperties.push(note.value);
+  }
+
+  const intervalProperties = [];
+  for (let i = 0; i < editorRaw.intervalProperties.length; i++) {
+    const properties = validateIntervalProperties(editorRaw.intervalProperties[i], i);
+    if (!properties.ok) return properties;
+    intervalProperties.push(properties.value);
+  }
+
+  const chart = isPlainObject(raw.chart) ? raw.chart : {};
+  const style = chart.style === undefined ? "boxes" : chart.style;
+  if (!hasEnumWord(CHART_STYLE_NAMES, style)) {
+    return scaleFileError(`chart.style must be "boxes" or "segments", got ${JSON.stringify(style)}.`);
+  }
+  const orientation = chart.orientation === undefined ? "vertical" : chart.orientation;
+  if (!hasEnumWord(CHART_ORIENTATION_NAMES, orientation)) {
+    return scaleFileError(
+      `chart.orientation must be "vertical" or "horizontal", got ${JSON.stringify(orientation)}.`
+    );
+  }
+
+  return {
+    ok: true,
+    doc: {
+      name: name,
+      settings: { notation: notation, baseNote: baseNote },
+      scaleEditor: {
+        mode: mode,
+        intervalType: intervalType,
+        intervals: intervals,
+        noteProperties: noteProperties,
+        intervalProperties: intervalProperties,
+      },
+      // Clamped, not rejected: the value has one obvious safe reading and the
+      // slider would clamp it anyway.
+      chart: { style: style, orientation: orientation, zoom: clampZoom(chart.zoom) },
+    },
+  };
+}
+
+function validateNoteProperties(raw, degree) {
+  const source = isPlainObject(raw) ? raw : {};
+  const generic = isPlainObject(source.generic) ? source.generic : {};
+  const byzantine = isPlainObject(source.byzantine) ? source.byzantine : {};
+
+  const accidental = generic.accidental === undefined ? "" : generic.accidental;
+  if (typeof accidental !== "string" || (accidental && !smuflAccidentalById(accidental))) {
+    return scaleFileError(`Unknown accidental ${JSON.stringify(accidental)} on note ${degree}.`);
+  }
+  const noteName = generic.name === undefined ? "" : generic.name;
+  if (typeof noteName !== "string") {
+    return scaleFileError(`The name on note ${degree} must be text.`);
+  }
+
+  const alteration = byzantine.alteration === undefined ? "" : byzantine.alteration;
+  if (typeof alteration !== "string" || (alteration && !byzAlterationById(alteration))) {
+    return scaleFileError(
+      `Unknown sign of alteration ${JSON.stringify(alteration)} on note ${degree}.`
+    );
+  }
+  const fthora = byzantine.fthora === undefined ? "" : byzantine.fthora;
+  if (typeof fthora !== "string" || (fthora && !byzFthoraById(fthora))) {
+    return scaleFileError(`Unknown fthora ${JSON.stringify(fthora)} on note ${degree}.`);
+  }
+
+  let martyria = null;
+  if (byzantine.martyria !== undefined && byzantine.martyria !== null) {
+    const martyriaRaw = isPlainObject(byzantine.martyria) ? byzantine.martyria : {};
+    // The one martyria field that is not optional: no note is no martyria.
+    if (typeof martyriaRaw.note !== "string" || !byzNoteById(martyriaRaw.note)) {
+      return scaleFileError(
+        `Unknown martyria note ${JSON.stringify(martyriaRaw.note)} on note ${degree}.`
+      );
+    }
+    const genus = martyriaRaw.genus === undefined ? GENUS_NONE : martyriaRaw.genus;
+    if (genus !== GENUS_NONE && (typeof genus !== "string" || !byzGenusById(genus))) {
+      return scaleFileError(`Unknown martyria genus ${JSON.stringify(genus)} on note ${degree}.`);
+    }
+    // The ladder only ever holds 0 or 1 (ladderNoteAt, byzantine.js).
+    const ticks = martyriaRaw.ticks === undefined ? 0 : martyriaRaw.ticks;
+    if (!Number.isInteger(ticks) || ticks < 0 || ticks > 1) {
+      return scaleFileError(`The martyria tick count on note ${degree} must be 0 or 1.`);
+    }
+    martyria = { note: martyriaRaw.note, genus: genus, ticks: ticks };
+  }
+
+  return {
+    ok: true,
+    value: {
+      generic: { accidental: accidental, name: noteName },
+      byzantine: { alteration: alteration, fthora: fthora, martyria: martyria },
+    },
+  };
+}
+
+function validateIntervalProperties(raw, index) {
+  const source = isPlainObject(raw) ? raw : {};
+  // Always written, so always required: there is no single default colour —
+  // it depends on the active palette, which depends on chart.style.
+  if (typeof source.color !== "string" || !HEX_COLOR_PATTERN.test(source.color)) {
+    return scaleFileError(
+      `scaleEditor.intervalProperties[${index}].color must be a hex colour like "#CCFFCC".`
+    );
+  }
+  const label = source.label === undefined ? "" : source.label;
+  if (typeof label !== "string") {
+    return scaleFileError(`scaleEditor.intervalProperties[${index}].label must be text.`);
+  }
+  return { ok: true, value: { color: source.color, label: label } };
+}
