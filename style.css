@@ -134,32 +134,17 @@ body {
 /* --- Settings Panel --- */
 
 .notation-row,
-.base-note-row,
-.interval-type-row,
-.edo-settings-row {
+.base-note-row {
   display: flex;
   align-items: center;
   gap: 0.65rem;
 }
 
-/* Every settings row after the first is spaced the same way; only the EDO row,
-   which appears and disappears under Interval Type, sits slightly closer. */
-.base-note-row,
-.interval-type-row { margin-top: 0.85rem; }
-.edo-settings-row  { margin-top: 0.65rem; align-items: flex-start; }
-
-.edo-input-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.35rem;
-  min-width: 0;
-}
+/* Every settings row after the first is spaced the same way. */
+.base-note-row { margin-top: 0.85rem; }
 
 .notation-row label,
-.base-note-row label,
-.interval-type-row label,
-.edo-settings-row label {
+.base-note-row label {
   font-weight: 500;
   font-size: 0.72rem;
   flex: 0 0 auto;
@@ -170,9 +155,7 @@ body {
 }
 
 .notation-row select,
-.base-note-row select,
-.interval-type-row select,
-.edo-settings-row input {
+.base-note-row select {
   flex: 0 0 auto;
   width: 17rem;
   padding: 0.45rem 0.7rem;
@@ -187,58 +170,62 @@ body {
 }
 
 .notation-row select:hover,
-.base-note-row select:hover,
-.interval-type-row select:hover,
-.edo-settings-row input:hover {
+.base-note-row select:hover {
   border-color: var(--ink-soft);
 }
 
 .notation-row select:focus,
-.base-note-row select:focus,
-.interval-type-row select:focus,
-.edo-settings-row input:focus {
+.base-note-row select:focus {
   outline: none;
   border-color: var(--ink);
   background: #fff;
   box-shadow: 0 0 0 3px var(--focus-glow);
 }
 
-.edo-settings-row input {
-  cursor: text;
-}
-
-#edo-cents-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.76rem;
-  color: var(--ink-soft);
-  white-space: nowrap;
-  padding-top: 0.05rem;
-}
-
 /* === Editor Panel ============================================ */
 
 .editor-panel { position: relative; }
 
+/* One visual family for the editor's own settings: Name, Interval Type, EDO
+   Divisions and Mode. They share a label column and a full-width control, and
+   Mode carries the rule that separates them from the rows below. */
+.scale-name-row,
+.interval-type-row,
+.edo-settings-row,
 .scale-mode-row {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  margin-bottom: 0.7rem;
+}
+
+.edo-settings-row { align-items: flex-start; }
+
+.scale-mode-row {
   margin-bottom: 1.1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--rule);
 }
 
+.scale-name-row label,
+.interval-type-row label,
+.edo-settings-row label,
 .scale-mode-row label {
   font-weight: 500;
   font-size: 0.72rem;
   flex: 0 0 auto;
+  width: 9.5rem;
   color: var(--ink-soft);
   text-transform: uppercase;
   letter-spacing: 0.09em;
 }
 
+.scale-name-row input,
+.interval-type-row select,
+.edo-settings-row input,
 .scale-mode-row select {
   flex: 1 1 auto;
+  min-width: 0;
   padding: 0.45rem 0.7rem;
   border: 1px solid var(--rule);
   border-radius: 3px;
@@ -250,13 +237,39 @@ body {
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
+.scale-name-row input,
+.edo-settings-row input { cursor: text; }
+
+.scale-name-row input:hover,
+.interval-type-row select:hover,
+.edo-settings-row input:hover,
 .scale-mode-row select:hover { border-color: var(--ink-soft); }
 
+.scale-name-row input:focus,
+.interval-type-row select:focus,
+.edo-settings-row input:focus,
 .scale-mode-row select:focus {
   outline: none;
   border-color: var(--ink);
   background: #fff;
   box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.edo-input-stack {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+#edo-cents-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  padding-top: 0.05rem;
 }
 
 /* --- Absolute mode: absolute-interval input on note-row --- */
@@ -1339,31 +1352,38 @@ body {
 
   /* Settings rows: stack label above full-width input */
   .notation-row,
-  .base-note-row,
-  .interval-type-row,
-  .edo-settings-row {
+  .base-note-row {
     flex-direction: column;
     align-items: stretch;
     gap: 0.35rem;
   }
   .notation-row label,
-  .base-note-row label,
-  .interval-type-row label,
-  .edo-settings-row label {
+  .base-note-row label {
     width: auto;
     font-size: 0.68rem;
   }
   .notation-row select,
-  .base-note-row select,
-  .interval-type-row select,
-  .edo-settings-row input {
+  .base-note-row select {
     width: 100%;
   }
-  .edo-input-stack { width: 100%; }
 
-  /* Scale mode row stays inline but label shrinks */
-  .scale-mode-row { gap: 0.5rem; }
-  .scale-mode-row label { font-size: 0.68rem; }
+  /* Editor settings rows: stack label above full-width control, like Settings */
+  .scale-name-row,
+  .interval-type-row,
+  .edo-settings-row,
+  .scale-mode-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+  }
+  .scale-name-row label,
+  .interval-type-row label,
+  .edo-settings-row label,
+  .scale-mode-row label {
+    width: auto;
+    font-size: 0.68rem;
+  }
+  .edo-input-stack { width: 100%; }
 
   /* Editor rows: shrink note-name and right-cluster, tighten gaps.
      --row-gap moves here too: .row's own gap reads var(--row-gap) already

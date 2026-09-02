@@ -147,3 +147,37 @@ test("the Save menu", async (t) => {
     assert.equal(h.downloads[0].download, "scale.png");
   });
 });
+
+test("the Scale Editor's own settings", async (t) => {
+  await t.test("holds Name, Interval Type, EDO Divisions and Mode, in that order", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // Interval Type and Mode are the two axes that decide what an interval box
+    // means, and changing either rebuilds the editor — so they are editor
+    // operations, not settings. A name is a property of the scale.
+    const panel = h.el(".editor-panel");
+    assert.deepEqual(
+      [...panel.querySelectorAll(".scale-name-row, .interval-type-row, .edo-settings-row, .scale-mode-row")]
+        .map((row) => row.className),
+      ["scale-name-row", "interval-type-row", "edo-settings-row", "scale-mode-row"]
+    );
+  });
+
+  await t.test("leaves Settings with Notation and Base Note alone", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const panel = h.el(".settings-panel");
+    assert.equal(panel.querySelector(".interval-type-row"), null);
+    assert.equal(panel.querySelector(".edo-settings-row"), null);
+    assert.ok(panel.querySelector(".notation-row"));
+    assert.ok(panel.querySelector(".base-note-row"));
+  });
+
+  await t.test("starts with an empty scale name", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    assert.equal(h.document.getElementById("scale-name").value, "");
+  });
+});

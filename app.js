@@ -63,6 +63,7 @@ const orientationSelect = document.getElementById("orientation");
 const styleSelect = document.getElementById("chart-style");
 const scaleModeSelect = document.getElementById("scale-mode");
 const notationSelect = document.getElementById("notation");
+const scaleNameInput = document.getElementById("scale-name");
 
 const LINE_STYLE_WIDTH = 3;
 const TICK_LENGTH = 28;
@@ -1258,7 +1259,7 @@ function resetControlsToDefaults() {
     const markupDefault = Array.from(select.options).find(o => o.defaultSelected) || select.options[0];
     if (markupDefault) select.value = markupDefault.value;
   }
-  for (const input of [edoDivisionsInput, zoomSlider]) {
+  for (const input of [scaleNameInput, edoDivisionsInput, zoomSlider]) {
     input.value = input.defaultValue;
   }
 }

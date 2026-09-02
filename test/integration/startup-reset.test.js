@@ -29,6 +29,7 @@ const RESTORED = {
   "#zoom": "50",
   "#editor .interval": "7/6",
   "#editor .note-name": "Pa",
+  "#scale-name": "a name the browser restored",
   "#editor .interval-label": "restored label",
 };
 
@@ -64,6 +65,7 @@ for (const [when, boot] of Object.entries(RESTORE_POINTS)) {
       assert.equal(valueOf("chart-style"), "boxes");
       assert.equal(valueOf("orientation"), "vertical");
       assert.equal(valueOf("zoom"), "100");
+      assert.equal(valueOf("scale-name"), "", "the scale name is part of the reset too");
     });
 
     await t.test("rebuilds the default two-note scale, discarding restored text", () => {
