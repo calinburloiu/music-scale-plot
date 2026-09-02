@@ -356,7 +356,7 @@ openFileInput.addEventListener("change", async function () {
 // will not give it up.
 
 function handleFileShortcut(event) {
-  if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+  if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
   const key = String(event.key).toLowerCase();
   if (key === "o") {
     event.preventDefault();

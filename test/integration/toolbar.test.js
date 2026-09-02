@@ -312,4 +312,22 @@ test("the file keyboard shortcuts", async (t) => {
     await new Promise((resolve) => h.window.setTimeout(resolve, 0));
     assert.equal(h.downloads.length, 0);
   });
+
+  await t.test("leaves the shift-modified keys alone too, since the app owns only the unshifted chords", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const input = h.document.getElementById("open-file-input");
+    let clicks = 0;
+    input.click = () => { clicks++; };
+
+    const saveEvent = press(h, "s", { ctrlKey: true, shiftKey: true });
+    const openEvent = press(h, "o", { ctrlKey: true, shiftKey: true });
+    await new Promise((resolve) => h.window.setTimeout(resolve, 0));
+
+    assert.equal(saveEvent.defaultPrevented, false, "the browser must keep Ctrl+Shift+S");
+    assert.equal(openEvent.defaultPrevented, false, "the browser must keep Ctrl+Shift+O");
+    assert.equal(h.downloads.length, 0);
+    assert.equal(clicks, 0);
+  });
 });
