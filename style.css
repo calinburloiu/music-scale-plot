@@ -1265,12 +1265,17 @@ body {
   .scale-mode-row { gap: 0.5rem; }
   .scale-mode-row label { font-size: 0.68rem; }
 
-  /* Editor rows: shrink note-name and right-cluster, tighten gaps */
+  /* Editor rows: shrink note-name and right-cluster, tighten gaps.
+     --row-gap moves here too: .row's own gap reads var(--row-gap) already
+     (the base rule), so redefining it on #editor is what keeps the cluster's
+     width formula (interval-label-cluster, above) consistent with the actual
+     note-row layout at this width — a hardcoded .row gap here would let the
+     two drift apart again. */
   #editor {
     --name-box-width: 5.5rem;
     --well-size: 28px;
+    --row-gap: 0.4rem;
   }
-  .row { gap: 0.4rem; }
 
   .note-row .note-name {
     width: 5.5rem;
