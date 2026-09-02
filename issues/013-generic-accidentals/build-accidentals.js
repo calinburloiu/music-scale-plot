@@ -142,11 +142,18 @@ function categoryFromRange(key) {
     // show, so a reader who knows them recognises the row. Codepoints inside a
     // range are not contiguous (Magrathean is 20 glyphs across 40 slots), so
     // every one is written out rather than derived from a base plus an index.
-    accidentals: range.glyphs.map((name) => {
-      const glyph = glyphnames[name];
-      if (!glyph) throw new Error(`Unknown SMuFL glyph: ${name}`);
-      return [name, [parseInt(glyph.codepoint.slice(2), 16)], glyph.description];
-    }),
+    accidentals: range.glyphs
+      .map((name) => {
+        const glyph = glyphnames[name];
+        if (!glyph) throw new Error(`Unknown SMuFL glyph: ${name}`);
+        return [name, [parseInt(glyph.codepoint.slice(2), 16)], glyph.description];
+      })
+      // U+E31A, U+E31B, U+E3DE and U+E3DF are slots SMuFL reserves inside two
+      // Sagittal ranges and describes as "Unused": no font draws anything for
+      // them, so a picker row for one is an empty box under a meaningless
+      // label. Dropped by their description rather than by codepoint, so a
+      // future reserved slot goes the same way without a code change.
+      .filter(([, , description]) => description !== "Unused"),
   };
 }
 

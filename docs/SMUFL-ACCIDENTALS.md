@@ -102,7 +102,7 @@ unable to tell which of `accidentalSharp`, `raileanuPlusTwoQuarterTones` or
 `sagittalEvoPlus6` a bare "♯" was supposed to mean.
 
 `smuflAccidentalById(id)` is a flat `Map` over every category's entries,
-built lazily on first call — the catalogue is 505 entries, and a page that
+built lazily on first call — the catalogue is 501 entries, and a page that
 never opens the accidental picker never needs the index.
 `resolveAccidentalGlyphs(id)` returns `""` for an id the catalogue does not
 recognise (a stale id from a schema change would otherwise draw nothing
@@ -114,7 +114,7 @@ part of the layer measures and draws.
 
 ## 3. The generator
 
-The 481 SMuFL entries (505 minus the two composed categories' 24) are
+The 477 SMuFL entries (501 minus the two composed categories' 24) are
 **generated, not typed by hand.**
 [`issues/013-generic-accidentals/build-accidentals.js`](../issues/013-generic-accidentals/build-accidentals.js)
 reads two SMuFL 1.4 metadata files and emits the
@@ -158,6 +158,16 @@ glyphs scattered across a 40-slot range), so the generator writes every
 codepoint out rather than deriving one from a base plus an index — unlike, for
 instance, `resolveFthoraGlyph`'s arithmetic in `byzantine.js`.
 
+**One kind of glyph is filtered out:** a slot whose `description` is exactly
+`"Unused"`. SMuFL reserves four of them inside two Sagittal ranges — `U+E31A`
+and `U+E31B` in Spartan multi-shaft, `U+E3DE` and `U+E3DF` in Promethean
+high-precision multi-shaft — and no font draws anything for them, so a picker
+row for one is an empty glyph box under a meaningless label. The generator
+drops them by their description rather than by codepoint, so a slot SMuFL
+reserves in some future range goes the same way with no code change. That is
+why rows 9 and 13 of the table below hold 36 and 62 entries where their ranges
+list 38 and 64.
+
 The two categories that are not SMuFL ranges (§4) are hand-written data
 inside `build-accidentals.js` itself, spliced into the same catalogue
 alongside the 26 generated ones — see the `CATALOGUE` array in that file for
@@ -169,7 +179,7 @@ the exact interleaving.
 
 The SMuFL site's own order, with two categories promoted to the front and one
 substituted for a listed-but-not-shipped range. Counts are entry counts, as
-they ship in `smufl.js` — 505 in all.
+they ship in `smufl.js` — 501 in all.
 
 | # | Category | Source | Entries |
 |---:|---|---|---:|
@@ -181,11 +191,11 @@ they ship in `smufl.js` — 505 in all.
 | 6 | Persian accidentals | `U+E460`–`E46F` | 2 |
 | 7 | **Mixed-symbol Sagittal accidentals (72-EDO)** | composed (§6) | 13 |
 | 8 | Spartan Sagittal single-shaft accidentals | `U+E300`–`E30F` | 16 |
-| 9 | Spartan Sagittal multi-shaft accidentals | `U+E310`–`E33F` | 38 |
+| 9 | Spartan Sagittal multi-shaft accidentals | `U+E310`–`E33F` | 36 |
 | 10 | Athenian Sagittal extension (medium precision) accidentals | `U+E340`–`E36F` | 40 |
 | 11 | Trojan Sagittal extension (12-EDO relative) accidentals | `U+E370`–`E38F` | 24 |
 | 12 | Promethean Sagittal extension (high precision) single-shaft accidentals | `U+E390`–`E3AF` | 30 |
-| 13 | Promethean Sagittal extension (high precision) multi-shaft accidentals | `U+E3B0`–`E3EF` | 64 |
+| 13 | Promethean Sagittal extension (high precision) multi-shaft accidentals | `U+E3B0`–`E3EF` | 62 |
 | 14 | Herculean Sagittal extension (very high precision) accidental diacritics | `U+E3F0`–`E3F3` | 4 |
 | 15 | Olympian Sagittal extension (extreme precision) accidental diacritics | `U+E3F4`–`E3F7` | 4 |
 | 16 | Magrathean Sagittal extension (insane precision) accidental diacritics | `U+E3F8`–`E41F` | 20 |
@@ -202,8 +212,8 @@ they ship in `smufl.js` — 505 in all.
 | 27 | Other accidentals | `U+E470`–`E49F` | 32 |
 | 28 | Other accidentals supplement | `U+EE60`–`EE6F` | 10 |
 
-**481 entries drawn from 26 SMuFL ranges, plus 24 in the two composed
-categories, is 505** — the number the picker's doc comment
+**477 entries drawn from 26 SMuFL ranges, plus 24 in the two composed
+categories, is 501** — the number the picker's doc comment
 (`buildAccidentalPicker` in `symbols-ui.js`) and its own tests both pin.
 
 Two of the 28 are not SMuFL ranges at all:

@@ -39,7 +39,7 @@ test("the accidentals picker", async (t) => {
     assert.ok(!panel.classList.contains("open"));
   });
 
-  await t.test("lists None first, then all 505 entries under 28 headings", () => {
+  await t.test("lists None first, then all 501 entries under 28 headings", () => {
     const h = loadApp();
     t.after(() => h.close());
 
@@ -47,7 +47,7 @@ test("the accidentals picker", async (t) => {
     const options = [...panel.querySelectorAll(".accidental-option")];
 
     assert.equal(options[0].dataset.accidental, "", "None must be the first row");
-    assert.equal(options.length, 506, "None plus the whole catalogue");
+    assert.equal(options.length, 502, "None plus the whole catalogue");
     assert.deepEqual(
       [...panel.querySelectorAll(".sym-group-title")].map((el) => el.textContent),
       Array.from(h.app.SMUFL_ACCIDENTAL_CATEGORIES, (c) => c.title),
@@ -272,7 +272,7 @@ test("searching the accidentals picker", async (t) => {
     const panel = searchPicker(h, noteRows(h)[0], "accidental", "sagittal");
     typeInto(h, panel.querySelector(".sym-search"), "");
 
-    assert.equal(visibleOptions(panel).length, 505);
+    assert.equal(visibleOptions(panel).length, 501);
     assert.equal(panel.querySelector(".sym-empty").hidden, true);
   });
 
@@ -283,7 +283,7 @@ test("searching the accidentals picker", async (t) => {
 
     const panel = openWell(h, row, "accidental");
     const scroller = panel.querySelector('[data-scroller="accidental"]');
-    // As if the picker opened scrolled deep into the 505 on a committed entry.
+    // As if the picker opened scrolled deep into the 501 on a committed entry.
     scroller.scrollTop = 2400;
 
     typeInto(h, panel.querySelector(".sym-search"), "flat");
@@ -302,7 +302,7 @@ test("searching the accidentals picker", async (t) => {
 
     const panel = openWell(h, row, "accidental");
     const scroller = panel.querySelector('[data-scroller="accidental"]');
-    // As if the picker opened scrolled deep into the 505 on a committed entry.
+    // As if the picker opened scrolled deep into the 501 on a committed entry.
     scroller.scrollTop = 2400;
 
     typeInto(h, panel.querySelector(".sym-search"), "");

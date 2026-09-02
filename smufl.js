@@ -178,8 +178,6 @@ const SMUFL_ACCIDENTAL_CATEGORIES = freezeTable([
       { id: "accSagittalFlat5v7kUp", codes: Object.freeze([0xe317]), label: "Flat 5:7k-up" },
       { id: "accSagittalSharp", codes: Object.freeze([0xe318]), label: "Sharp, (apotome up)[almost all EDOs], 1/2-tone up" },
       { id: "accSagittalFlat", codes: Object.freeze([0xe319]), label: "Flat, (apotome down)[almost all EDOs], 1/2-tone down" },
-      { id: "accSagittalUnused1", codes: Object.freeze([0xe31a]), label: "Unused" },
-      { id: "accSagittalUnused2", codes: Object.freeze([0xe31b]), label: "Unused" },
       { id: "accSagittalSharp5v7kUp", codes: Object.freeze([0xe31c]), label: "Sharp 5:7k-up" },
       { id: "accSagittalFlat5v7kDown", codes: Object.freeze([0xe31d]), label: "Flat 5:7k-down" },
       { id: "accSagittalSharp5CUp", codes: Object.freeze([0xe31e]), label: "Sharp 5C-up, 4°[22 29] 5°[27 34 41] 6°[39 46 53] up, 7/12-tone up" },
@@ -370,8 +368,6 @@ const SMUFL_ACCIDENTAL_CATEGORIES = freezeTable([
       { id: "accSagittalFlat11v19LDown", codes: Object.freeze([0xe3db]), label: "Flat 11:19L-down" },
       { id: "accSagittalSharp5v13LUp", codes: Object.freeze([0xe3dc]), label: "Sharp 5:13L-up" },
       { id: "accSagittalFlat5v13LDown", codes: Object.freeze([0xe3dd]), label: "Flat 5:13L-down" },
-      { id: "accSagittalUnused3", codes: Object.freeze([0xe3de]), label: "Unused" },
-      { id: "accSagittalUnused4", codes: Object.freeze([0xe3df]), label: "Unused" },
       { id: "accSagittalDoubleSharp23SDown", codes: Object.freeze([0xe3e0]), label: "Double sharp 23S-down" },
       { id: "accSagittalDoubleFlat23SUp", codes: Object.freeze([0xe3e1]), label: "Double flat 23S-up" },
       { id: "accSagittalDoubleSharp49SDown", codes: Object.freeze([0xe3e2]), label: "Double sharp 49S-down" },
@@ -713,7 +709,7 @@ const SMUFL_ACCIDENTAL_CATEGORIES = freezeTable([
 // <<< GENERATED
 
 // A flat index over every category, built once on first use. Lazy because the
-// catalogue is 505 entries and a page that never opens the picker never needs it.
+// catalogue is 501 entries and a page that never opens the picker never needs it.
 let smuflAccidentalIndex = null;
 
 function smuflAccidentalById(id) {

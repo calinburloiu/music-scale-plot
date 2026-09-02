@@ -72,9 +72,9 @@ const SYMBOL_WELLS = freezeTable([
  * Byzantine, and it is three lines because the grouped builder does the work:
  * a category is a group, an entry is an option, and the search comes free.
  *
- * 505 options are built and ink-measured on open — a thousand measureText calls
+ * 501 options are built and ink-measured on open — a thousand measureText calls
  * on Blink and Gecko, milliseconds; on WebKit inkBox falls back to
- * rasterise-and-scan, and 505 scans on first open may be visible. The results
+ * rasterise-and-scan, and 501 scans on first open may be visible. The results
  * are cached by face and text, so only the first open pays. If it is slow
  * enough to notice, render the category sections lazily as they scroll into
  * view — nothing about the data model or the search changes if it comes to that.
@@ -178,7 +178,7 @@ function matchesQuery(text, words) {
 // its committed row, or at the top on None.
 //
 // Filtering toggles `hidden` rather than rebuilding: the accidental picker is
-// 505 options and every glyph in it is ink-measured once, on open. That is also
+// 501 options and every glyph in it is ink-measured once, on open. That is also
 // why the search field sits *outside* the scroller — it stays put while the
 // list moves under it, with no sticky positioning to get wrong.
 // ---------------------------------------------------------------------------
@@ -271,7 +271,7 @@ function makeWellData(kind, id) {
  * survived. A rule only separates two things, so it goes when either side of
  * it empties.
  *
- * A committed entry can open the panel scrolled deep into a 505-entry list; a
+ * A committed entry can open the panel scrolled deep into a 501-entry list; a
  * query that actually narrows the results must not leave the reader at that
  * old offset in a much shorter one, so a real filter snaps every scroller
  * back to the top. Clearing the query back to empty is not itself a

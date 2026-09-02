@@ -10,7 +10,7 @@ Client-side web app for plotting microtonal music scales (Byzantine/psaltic, Ott
 
 - `index.html` — page skeleton; loads `style.css`, then `byzantine.js`, `smufl.js`, `symbols-ui.js`, `byzantine-ui.js`, `app.js` (all deferred, in that order).
 - `byzantine.js` — Byzantine symbol model: the note/genus/fthora/alteration tables, the two compatibility tables, the SBMuFL resolvers, the note ladder, and the shared, font-agnostic ink-measuring primitives (`inkBox`, `inkCenteringShift(Em)`, `drawGlyphs`, `domGlyphText`, `scanInkBox`, `freezeTable`) that `smufl.js` and `symbols-ui.js` also use. No DOM.
-- `smufl.js` — the SMuFL accidental catalogue (28 categories, 505 entries) and its resolvers (`smuflAccidentalById`, `resolveAccidentalGlyphs`). No DOM.
+- `smufl.js` — the SMuFL accidental catalogue (28 categories, 501 entries) and its resolvers (`smuflAccidentalById`, `resolveAccidentalGlyphs`). No DOM.
 - `symbols-ui.js` — the well and picker machinery shared by both notations: the `SYMBOL_WELLS` registry, the grouped-list picker builder, and search. Built on `byzantine.js` and `smufl.js`.
 - `byzantine-ui.js` — only what is Byzantine: the alteration, fthora and martyria picker builders, the martyria draft, and the ladder applied to the editor. Built on `symbols-ui.js`.
 - `app.js` — everything else: editor DOM management, interval parsing, canvas rendering, Web Audio playback, PNG export, color picker. Runs at load time, so it loads last.

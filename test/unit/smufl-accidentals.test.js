@@ -17,11 +17,11 @@ const CATALOGUE = [
   ["persianAccidentals", "Persian accidentals", 2, 0xe460, 0xe461],
   ["sagittalMixedSymbolAccidentals72Edo", "Mixed-symbol Sagittal accidentals (72-EDO)", 13, 0xe260, 0xe262],
   ["spartanSagittalSingleShaftAccidentals", "Spartan Sagittal single-shaft accidentals", 16, 0xe300, 0xe30f],
-  ["spartanSagittalMultiShaftAccidentals", "Spartan Sagittal multi-shaft accidentals", 38, 0xe310, 0xe335],
+  ["spartanSagittalMultiShaftAccidentals", "Spartan Sagittal multi-shaft accidentals", 36, 0xe310, 0xe335],
   ["athenianSagittalExtensionMediumPrecisionAccidentals", "Athenian Sagittal extension (medium precision) accidentals", 40, 0xe340, 0xe367],
   ["trojanSagittalExtension12EdoRelativeAccidentals", "Trojan Sagittal extension (12-EDO relative) accidentals", 24, 0xe370, 0xe387],
   ["prometheanSagittalExtensionHighPrecisionSingleShaftAccidentals", "Promethean Sagittal extension (high precision) single-shaft accidentals", 30, 0xe390, 0xe3ad],
-  ["prometheanSagittalExtensionHighPrecisionMultiShaftAccidentals", "Promethean Sagittal extension (high precision) multi-shaft accidentals", 64, 0xe3b0, 0xe3ef],
+  ["prometheanSagittalExtensionHighPrecisionMultiShaftAccidentals", "Promethean Sagittal extension (high precision) multi-shaft accidentals", 62, 0xe3b0, 0xe3ef],
   ["herculeanSagittalExtensionVeryHighPrecisionAccidentalDiacritics", "Herculean Sagittal extension (very high precision) accidental diacritics", 4, 0xe3f0, 0xe3f3],
   ["olympianSagittalExtensionExtremePrecisionAccidentalDiacritics", "Olympian Sagittal extension (extreme precision) accidental diacritics", 4, 0xe3f4, 0xe3f7],
   ["magratheanSagittalExtensionInsanePrecisionAccidentalDiacritics", "Magrathean Sagittal extension (insane precision) accidental diacritics", 20, 0xe3f8, 0xe40b],
@@ -72,15 +72,31 @@ test("the SMuFL accidental catalogue", async (t) => {
     }
   });
 
-  await t.test("holds 505 entries whose ids are unique across the whole catalogue", () => {
+  await t.test("holds 501 entries whose ids are unique across the whole catalogue", () => {
     const h = loadApp();
     t.after(() => h.close());
 
     const ids = h.app.SMUFL_ACCIDENTAL_CATEGORIES.flatMap((c) =>
       Array.from(c.accidentals, (a) => a.id)
     );
-    assert.equal(ids.length, 505, "the catalogue is not the size the design fixes");
-    assert.equal(new Set(ids).size, 505, "an id is used twice; a row stores an id, so they must be unique");
+    assert.equal(ids.length, 501, "the catalogue is not the size the design fixes");
+    assert.equal(new Set(ids).size, 501, "an id is used twice; a row stores an id, so they must be unique");
+  });
+
+  await t.test("drops the four slots SMuFL reserves but leaves empty", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // U+E31A, U+E31B, U+E3DE and U+E3DF sit inside two Sagittal ranges and
+    // carry the description "Unused": no glyph is drawn for them in any font.
+    // A picker row for one shows an empty box under a meaningless label.
+    const placeholders = Array.from(
+      h.app.SMUFL_ACCIDENTAL_CATEGORIES.flatMap((c) =>
+        c.accidentals.filter((a) => /unused/i.test(a.label)).map((a) => a.id)
+      )
+    );
+
+    assert.deepEqual(placeholders, [], "a reserved, glyphless slot must not reach the picker");
   });
 
   await t.test("draws every glyph from the private use area, bar the Evo spacer", () => {
