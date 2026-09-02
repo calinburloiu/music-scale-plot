@@ -95,42 +95,22 @@ function writeAlteration(row, alterationId) {
  * still renders selected — below the rule, where it was offered.
  */
 function buildFthoraPicker(panel, row) {
-  const committed = row.dataset.fthora || "";
   const noteId = row.dataset.martyriaNote || "";
-  panel.innerHTML = "";
+  const option = (id) => ({ id: id, glyph: resolveFthoraGlyph(id), label: byzFthoraById(id).label });
+  const groups = noteId
+    ? [
+        { id: "compatible", title: "", options: compatibleFthores(noteId).map(option) },
+        { id: "other", title: "", options: otherFthores(noteId).map(option) },
+      ]
+    : [{ id: "all", title: "", options: BYZ_FTHORES.map((f) => option(f.id)) }];
 
-  const body = document.createElement("div");
-  body.className = "fthora-picker-body";
-  body.dataset.scroller = "fthora";
-  body.appendChild(
-    makeSymbolOption({ className: "fthora-option", data: { fthora: "" }, glyph: "", label: "None" })
-  );
-
-  function fthoraOption(id) {
-    const option = makeSymbolOption({
-      className: "fthora-option",
-      data: { fthora: id },
-      glyph: resolveFthoraGlyph(id),
-      label: byzFthoraById(id).label,
-    });
-    if (committed === id) option.classList.add("is-selected");
-    return option;
-  }
-
-  if (noteId) {
-    for (const id of compatibleFthores(noteId)) body.appendChild(fthoraOption(id));
-
-    const separator = document.createElement("div");
-    separator.className = "sym-separator";
-    body.appendChild(separator);
-
-    for (const id of otherFthores(noteId)) body.appendChild(fthoraOption(id));
-  } else {
-    for (const fthora of BYZ_FTHORES) body.appendChild(fthoraOption(fthora.id));
-  }
-
-  panel.appendChild(body);
-  centerPickerGlyphs(panel, panelWell(panel).font);
+  buildGroupedPicker(panel, {
+    kind: "fthora",
+    committed: row.dataset.fthora || "",
+    font: panelWell(panel).font,
+    separatorAfter: noteId ? "compatible" : null,
+    groups: groups,
+  });
 }
 
 /**
@@ -143,41 +123,24 @@ function buildFthoraPicker(panel, row) {
  * register to prefer.
  */
 function buildAlterationPicker(panel, row) {
-  const committed = row.dataset.alteration || "";
-  panel.innerHTML = "";
-
-  const body = document.createElement("div");
-  body.className = "alteration-picker-body";
-  body.dataset.scroller = "alteration";
-  body.appendChild(
-    makeSymbolOption({
-      className: "alteration-option",
-      data: { alteration: "" },
-      glyph: "",
-      label: "None",
-    })
-  );
-
-  for (const group of [
-    { title: "Sharps", family: "diesis" },
-    { title: "Flats", family: "yfesis" },
-  ]) {
-    body.appendChild(symbolGroupTitle(group.title));
-    for (const alteration of BYZ_ALTERATIONS) {
-      if (alteration.family !== group.family) continue;
-      const option = makeSymbolOption({
-        className: "alteration-option",
-        data: { alteration: alteration.id },
-        glyph: resolveAlterationGlyph(alteration.id),
-        label: alteration.label,
-      });
-      if (committed === alteration.id) option.classList.add("is-selected");
-      body.appendChild(option);
-    }
-  }
-
-  panel.appendChild(body);
-  centerPickerGlyphs(panel, panelWell(panel).font);
+  buildGroupedPicker(panel, {
+    kind: "alteration",
+    committed: row.dataset.alteration || "",
+    font: panelWell(panel).font,
+    separatorAfter: null,
+    groups: [
+      { id: "sharps", title: "Sharps", family: "diesis" },
+      { id: "flats", title: "Flats", family: "yfesis" },
+    ].map((group) => ({
+      id: group.id,
+      title: group.title,
+      options: BYZ_ALTERATIONS.filter((a) => a.family === group.family).map((a) => ({
+        id: a.id,
+        glyph: resolveAlterationGlyph(a.id),
+        label: a.label,
+      })),
+    })),
+  });
 }
 
 function noteRowDegree(row) {

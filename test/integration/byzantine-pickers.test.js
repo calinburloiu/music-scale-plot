@@ -15,6 +15,7 @@ const {
   fireClick,
   dismissPicker,
   measureTextInk,
+  typeInto,
 } = require("../helpers/harness.js");
 const { closeTo } = require("../helpers/assertions.js");
 
@@ -1616,5 +1617,160 @@ test("what a box holding a sign actually contains", async (t) => {
       1e-4,
       "the offset should centre what is really in the box, carrier and all"
     );
+  });
+});
+
+test("the picker's search field", async (t) => {
+  // Search lives in the shared grouped-list builder, so the alteration and the
+  // fthora pickers get it for free. The martyria picker has its own two-column
+  // builder and does not.
+  for (const kind of ["alteration", "fthora"]) {
+    await t.test(`gives the ${kind} picker a search field, focused when it opens`, () => {
+      const h = loadApp();
+      t.after(() => h.close());
+      setNotation(h, "byzantine");
+
+      const panel = openWell(h, noteRows(h)[0], kind);
+      const search = panel.querySelector(".sym-search");
+
+      assert.ok(search, "the picker has no search field");
+      assert.equal(search.placeholder, "Search");
+      assert.equal(h.document.activeElement, search, "the field must take focus when the panel opens");
+    });
+  }
+
+  await t.test("gives the martyria picker no search field", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+
+    const panel = openWell(h, noteRows(h)[0], "martyria");
+    assert.equal(panel.querySelector(".sym-search"), null, "two columns and a draft are not a list");
+  });
+
+  await t.test("shows the whole list for an empty query", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+
+    const panel = openWell(h, noteRows(h)[0], "alteration");
+    const all = panel.querySelectorAll(".alteration-option").length;
+
+    typeInto(h, panel.querySelector(".sym-search"), "");
+    assert.equal(panel.querySelectorAll(".alteration-option:not([hidden])").length, all);
+  });
+
+  await t.test("keeps the options whose label matches, and hides the rest", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+
+    const panel = openWell(h, noteRows(h)[0], "alteration");
+    typeInto(h, panel.querySelector(".sym-search"), "geniki");
+
+    const visible = [...panel.querySelectorAll(".alteration-option:not([hidden])")].map(
+      (option) => option.querySelector(".sym-label").textContent
+    );
+    assert.ok(visible.includes("None"), "None must always show — it is the only way to clear a well");
+    for (const label of visible) {
+      if (label === "None") continue;
+      assert.match(label, /geniki/i);
+    }
+    assert.ok(visible.length > 1, "the two geniki must survive their own name");
+  });
+
+  await t.test("shows a whole group when its heading matches, options and all", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+
+    const panel = openWell(h, noteRows(h)[0], "alteration");
+    const flats = panel.querySelectorAll('.alteration-option[data-group-of="flats"]').length;
+
+    typeInto(h, panel.querySelector(".sym-search"), "flats");
+
+    assert.equal(
+      panel.querySelectorAll('.alteration-option[data-group-of="flats"]:not([hidden])').length,
+      flats,
+      "a heading match shows every option under it"
+    );
+    assert.equal(
+      panel.querySelectorAll('.alteration-option[data-group-of="sharps"]:not([hidden])').length,
+      0
+    );
+    assert.equal(panel.querySelector('.sym-group-title[data-group-of="sharps"]').hidden, true);
+  });
+
+  await t.test("says so when nothing matches", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+
+    const panel = openWell(h, noteRows(h)[0], "alteration");
+    typeInto(h, panel.querySelector(".sym-search"), "zzz");
+
+    const empty = panel.querySelector(".sym-empty");
+    assert.equal(empty.hidden, false, "a list with no survivors must say so");
+    assert.equal(empty.textContent, "No matches");
+    assert.equal(panel.querySelectorAll('.alteration-option[data-group-of]:not([hidden])').length, 0);
+  });
+
+  await t.test("does not commit anything, however much is typed", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+    const row = noteRows(h)[0];
+
+    const panel = openWell(h, row, "alteration");
+    typeInto(h, panel.querySelector(".sym-search"), "geniki");
+
+    assert.equal(row.dataset.alteration, undefined, "typing is not a commit; clicking a row is");
+    assert.ok(panel.classList.contains("open"), "typing must not close the panel either");
+  });
+
+  await t.test("does not redraw the chart on every keystroke", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+
+    const panel = openWell(h, noteRows(h)[0], "alteration");
+    h.ctx.reset();
+    typeInto(h, panel.querySelector(".sym-search"), "geniki");
+
+    assert.equal(
+      h.ctx.callsOf("fillRect").length,
+      0,
+      "the search field must stop its input event reaching the editor's delegated listener"
+    );
+  });
+
+  await t.test("keeps the fthora rule while both of its runs still have survivors", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+    const row = noteRows(h)[0];
+    pickMartyria(h, row, { note: "midPa" });
+
+    const panel = openWell(h, row, "fthora");
+    typeInto(h, panel.querySelector(".sym-search"), "diatonic");
+
+    const separator = panel.querySelector(".sym-separator");
+    assert.equal(separator.hidden, false, "diatonic fthores survive on both sides of the rule");
+  });
+
+  await t.test("drops the fthora rule when a filter empties one of its runs", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+    const row = noteRows(h)[0];
+    pickMartyria(h, row, { note: "midPa" });
+
+    const panel = openWell(h, row, "fthora");
+    // A fthora only the compatible run offers: nothing survives below the rule,
+    // so a rule would separate a list from nothing.
+    const compatible = panel.querySelector('.fthora-option[data-group-of="compatible"] .sym-label');
+    typeInto(h, panel.querySelector(".sym-search"), compatible.textContent);
+
+    assert.equal(panel.querySelector(".sym-separator").hidden, true);
   });
 });

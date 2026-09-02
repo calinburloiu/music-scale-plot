@@ -95,9 +95,168 @@ function makeSymbolWellsHTML(notation) {
     .join("");
 }
 
-/** Built in Task 3. Declared here so the file's shape is settled. */
+// ---------------------------------------------------------------------------
+// Search.
+//
+// Pure functions, so the matching rule is testable without a picker: the query
+// is lowercased, diacritic-folded and split on whitespace, and *every* word
+// must be found as a substring, in any order — so "quarter flat" narrows where
+// "quarter" alone does not. Folding both sides means `raileanu` reaches
+// "Răileanu" and `kucuk` reaches "Küçük", which is the point: nobody types a
+// breve to find a flat.
+// ---------------------------------------------------------------------------
+
+function normalizeForSearch(text) {
+  return String(text).toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+}
+
+function searchWords(query) {
+  return normalizeForSearch(query).split(/\s+/).filter(Boolean);
+}
+
+function matchesQuery(text, words) {
+  const haystack = normalizeForSearch(text);
+  // `words` is normally already folded by `searchWords`, but this function is
+  // tested directly, so it folds a word again rather than trust the caller —
+  // folding an already-folded word is a no-op.
+  return words.every((word) => haystack.includes(normalizeForSearch(word)));
+}
+
+// ---------------------------------------------------------------------------
+// The grouped list.
+//
+// One builder for every single-value picker. Its spec is data:
+//
+//   { kind, committed, font, groups, separatorAfter }
+//   groups: [{ id, title, options: [{ id, glyph, label, mutedGlyph, selected }] }]
+//
+// `title` may be empty, and then no heading is drawn — the fthora's compatible
+// and other runs are separated by a rule, not by headings. Headings carry no
+// `data-group`, so `pickerRevealTarget` finds no fallback and a list opens on
+// its committed row, or at the top on None.
+//
+// Filtering toggles `hidden` rather than rebuilding: the accidental picker is
+// 505 options and every glyph in it is ink-measured once, on open. That is also
+// why the search field sits *outside* the scroller — it stays put while the
+// list moves under it, with no sticky positioning to get wrong.
+// ---------------------------------------------------------------------------
+
 function buildGroupedPicker(panel, spec) {
-  throw new Error("buildGroupedPicker: not implemented yet");
+  panel.innerHTML = "";
+
+  const search = document.createElement("input");
+  search.type = "text";
+  search.className = "sym-search";
+  search.placeholder = "Search";
+  // The editor listens for `input` on itself and redraws the chart. Typing here
+  // changes no scale, so the event stops at the field.
+  search.addEventListener("input", function (e) {
+    e.stopPropagation();
+    filterGroupedPicker(panel, search.value);
+  });
+  panel.appendChild(search);
+
+  const body = document.createElement("div");
+  body.className = spec.kind + "-picker-body";
+  body.dataset.scroller = spec.kind;
+
+  // None first, outside every group, so no filter can hide it: it is the only
+  // way to clear a well.
+  body.appendChild(
+    makeSymbolOption({
+      className: spec.kind + "-option",
+      data: makeWellData(spec.kind, ""),
+      glyph: "",
+      label: "None",
+    })
+  );
+
+  for (const group of spec.groups) {
+    if (group.title) {
+      const heading = symbolGroupTitle(group.title);
+      heading.dataset.groupOf = group.id;
+      body.appendChild(heading);
+    }
+    for (const option of group.options) {
+      const element = makeSymbolOption({
+        className: spec.kind + "-option",
+        data: makeWellData(spec.kind, option.id),
+        glyph: option.glyph,
+        mutedGlyph: option.mutedGlyph,
+        label: option.label,
+      });
+      element.dataset.groupOf = group.id;
+      if (spec.committed === option.id) element.classList.add("is-selected");
+      body.appendChild(element);
+    }
+    if (spec.separatorAfter === group.id) {
+      const separator = document.createElement("div");
+      separator.className = "sym-separator";
+      separator.dataset.separatorAfter = group.id;
+      body.appendChild(separator);
+    }
+  }
+
+  const empty = document.createElement("div");
+  empty.className = "sym-empty";
+  empty.textContent = "No matches";
+  empty.hidden = true;
+  body.appendChild(empty);
+
+  panel.appendChild(body);
+  centerPickerGlyphs(panel, spec.font);
+  // The group titles are needed again when the query changes, and a panel is
+  // torn down and rebuilt on every open, so they ride on the panel — the same
+  // reason a row's symbols ride on the row.
+  panel.dataset.groupTitles = JSON.stringify(
+    spec.groups.map((group) => [group.id, group.title || ""])
+  );
+}
+
+/** `{ alteration: id }` — a well's data-* key is its kind. */
+function makeWellData(kind, id) {
+  const data = {};
+  data[kind] = id;
+  return data;
+}
+
+/**
+ * Narrows a built list to `query`, by hiding rather than rebuilding.
+ *
+ * A category matches when every word is found in its title; the whole
+ * category then shows, heading and all. Otherwise an option matches on its
+ * own label, and its heading appears because at least one option under it
+ * survived. A rule only separates two things, so it goes when either side of
+ * it empties.
+ */
+function filterGroupedPicker(panel, query) {
+  const words = searchWords(query);
+  const titles = JSON.parse(panel.dataset.groupTitles || "[]");
+  const survivors = new Set();
+
+  for (const [id, title] of titles) {
+    const wholeGroup = matchesQuery(title, words);
+    let any = false;
+    for (const option of panel.querySelectorAll('.sym-option[data-group-of="' + id + '"]')) {
+      const label = option.querySelector(".sym-label");
+      const show = wholeGroup || matchesQuery(label ? label.textContent : "", words);
+      option.hidden = !show;
+      if (show) any = true;
+    }
+    const heading = panel.querySelector('.sym-group-title[data-group-of="' + id + '"]');
+    if (heading) heading.hidden = !any;
+    if (any) survivors.add(id);
+  }
+
+  for (const separator of panel.querySelectorAll(".sym-separator[data-separator-after]")) {
+    const at = titles.findIndex(([id]) => id === separator.dataset.separatorAfter);
+    const above = titles.slice(0, at + 1).some(([id]) => survivors.has(id));
+    const below = titles.slice(at + 1).some(([id]) => survivors.has(id));
+    separator.hidden = !(above && below);
+  }
+
+  const empty = panel.querySelector(".sym-empty");
+  if (empty) empty.hidden = survivors.size > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -471,6 +630,10 @@ function toggleWellPicker(well) {
   row.classList.add("picker-open");
   revealPickerSelection(panel);
   keepPickerInView(panel);
+  // Last, so bringing the field into focus cannot fight the scroll that just
+  // put the committed row in view.
+  const search = panel.querySelector(".sym-search");
+  if (search) search.focus();
 }
 
 /**

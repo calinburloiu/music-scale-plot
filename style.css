@@ -688,6 +688,48 @@ body {
   font-size: 0.82rem;
 }
 
+/* The field sits above the scroller rather than inside it, so it holds still
+   while the list moves under it and needs no sticky positioning. */
+.sym-search {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--paper-fade);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.sym-search::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.sym-search:focus {
+  outline: none;
+  border-color: var(--ink);
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.sym-empty {
+  padding: 0.5rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--ink-faint);
+}
+
+/* `hidden` is how a filter narrows the list. The rules above give these
+   elements a `display`, which would otherwise win over the attribute. */
+.sym-option[hidden],
+.sym-group-title[hidden],
+.sym-separator[hidden],
+.sym-empty[hidden] { display: none; }
+
 .note-row .cumulative-cents {
   flex: 0 0 auto;
   width: 9rem;
