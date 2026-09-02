@@ -67,9 +67,12 @@ test("the test harness", async (t) => {
     const h = loadApp();
     t.after(() => h.close());
 
-    const names = h.scriptFiles.map((f) => path.basename(f));
-    assert.ok(names.includes("byzantine.js"), `byzantine.js was never run, got ${names}`);
-    assert.equal(names.at(-1), "app.js", "app.js must run last: it wires the page up");
+    assert.deepEqual(
+      h.scriptFiles.map((f) => path.basename(f)),
+      ["byzantine.js", "smufl.js", "symbols-ui.js", "byzantine-ui.js", "app.js"],
+      "the load order is load-bearing: smufl.js before symbols-ui.js, which names " +
+        "byzantine-ui.js's picker builders, and app.js last because it wires the page up"
+    );
   });
 
   await t.test("re-exports top-level names from every script, not just app.js", () => {
@@ -79,5 +82,47 @@ test("the test harness", async (t) => {
     assert.ok(h.exportedNames.includes("BYZ_NOTES"), "byzantine.js names are missing");
     assert.ok(h.exportedNames.includes("readScaleData"), "app.js names are missing");
     assert.equal(typeof h.app.byzNoteById, "function");
+  });
+
+  await t.test("re-exports the shared symbol machinery from symbols-ui.js", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // The wells and pickers are shared machinery, not Byzantine, so they live
+    // in a file of their own. Nothing here may still be declared in
+    // byzantine-ui.js: two declarations of one name across two classic scripts
+    // is a load-time SyntaxError, which is exactly what this asserts is absent.
+    assert.deepEqual(h.jsdomErrors, []);
+    for (const name of [
+      "SYMBOL_WELLS",
+      "SYMBOL_WELL_KINDS",
+      "wellSelector",
+      "makeSymbolOption",
+      "closeSymbolPickers",
+      "handleSymbolClick",
+      "buildGroupedPicker",
+    ]) {
+      assert.ok(h.exportedNames.includes(name), `${name} is missing`);
+    }
+  });
+
+  await t.test("orders the well registry by notation, so a row's wells follow it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    assert.deepEqual(
+      Array.from(h.app.SYMBOL_WELLS, (w) => [w.kind, w.notation]),
+      [
+        ["accidental", "generic"],
+        ["alteration", "byzantine"],
+        ["fthora", "byzantine"],
+      ],
+      "the accidental is drawn left of the name, so it leads the table"
+    );
+    for (const well of h.app.SYMBOL_WELLS) {
+      assert.equal(typeof well.font, "string", `${well.kind} must name the face it is boxed in`);
+      assert.equal(typeof well.build, "function");
+      assert.equal(typeof well.resolve, "function");
+    }
   });
 });

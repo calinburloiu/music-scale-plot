@@ -6,6 +6,12 @@
   font-display: block;
 }
 
+@font-face {
+  font-family: "Bravura Text";
+  src: url("fonts/BravuraText.woff2") format("woff2");
+  font-display: block;
+}
+
 *,
 *::before,
 *::after {
@@ -27,6 +33,14 @@
   --accent:      #8a2e1a;
   --accent-soft: #b85a3e;
   --focus-glow:  rgba(138, 46, 26, 0.14);
+
+  /* The editor's right-hand column. A note row lays out
+     [well] gap [name box] in Generic and [well] gap [well] gap [well] in
+     Byzantine; the interval row's cluster is [swatch] gap [label] and takes the
+     same total width in each. */
+  --well-size: 34px;
+  --row-gap: 0.625rem;
+  --name-box-width: 9rem;
 }
 
 body {
@@ -89,8 +103,21 @@ body {
 
 /* --- Left Column --- */
 
+/* Fixed, not shrink-wrapped. A note row's right-hand block is a well and a name
+   box in Generic but three wells in Byzantine, and in Absolute mode the widest
+   line is the note row where in Relative it is the interval row — so a column
+   sized to its content changed width on the Notation and the Mode dropdowns,
+   moving the Chart panel with it. 35rem clears the widest of the four
+   combinations (Generic + Absolute, which needs 553.19px at the default font)
+   with a little to spare; the surplus falls into the gap in the middle of a
+   row, because every right-hand block is already `margin-left: auto`.
+
+   Both responsive breakpoints below override this with `width: 100%`, so the
+   number only applies where there are two columns to balance. */
 .left-column {
   flex: 0 0 auto;
+  width: 35rem;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -314,7 +341,7 @@ body {
 .row {
   display: flex;
   align-items: center;
-  gap: 0.625rem;
+  gap: var(--row-gap);
   position: relative;
 }
 
@@ -362,8 +389,7 @@ body {
 }
 
 .note-row .note-name {
-  width: 9rem;
-  margin-left: auto;
+  width: var(--name-box-width);
   font-family: 'DM Sans', sans-serif;
   font-size: 0.93rem;
   padding: 0.5rem 0.75rem;
@@ -392,12 +418,14 @@ body {
 
 /* Both sets of controls live on every note row; CSS decides which are visible,
    so a switch discards nothing. */
+.note-row .accidental-well-wrapper,
 .note-row .alteration-well-wrapper,
 .note-row .fthora-well-wrapper,
 .note-row .martyria-well-wrapper { display: none; }
 
 #editor.notation-byzantine .note-row .note-name { display: none; }
 
+#editor.notation-generic .note-row .accidental-well-wrapper,
 #editor.notation-byzantine .note-row .alteration-well-wrapper,
 #editor.notation-byzantine .note-row .fthora-well-wrapper,
 #editor.notation-byzantine .note-row .martyria-well-wrapper {
@@ -406,17 +434,20 @@ body {
   flex: 0 0 auto;
 }
 
-/* .note-name carried the right-alignment; the first visible well takes it on,
-   so this belongs to whichever well is leftmost. */
+/* .note-name used to carry the right-alignment; the leftmost *visible* element
+   of the row's right-hand block takes it on, which is a different element in
+   each notation. */
+#editor.notation-generic .note-row .accidental-well-wrapper,
 #editor.notation-byzantine .note-row .alteration-well-wrapper { margin-left: auto; }
 
 /* --- Symbol wells --- */
 
+.accidental-well,
 .alteration-well,
 .fthora-well,
 .martyria-well {
-  width: 34px;
-  height: 34px;
+  width: var(--well-size);
+  height: var(--well-size);
   padding: 0;
   border: 1px solid var(--rule);
   border-radius: 3px;
@@ -432,9 +463,20 @@ body {
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
+.accidental-well:hover,
 .alteration-well:hover,
 .fthora-well:hover,
 .martyria-well:hover { border-color: var(--ink); }
+
+/* The other face, and the one thing an Evo pair cannot do without: the U+0020
+   spacer between a sagittal and its apotome is collapsed away by normal
+   white-space handling, and the pair goes tight. (`ctx.fillText` needs nothing
+   — a canvas paints the glyphs it is handed.) */
+.accidental-well {
+  font-family: "Bravura Text", serif;
+  font-size: 30px;
+  white-space: pre;
+}
 
 /* A fthora or a sign of alteration carries far less ink than a martyria: the
    widest of those two families spans 0.84em where a martyria spans 1.21, and
@@ -479,6 +521,7 @@ body {
 
 /* An empty well says which sign it takes. The dashed border and the faint ink
    are what keep the hint from reading as a filled well. */
+.accidental-well.is-empty,
 .alteration-well.is-empty,
 .fthora-well.is-empty,
 .martyria-well.is-empty {
@@ -508,12 +551,30 @@ body {
    Unlike the martyria's bars these need the webfont, which `font-display:
    block` withholds for up to three seconds on a cold load. The well is blank
    until then — which is what it would show anyway. */
+.accidental-well.is-empty::before,
 .alteration-well.is-empty::before,
 .alteration-well.is-empty::after,
 .fthora-well.is-empty::before {
   display: block;
   line-height: 1;
   color: var(--ink-faint);
+}
+
+/* accidentalFlat, a space, then accidentalSharp — the well's own vocabulary,
+   drawn faint. Unlike Neanes' signs these carry real advances, so the pair is
+   one string rather than a pseudo-element each; but SMuFL sets zero side
+   bearings, so with nothing between them the two abut exactly at the ink and
+   read as one mark. `\20` is U+0020, Bravura Text's own half staff space —
+   the same spacer a composed Sagittal Evo pair uses, and it survives here only
+   because `.accidental-well` sets `white-space: pre`. The transform is
+   inkCenteringShiftEm()'s answer for that string in Bravura Text, read out of
+   the app and written here because CSS cannot call it: a space carries no ink
+   and both glyphs' ink spans their whole advance, so it is what the unspaced
+   pair measured too. Change the glyphs and you must read it out again. */
+.accidental-well.is-empty::before {
+  content: "\E260\20\E262";
+  font-size: 30px;
+  transform: translate(0, 0.0365em);
 }
 
 /* yfesisGeniki, then diesisGeniki, each riding on the same carrier a well's own
@@ -539,19 +600,28 @@ body {
   transform: translate(0.0151em, 0.4644em);
 }
 
+/* The martyria's hint is two bars rather than a sign, so nothing measures its
+   weight for it: at 2px they were twice the stroke of the Neanes glyphs hinting
+   the two wells to their left (about 0.8px at 31px), and the well read as one
+   holding a martyria rather than as an empty one. A hairline matches them.
+
+   Placed from the centre outwards rather than from the top down, so the pair
+   stays centred at whatever `--well-size` is — the phone breakpoint shrinks the
+   box to 28px. 2.5px each side of the middle keeps the 5px gap they had. */
 .martyria-well.is-empty::before,
 .martyria-well.is-empty::after {
   content: "";
   position: absolute;
-  height: 2px;
+  height: 1px;
   background: var(--ink-faint);
 }
 
-.martyria-well.is-empty::before { width: 14px; top: 12px; }
-.martyria-well.is-empty::after  { width:  8px; top: 19px; }
+.martyria-well.is-empty::before { width: 14px; bottom: calc(50% + 2.5px); }
+.martyria-well.is-empty::after  { width:  8px; top:    calc(50% + 2.5px); }
 
 /* --- Symbol pickers --- */
 
+.accidental-picker,
 .alteration-picker,
 .fthora-picker,
 .martyria-picker {
@@ -570,11 +640,39 @@ body {
     0 14px 38px -10px rgba(30, 20, 10, 0.38);
 }
 
+/* The Byzantine panels hang off their own well: those wells sit at the row's
+   right edge, and the labels are short. The accidental panel cannot. Its well
+   is the leftmost element of the row's right-hand block — a long way into the
+   row — and its labels ("Syntonic/Didymus comma (80:81) up (Bosanquet)") push
+   it to the 22rem cap, so opening rightward from the well ran it off the side
+   of the page: 118px past the viewport at 820px wide, 200px at 375px, with no
+   `overflow-x` anywhere in the layout to clip it, so the *page* scrolled
+   sideways. On a desktop it stayed on the page but laid itself over the chart.
+
+   So this one panel hangs off the note row instead, whose right edge is on
+   screen by definition. `left: 0; right: 0` makes the row the panel's width
+   budget, the cap trims it to 22rem when there is room, and `margin-left: auto`
+   keeps it by its well rather than stranded at the row's left edge. The panel
+   is then never wider than the row and never leaves the page, at any width,
+   with no breakpoint of its own. */
+/* Same specificity as the rule above that makes every well wrapper a containing
+   block, and after it, so this one wrapper gives that role back to the row. */
+#editor.notation-generic .note-row .accidental-well-wrapper { position: static; }
+
+.accidental-picker {
+  left: 0;
+  right: 0;
+  max-width: 22rem;
+  margin-left: auto;
+}
+
 /* The lists are tall, so they scroll inside their panel — which never flips
    up: a scrolling panel cannot escape the editor. */
+.accidental-picker.open,
 .alteration-picker.open,
 .fthora-picker.open { display: block; }
 
+.accidental-picker-body,
 .alteration-picker-body,
 .fthora-picker-body {
   max-height: 320px;
@@ -583,7 +681,7 @@ body {
 
 #editor .note-row.picker-open { z-index: 100; }
 
-.byz-option {
+.sym-option {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -598,15 +696,15 @@ body {
   white-space: nowrap;
 }
 
-.byz-option:hover:not(:disabled) { background: var(--paper-fade); }
-.byz-option:disabled { opacity: 0.35; cursor: default; }
-.byz-option.is-selected { background: var(--paper-fade); font-weight: 600; }
+.sym-option:hover:not(:disabled) { background: var(--paper-fade); }
+.sym-option:disabled { opacity: 0.35; cursor: default; }
+.sym-option.is-selected { background: var(--paper-fade); font-weight: 600; }
 
 /* A psaltic sign and a Latin name are hard to scan side by side: the sign is
    small, unfamiliar, and sits nowhere near the name's optical line. Boxing it
    gives the eye a column to run down, and matches the well the sign is going
    into. */
-.byz-glyph {
+.sym-glyph {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
@@ -623,19 +721,29 @@ body {
 
 /* The same lift the wells get, for the same reason: a list of fthores or of
    signs of alteration set at the martyria's size is a column of specks. */
-.alteration-picker .byz-glyph,
-.fthora-picker .byz-glyph { font-size: 34px; }
+.alteration-picker .sym-glyph,
+.fthora-picker .sym-glyph { font-size: 34px; }
 
-.byz-option.is-selected .byz-glyph { border-color: var(--ink-faint); }
-.byz-option:disabled .byz-glyph { background: none; }
+.sym-option.is-selected .sym-glyph { border-color: var(--ink-faint); }
+.sym-option:disabled .sym-glyph { background: none; }
 
 /* The None row of a single-value list holds no sign. A solid empty box reads as
    a glyph that failed to load; a dashed one says "empty", the same way an empty
    well does. (The Genus column's None is not empty: it previews the letter on
    its own, which is exactly what picking it commits.) */
-.byz-glyph:empty {
+.sym-glyph:empty {
   border-style: dashed;
   background: none;
+}
+
+/* SMuFL descriptions run long ("5 comma up, (5C), 1° up [22 27 …] …"), so this
+   one list wraps where the Byzantine lists never need to. */
+.accidental-picker .sym-option { white-space: normal; }
+
+.accidental-picker .sym-glyph {
+  font-family: "Bravura Text", serif;
+  font-size: 32px;
+  white-space: pre;
 }
 
 .martyria-picker.open { display: block; }
@@ -655,7 +763,7 @@ body {
 
 .martyria-genus-column.is-inert { opacity: 0.45; }
 
-.byz-column-title {
+.sym-column-title {
   position: sticky;
   top: 0;
   padding: 0.25rem 0.5rem;
@@ -668,7 +776,7 @@ body {
   color: var(--ink-soft);
 }
 
-.byz-group-title {
+.sym-group-title {
   padding: 0.35rem 0.5rem 0.15rem;
   font-family: 'DM Sans', sans-serif;
   font-size: 0.68rem;
@@ -677,16 +785,58 @@ body {
   color: var(--ink-faint);
 }
 
-.byz-separator {
+.sym-separator {
   height: 1px;
   margin: 0.4rem 0.5rem;
   background: var(--rule);
 }
 
-.byz-label {
+.sym-label {
   font-family: 'DM Sans', sans-serif;
   font-size: 0.82rem;
 }
+
+/* The field sits above the scroller rather than inside it, so it holds still
+   while the list moves under it and needs no sticky positioning. */
+.sym-search {
+  display: block;
+  width: 100%;
+  margin-bottom: 6px;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: var(--paper-fade);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.sym-search::placeholder {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.sym-search:focus {
+  outline: none;
+  border-color: var(--ink);
+  background: #fff;
+  box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.sym-empty {
+  padding: 0.5rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--ink-faint);
+}
+
+/* `hidden` is how a filter narrows the list. The rules above give these
+   elements a `display`, which would otherwise win over the attribute. */
+.sym-option[hidden],
+.sym-group-title[hidden],
+.sym-separator[hidden],
+.sym-empty[hidden] { display: none; }
 
 .note-row .cumulative-cents {
   flex: 0 0 auto;
@@ -788,14 +938,26 @@ body {
   white-space: nowrap;
 }
 
-/* Right cluster: interval-label + color-swatch, same total width as the note-name above */
+/* The cluster takes the width of the block above it, which is not the same in
+   the two notations: Generic's is a well, a gap and the name box; Byzantine's
+   is three wells and two gaps. The label is `flex: 1 1 auto`, so it fills
+   whatever is left in each — no JavaScript decides this. */
 .interval-row .interval-label-cluster {
-  flex: 0 0 auto;
+  /* Shrinkable, though it almost never shrinks: `width` is the size it wants
+     and gets whenever the row has the room. Fixed at `0 0 auto` it was the one
+     thing in the row that could not give, so on a narrow phone it pushed the
+     page sideways while the note-name box above it shrank as asked. */
+  flex: 0 1 auto;
+  min-width: 0;
   margin-left: auto;
-  width: 9rem;
   display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--row-gap);
+  width: calc(var(--well-size) + var(--row-gap) + var(--name-box-width));
+}
+
+#editor.notation-byzantine .interval-row .interval-label-cluster {
+  width: calc(var(--well-size) * 3 + var(--row-gap) * 2);
 }
 
 .interval-row .interval-label {
@@ -834,8 +996,8 @@ body {
 }
 
 .color-swatch {
-  width: 22px;
-  height: 22px;
+  width: var(--well-size);
+  height: var(--well-size);
   border: 1px solid var(--rule);
   border-radius: 3px;
   cursor: pointer;
@@ -967,8 +1129,17 @@ body {
 
 /* === Chart Panel ============================================ */
 
+/* `min-width: 0` and `overflow-x: auto` together are what keep the *page* from
+   scrolling sideways. A flex item's automatic minimum size is its content's,
+   so without them the toolbar's intrinsic width propped this panel open and
+   the container overflowed the viewport on every screen too narrow for both
+   columns — the left one is a fixed width and does not shrink. The phone
+   breakpoint already said exactly this for the same reason; it belongs in the
+   base rule, where it costs a wide screen nothing. */
 .chart-panel {
   flex: 1;
+  min-width: 0;
+  overflow-x: auto;
   position: sticky;
   top: 2rem;
   align-self: flex-start;
@@ -1119,9 +1290,6 @@ body {
     min-width: 0;
     max-width: 100%;
   }
-  /* Allow chart canvas to scroll inside its panel rather than forcing the
-     whole panel wider than the viewport. */
-  .chart-panel { overflow-x: auto; }
   .panel h2 {
     font-size: 1.35rem;
     margin-bottom: 1rem;
@@ -1155,8 +1323,17 @@ body {
   .scale-mode-row { gap: 0.5rem; }
   .scale-mode-row label { font-size: 0.68rem; }
 
-  /* Editor rows: shrink note-name and right-cluster, tighten gaps */
-  .row { gap: 0.4rem; }
+  /* Editor rows: shrink note-name and right-cluster, tighten gaps.
+     --row-gap moves here too: .row's own gap reads var(--row-gap) already
+     (the base rule), so redefining it on #editor is what keeps the cluster's
+     width formula (interval-label-cluster, above) consistent with the actual
+     note-row layout at this width — a hardcoded .row gap here would let the
+     two drift apart again. */
+  #editor {
+    --name-box-width: 5.5rem;
+    --well-size: 28px;
+    --row-gap: 0.4rem;
+  }
 
   .note-row .note-name {
     width: 5.5rem;
@@ -1182,10 +1359,6 @@ body {
   .interval-row .cents-label {
     min-width: 0;
     font-size: 0.66rem;
-  }
-  .interval-row .interval-label-cluster {
-    width: 5.5rem;
-    gap: 0.3rem;
   }
   .interval-row .interval-label {
     font-size: 0.76rem;

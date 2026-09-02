@@ -1,7 +1,7 @@
 # Testing Guide
 
 This project was built without tests. That is now the main risk to its
-maintenance: the app is three classic scripts, over two thousand lines in all,
+maintenance: the app is five classic scripts, over four thousand lines in all,
 whose behaviour lives in DOM side effects, and nothing catches a regression
 except a human clicking around. This document defines how the project is tested
 and how new work must be done.
@@ -34,10 +34,11 @@ step.
 
 `CLAUDE.md` says the app has no dependencies and no build step. That still
 holds: `index.html` opens in a browser and loads nothing but `style.css` and
-its own three scripts (`byzantine.js`, `byzantine-ui.js`, `app.js`). `jsdom` is
-a **dev**-only dependency used by the test runner, and the test runner itself is
-the one built into Node (`node --test`). Nothing under `node_modules/` is ever
-shipped or referenced by the app.
+its own five scripts (`byzantine.js`, `smufl.js`, `symbols-ui.js`,
+`byzantine-ui.js`, `app.js`). `jsdom` is a **dev**-only dependency used by the
+test runner, and the test runner itself is the one built into Node
+(`node --test`). Nothing under `node_modules/` is ever shipped or referenced
+by the app.
 
 Do not add further dependencies — not to the app, and not to the tests —
 without a concrete reason that cannot be met by the standard library.
@@ -46,9 +47,10 @@ without a concrete reason that cannot be met by the standard library.
 
 ## 2. Test-driven development is mandatory
 
-Every change to `app.js`, `byzantine.js`, `byzantine-ui.js`, `index.html` or
-`style.css` that affects behaviour follows the red/green/refactor loop. No
-exceptions for "small" changes; small changes are where regressions hide.
+Every change to `app.js`, `byzantine.js`, `smufl.js`, `symbols-ui.js`,
+`byzantine-ui.js`, `index.html` or `style.css` that affects behaviour follows
+the red/green/refactor loop. No exceptions for "small" changes; small changes
+are where regressions hide.
 
 ### RED — write a failing test first
 
@@ -108,7 +110,7 @@ willingness to follow it.
 
 `.claude/rules/testing.md` closes that gap. It is a
 [path-scoped rule](https://code.claude.com/docs/en/memory): its `paths:`
-frontmatter lists `app.js`, `byzantine.js`, `byzantine-ui.js`, `index.html`, `style.css` and `test/**/*.js`, and it
+frontmatter lists `app.js`, `byzantine.js`, `smufl.js`, `symbols-ui.js`, `byzantine-ui.js`, `index.html`, `style.css` and `test/**/*.js`, and it
 `@`-imports this guide. The moment Claude reads any guarded file, the rule loads
 and pulls this document into context with it — no separate step that could be
 skipped. Rules without `paths:` load every session; this one costs nothing until
@@ -153,6 +155,7 @@ UI tests, and there will not be any.
 | Chart **geometry** | box heights proportional to cents, stacking order, canvas size, DPR scaling |
 | Audio parameters | oscillator type and frequency, envelope ramps |
 | Export | filename and that the full-resolution bitmap is exported |
+| **The order of a row's controls** | the wells on a note row, the swatch and label on an interval row — see below |
 
 ### Out of scope
 
@@ -162,9 +165,31 @@ UI tests, and there will not be any.
   the app's own logic depends on them (`.note-row`, `.interval-row`).
 - **Markup shape.** Tests do not assert on generated HTML strings. They assert
   on values read back through the DOM API — an input's `value`, a swatch's
-  `dataset.color`, a label's computed text.
+  `dataset.color`, a label's computed text. The order of a row's controls is
+  the one exception, for the reason below.
 - **Browser behaviour.** Real font metrics, real audio output, real downloads.
   Those are stubbed; see §5.
+
+### Why a row's control order is the exception
+
+It is the only place where tests compare a list of class names, so it needs
+saying why it is not the markup-shape assertion it looks like.
+
+**The note row's order is load-bearing.** `SYMBOL_WELLS` is the single source of
+truth for two things at once: `makeSymbolWellsHTML()` emits the wells onto a row
+in that order, and `signRunOf()` reads the same table for the order the chart
+draws the gutter run. The row and the chart are therefore two ends of one
+invariant, and a test that pins the row's order pins the contract the chart
+depends on. That is app logic, not appearance.
+
+**The interval row's order is the editor's half of the same contract.** The
+swatch sits before the label so that it lands under the leftmost well of the
+note row above it, and the two rows' clusters are built to the same total width.
+Only the *DOM order* is asserted; whether the columns actually line up on screen
+is CSS, stays out of scope, and is checked by eye (§3, Manual verification).
+
+Both are asserted through the DOM API on elements the app builds — never on an
+HTML string — and nowhere else does a test care what order children come in.
 
 ### Why chart geometry counts as functionality
 
@@ -206,7 +231,9 @@ test/
 │   ├── pitch.test.js
 │   ├── palette.test.js
 │   ├── png-metadata.test.js        the print chunks the exported PNG carries
-│   └── byzantine-symbols.test.js   the tables, the resolvers, the ladder
+│   ├── byzantine-symbols.test.js   the tables, the resolvers, the ladder
+│   ├── smufl-accidentals.test.js   the 28-category catalogue and its resolvers
+│   └── symbol-search.test.js       normalizeForSearch, matchesQuery
 └── integration/         behaviour that spans the editor, the model and the chart
     ├── harness.test.js
     ├── editor.test.js
@@ -220,7 +247,10 @@ test/
     │                               restored the form state
     ├── notation.test.js            the Notation setting and the editor's switch;
     │                               symbol state, readScaleData, font loading
-    └── byzantine-pickers.test.js   the three wells and their picker panels
+    ├── byzantine-pickers.test.js   the alteration, fthora and martyria wells and
+    │                               their picker panels
+    └── accidental-picker.test.js   the accidental well and its picker, including
+                                     search
 ```
 
 Put a test where a maintainer would look for it: by the *feature* it covers,
@@ -231,8 +261,8 @@ a new file named after the feature.
 
 ## 5. How the harness works
 
-The app's scripts (`byzantine.js`, `byzantine-ui.js`, `app.js`) are classic
-scripts with no exports: they read elements at the top level and wire up
+The app's scripts (`byzantine.js`, `smufl.js`, `symbols-ui.js`, `byzantine-ui.js`,
+`app.js`) are classic scripts with no exports: they read elements at the top level and wire up
 listeners as a side effect of loading. Rather than restructure the app to
 suit the tests, `test/helpers/harness.js` loads it the way a browser does.
 
@@ -281,13 +311,13 @@ Two consequences worth knowing:
 | API | Stub | Why |
 |---|---|---|
 | `canvas.getContext("2d")` | `RecordingContext2D`, one per canvas | jsdom has no canvas. Records every draw call with the drawing state active at the time. The chart's is the one `h.ctx` exposes; a canvas the app makes to measure on gets its own, so its drawing stays out of the chart's record. |
-| `ctx.measureText` | ink model: `length × fontSize × 0.6` advance, plus modelled bounding-box and font metrics, reported **from the anchor `textAlign`/`textBaseline` choose** | Deterministic stand-in for font metrics. Font-size sensitive, so the 24px UI font and 21px monospace font measure differently, as in a browser. Also models ink for Byzantine glyphs: zero-advance genus marks and signs of alteration, a mark-aware ascent/descent that grows for an `…Above` or `…Below` mark, a fthora and every sign of alteration with ink sitting *entirely above* the baseline (a negative descent), the two geniki drawn a whole em higher than the numbered signs, an asymmetric `fontBoundingBox…` strut, and the three octave blocks of note letters drawn at three different heights — the only thing that tells a low letter from its middle-octave twin. Like a real canvas it moves the bounding box with `textAlign` and `textBaseline`, so measuring without pinning them is a bug a test can catch — see the ratio table in `canvas-stub.js` and `docs/BYZANTINE-SYMBOLS.md` §10. |
+| `ctx.measureText` | ink model: `length × fontSize × 0.6` advance, plus modelled bounding-box and font metrics, reported **from the anchor `textAlign`/`textBaseline` choose** | Deterministic stand-in for font metrics. Font-size sensitive, so the 24px UI font and 21px monospace font measure differently, as in a browser. Also models ink for Byzantine glyphs: zero-advance genus marks and signs of alteration, a mark-aware ascent/descent that grows for an `…Above` or `…Below` mark, a fthora and every sign of alteration with ink sitting *entirely above* the baseline (a negative descent), the two geniki drawn a whole em higher than the numbered signs, an asymmetric `fontBoundingBox…` strut, and the three octave blocks of note letters drawn at three different heights — the only thing that tells a low letter from its middle-octave twin. Bravura Text's SMuFL accidentals (`U+E260`–`U+EE6F`) get their own block: unlike Neanes' zero-advance signs of alteration they carry a **real advance**, and their ink sits *entirely above* the baseline like a fthora's — modelled on the research's measured `+0.680em … +0.122em`. `U+0020` is additionally cut as Bravura Text's own ½ staff space (a 0.1em advance, no ink) *for that face only*, so a composed Sagittal Evo pair measures wider than its two glyphs alone by exactly the gap. Like a real canvas it moves the bounding box with `textAlign` and `textBaseline`, so measuring without pinning them is a bug a test can catch — see the ratio table in `canvas-stub.js` and `docs/BYZANTINE-SYMBOLS.md` §10. |
 | `ctx.getImageData` | a bitmap synthesised from the same ink model, honouring `clearRect` | The app finds a sign's ink in the pixels on engines whose `measureText` will not report it (`docs/BYZANTINE-SYMBOLS.md` §8b). There is no rasteriser here, so the ink model paints its own boxes opaque — no anti-aliased fringe, so a test can assert exactly. |
 | `canvas.toDataURL` | records the call and returns a real minimal PNG (`pngFixture`) | Lets export tests check the exported size, and gives `savePNG()` genuine bytes to splice its `pHYs`/`sRGB` chunks into. `pngChunkTypes`/`pngChunkData`/`bytesFromDataUrl` read them back. The fixture computes its own CRCs so a bug in the app's `crc32` cannot hide behind the same bug in the stub. |
 | `AudioContext` | `FakeAudioContext` | Records oscillators, gains and every scheduled parameter change. |
 | `HTMLAnchorElement.click` | records `{download, href}` | jsdom cannot navigate or download. |
 | `window.devicePixelRatio` | `2` by default | `loadApp({ devicePixelRatio: 3 })` to vary it. |
-| `document.fonts` | `load()` and `ready` both resolve immediately | jsdom implements no `FontFaceSet`, and `app.js` waits on one before its first real paint. `loadApp({ fonts: false })` removes `document.fonts` entirely, to exercise the codepath that guards against browsers (and jsdom's own default state) with no `FontFaceSet` at all; `loadApp({ fonts: "reject" })` makes the face fail to load, as a missing or corrupt font file would. |
+| `document.fonts` | `load()` and `ready` both resolve immediately | jsdom implements no `FontFaceSet`, and `app.js` waits on one before its first real paint. `loadApp({ fonts: false })` removes `document.fonts` entirely, to exercise the codepath that guards against browsers (and jsdom's own default state) with no `FontFaceSet` at all; `loadApp({ fonts: "reject" })` makes every face fail to load, as a missing or corrupt font file would; `loadApp({ fonts: { reject: ["Bravura Text"] } })` fails only the faces named, because one file can go missing without the other; `loadApp({ fonts: "ready-reject" })` lets the faces load but never lets the set become ready, which is the plainest way to the tail of the chain. |
 
 Because `measureText` is a model rather than real metrics, a test that needs an
 expected canvas size or ink box computes it with the exported
@@ -308,10 +338,12 @@ number.
 | `pickColor(h, row, hex)` | Open a row's dropdown and click a swatch. |
 | `noteRows(h)` / `intervalRows(h)` | The editor's rows, in order. |
 | `setNotation(h, value)` | Switch `#notation` (`"generic"` or `"byzantine"`) and dispatch `change`. |
-| `openWell(h, row, kind)` | Click a note row's `"alteration"`, `"fthora"` or `"martyria"` well; returns its picker panel. |
+| `openWell(h, row, kind)` | Click a note row's `"accidental"`, `"alteration"`, `"fthora"` or `"martyria"` well; returns its picker panel. |
+| `pickAccidental(h, row, accidentalId)` | Open the accidental picker and click one option (`""` picks None), which commits and closes it. |
 | `pickAlteration(h, row, alterationId)` | Open the alteration picker and click one option (`""` picks None), which commits and closes it. |
 | `pickFthora(h, row, fthoraId)` | Open the fthora picker and click one option (`""` picks None), which commits and closes it. |
 | `pickMartyria(h, row, { note, genus, ticks, dismiss })` | Open the martyria picker, click a letter, then click a genus — the click that commits and propagates the ladder. `genus` defaults to None rather than being skipped, because a letter alone never reaches the row; `note: ""` clears the well and returns. `dismiss` stops after the letter and leaves by that gesture instead. |
+| `searchPicker(h, row, kind, query)` | Open `kind`'s picker and type `query` into its `.sym-search` field, the way a user does; returns the panel so a test can count what survived. |
 | `dismissPicker(h, row, how, kind)` | Leave a picker without picking: `"outside"` and `"well"` are the two gestures that discard, `"none"` leaves the panel open to inspect. There is no `"apply"` and no `"cancel"` — clicking a row *is* the commit, so the only way not to commit is not to click one. |
 
 Everything goes through real DOM events. Do not call the app's internal
@@ -379,7 +411,7 @@ Conventions:
    model, or the chart's geometry. That tells you which test file to open.
 3. **Write the failing test.** Run it. Watch it fail for the right reason.
 4. Implement the minimum that makes it pass, as a **named top-level function**
-   in whichever of the three scripts it belongs to (top-level functions are
+   in whichever of the five scripts it belongs to (top-level functions are
    auto-exported to tests; logic buried inside an event listener is not).
 5. Run `npm test`. Fix anything you broke.
 6. Refactor under a green suite.

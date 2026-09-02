@@ -60,6 +60,10 @@
           <button class="play-note" title="Play note">&#9654;</button>
           <label>Note 1</label>
           <span class="cumulative-cents"></span>
+          <div class="accidental-well-wrapper">
+            <button type="button" class="accidental-well is-empty" title="Accidental"></button>
+            <div class="accidental-picker"></div>
+          </div>
           <input type="text" class="note-name" placeholder="name">
           <div class="alteration-well-wrapper">
             <button type="button" class="alteration-well is-empty" title="Sign of alteration"></button>
@@ -78,17 +82,21 @@
           <input type="text" class="interval" placeholder="ratio" value="9/8">
           <span class="cents-label"></span>
           <div class="interval-label-cluster">
-            <input type="text" class="interval-label" placeholder="label">
             <div class="color-picker-wrapper">
               <button type="button" class="color-swatch" data-color="#FFFFFF" style="background:#FFFFFF;"></button>
               <div class="color-dropdown"></div>
             </div>
+            <input type="text" class="interval-label" placeholder="label">
           </div>
         </div>
         <div class="row note-row" data-degree="2">
           <button class="play-note" title="Play note">&#9654;</button>
           <label>Note 2</label>
           <span class="cumulative-cents"></span>
+          <div class="accidental-well-wrapper">
+            <button type="button" class="accidental-well is-empty" title="Accidental"></button>
+            <div class="accidental-picker"></div>
+          </div>
           <input type="text" class="note-name" placeholder="name">
           <div class="alteration-well-wrapper">
             <button type="button" class="alteration-well is-empty" title="Sign of alteration"></button>
@@ -140,6 +148,8 @@
     </div>
   </div>
   <script src="byzantine.js" defer></script>
+  <script src="smufl.js" defer></script>
+  <script src="symbols-ui.js" defer></script>
   <script src="byzantine-ui.js" defer></script>
   <script src="app.js" defer></script>
 </body>

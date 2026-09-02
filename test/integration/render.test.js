@@ -15,7 +15,8 @@ const {
   pickAlteration,
   pickFthora,
 } = require("../helpers/harness.js");
-const { closeTo } = require("../helpers/assertions.js");
+const { closeTo, equalArray } = require("../helpers/assertions.js");
+const { SMUFL_SPACE_ADVANCE_RATIO } = require("../helpers/canvas-stub.js");
 
 // These tests assert the *geometry* render() computes — sizes, positions and
 // draw order — not the appearance of the result. See docs/TESTING.md.
@@ -510,8 +511,7 @@ function drawnCall(h, text) {
  * left, so the pen position plus the ink box *is* the ink's place on the
  * canvas.
  */
-function signInkBoxes(h) {
-  const font = byzFontOf(h);
+function signInkBoxes(h, font = byzFontOf(h)) {
   return h.ctx
     .callsOf("fillText")
     .filter((c) => c.state.font === font)
@@ -527,13 +527,13 @@ function signInkBoxes(h) {
     });
 }
 
-function assertSignsFitTheCanvas(h) {
+function assertSignsFitTheCanvas(h, font = byzFontOf(h)) {
   const width = parseFloat(h.canvas().style.width);
   const height = parseFloat(h.canvas().style.height);
-  const signs = signInkBoxes(h);
+  const signs = signInkBoxes(h, font);
   const EPS = 1e-9; // the extreme signs touch the edge exactly
 
-  assert.ok(signs.length > 0, "no Byzantine sign was drawn at all");
+  assert.ok(signs.length > 0, `no sign was drawn at all in ${font}`);
   for (const sign of signs) {
     assert.ok(
       sign.left >= -EPS && sign.right <= width + EPS &&
@@ -1404,5 +1404,230 @@ test("the Byzantine note band", async (t) => {
       "a taller martyria sizes the band from its own ink"
     );
     assert.equal(byzantineNoteBandHeight(0), 0, "no martyria, no band");
+  });
+});
+
+test("Generic notation with an accidental", async (t) => {
+  const SHARP = "accidentalSharp";
+
+  function genericChart(t, accidentals, options = {}) {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+    if (options.orientation) selectOption(h, "orientation", options.orientation);
+    if (options.style) selectOption(h, "chart-style", options.style);
+    noteRows(h).forEach((row, i) => {
+      if (accidentals[i]) h.app.writeNoteSign(row, "accidental", accidentals[i]);
+    });
+    h.ctx.reset();
+    h.app.render();
+    return h;
+  }
+
+  const smuflFontOf = (h) => h.app.smuflFont(h.app.SMUFL_FONT_SIZE);
+  const glyphOf = (h, id) => h.app.resolveAccidentalGlyphs(id);
+
+  await t.test("draws the accidental in Bravura Text at the SMuFL size", () => {
+    const h = genericChart(t, [SHARP, null]);
+
+    const call = drawnCall(h, glyphOf(h, SHARP));
+    assert.equal(call.state.font, smuflFontOf(h), "the gutter run takes the notation's own face");
+  });
+
+  await t.test("draws no Byzantine glyph, whatever the Byzantine wells hold", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+    h.app.writeNoteSign(noteRows(h)[0], "accidental", SHARP);
+    h.app.writeFthora(noteRows(h)[0], "diatonicPa");
+    h.ctx.reset();
+    h.app.render();
+
+    const byzFont = h.app.byzantineFont(h.app.BYZ_FONT_SIZE);
+    assert.equal(
+      h.ctx.callsOf("fillText").filter((c) => c.state.font === byzFont).length,
+      0,
+      "a fthora set while Generic is selected belongs to the other notation"
+    );
+  });
+
+  await t.test("keeps the typed note name, which the accidental does not replace", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"], { names: ["Pa", "Vou"] });
+    h.app.writeNoteSign(noteRows(h)[0], "accidental", SHARP);
+    h.ctx.reset();
+    h.app.render();
+
+    assert.ok(h.ctx.drawnText().includes("Pa"), "the name band is unchanged in Generic");
+    assert.ok(h.ctx.drawnText().includes(glyphOf(h, SHARP)));
+  });
+
+  await t.test("puts the gutter on the left when vertical, one margin clear of the boxes", () => {
+    const h = genericChart(t, [SHARP, null]);
+    const { CANVAS_PADDING, TEXT_MARGIN } = h.app;
+
+    const text = glyphOf(h, SHARP);
+    const box = h.app.inkBox(h.ctx, text, smuflFontOf(h));
+    const call = drawnCall(h, text);
+
+    // signAnchor = CANVAS_PADDING + gutter - TEXT_MARGIN, and the gutter is the
+    // run's width plus one TEXT_MARGIN, so the anchor lands one run width in.
+    closeTo(
+      call.args[1] + box.right,
+      CANVAS_PADDING + (box.right - box.left),
+      1e-6,
+      "the run is right-aligned at the gutter's inner edge"
+    );
+  });
+
+  await t.test("grows the canvas by the gutter, exactly as Byzantine does", () => {
+    const withSign = genericChart(t, [SHARP, null]);
+    const plain = genericChart(t, [null, null]);
+
+    const runWidth = (() => {
+      const box = withSign.app.inkBox(withSign.ctx, glyphOf(withSign, SHARP), smuflFontOf(withSign));
+      return box.right - box.left;
+    })();
+
+    closeTo(
+      parseFloat(withSign.canvas().style.width) - parseFloat(plain.canvas().style.width),
+      runWidth + withSign.app.TEXT_MARGIN,
+      1e-6,
+      "the gutter is the widest run plus one text margin"
+    );
+  });
+
+  await t.test("draws exactly as today when no degree carries an accidental", () => {
+    const withWells = genericChart(t, [null, null]);
+
+    const plain = loadApp();
+    t.after(() => plain.close());
+    buildRelativeScale(plain, ["9/8"]);
+
+    assert.equal(withWells.canvas().style.width, plain.canvas().style.width);
+    assert.equal(
+      withWells.canvas().style.height,
+      plain.canvas().style.height,
+      "a Generic chart must not reserve a gutter for signs it never draws"
+    );
+  });
+
+  await t.test("keeps the first and last accidental whole in every chart", () => {
+    for (const orientation of ["vertical", "horizontal"]) {
+      for (const style of ["boxes", "lines"]) {
+        const h = genericChart(t, [SHARP, SHARP], { orientation, style });
+        assertSignsFitTheCanvas(h, smuflFontOf(h));
+      }
+    }
+  });
+
+  await t.test("puts the gutter above the chart when horizontal", () => {
+    const h = genericChart(t, [SHARP, null], { orientation: "horizontal" });
+    const { CANVAS_PADDING, TEXT_MARGIN } = h.app;
+
+    const text = glyphOf(h, SHARP);
+    const box = h.app.inkBox(h.ctx, text, smuflFontOf(h));
+    const call = drawnCall(h, text);
+
+    closeTo(
+      call.args[2] + box.bottom,
+      CANVAS_PADDING + (box.bottom - box.top),
+      1e-6,
+      "the run is bottom-aligned at the gutter's inner edge"
+    );
+  });
+
+  await t.test("sizes the end clearance from the gutter run alone, never from the note name", () => {
+    // Horizontal is the only orientation where a Generic name could reach the
+    // clearance at all: maxNoteHeight is measured in Byzantine only, so
+    // vertically the run is already the whole of signExtent. A name is
+    // ordinary text the chart has always let overflow into the text area
+    // beside it, and an accidental must not silently change that.
+    const long = "Ultramarine"; // 158.4px in the ink model — well past 2 × CANVAS_PADDING
+    const short = "Do";
+
+    const widthWith = (names, accidentals) => {
+      const h = loadApp();
+      t.after(() => h.close());
+      buildRelativeScale(h, ["9/8"], { names });
+      selectOption(h, "orientation", "horizontal");
+      noteRows(h).forEach((row, i) => {
+        if (accidentals[i]) h.app.writeNoteSign(row, "accidental", accidentals[i]);
+      });
+      h.app.render();
+      return parseFloat(h.canvas().style.width);
+    };
+
+    // The text area is the wider of the note name and the interval row's own
+    // text, so the floor "9/8" sets is part of what a name has to beat.
+    const intervalTextWidth = measureTextWidth("9/8", '21px "SF Mono", monospace');
+    const textAreaOf = (name) =>
+      Math.max(measureTextWidth(name, "24px sans-serif"), intervalTextWidth);
+    const nameDelta = textAreaOf(long) - textAreaOf(short);
+
+    closeTo(
+      widthWith([long, long], [null, null]) - widthWith([short, short], [null, null]),
+      nameDelta,
+      1e-6,
+      "a long name widens the text area and nothing else — it must not reserve end clearance too"
+    );
+    closeTo(
+      widthWith([long, long], [SHARP, SHARP]) - widthWith([short, short], [SHARP, SHARP]),
+      nameDelta,
+      1e-6,
+      "with a run in the gutter the clearance still tracks the run, not the name beside it"
+    );
+  });
+
+  await t.test("measures a composed accidental wider than its two glyphs alone", () => {
+    const pair = genericChart(t, ["sagittalEvoPlus4", null]);
+
+    const composed = pair.app.inkBox(pair.ctx, glyphOf(pair, "sagittalEvoPlus4"), smuflFontOf(pair));
+    const bare = pair.app.inkBox(
+      pair.ctx,
+      String.fromCharCode(0xe305, 0xe262),
+      smuflFontOf(pair)
+    );
+
+    closeTo(
+      composed.right - composed.left - (bare.right - bare.left),
+      pair.app.SMUFL_FONT_SIZE * SMUFL_SPACE_ADVANCE_RATIO,
+      1e-6,
+      "the U+0020 spacer is half a staff space of real advance, and it must reach the canvas"
+    );
+  });
+});
+
+test("the gutter run's order across both notations", async (t) => {
+  await t.test("is the order the wells appear on a note row", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // The invariant is structural: signRunOf reads SYMBOL_WELLS, so the chart
+    // cannot drift from the editor.
+    const note = { accidental: "accidentalSharp", alteration: "diesis2", fthora: "diatonicPa" };
+
+    // signRunOf's array is built inside jsdom's realm, so it is compared with
+    // equalArray rather than assert.deepEqual — see docs/TESTING.md §5.
+    equalArray(h.app.signRunOf(note, "generic"), [
+      h.app.resolveAccidentalGlyphs("accidentalSharp"),
+    ]);
+    equalArray(h.app.signRunOf(note, "byzantine"), [
+      h.app.resolveAlterationGlyph("diesis2"),
+      h.app.resolveFthoraGlyph("diatonicPa"),
+    ]);
+  });
+
+  await t.test("drops the wells a degree left empty", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    equalArray(h.app.signRunOf({ accidental: "", alteration: "", fthora: "" }, "generic"), []);
+    equalArray(
+      h.app.signRunOf({ alteration: "", fthora: "diatonicPa" }, "byzantine"),
+      [h.app.resolveFthoraGlyph("diatonicPa")],
+      "a well the user left empty must not open a hole in the run"
+    );
   });
 });

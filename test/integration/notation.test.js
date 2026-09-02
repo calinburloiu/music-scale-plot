@@ -10,6 +10,7 @@ const {
   typeInto,
   setNoteCount,
   selectOption,
+  openWell,
 } = require("../helpers/harness.js");
 
 test("the Notation setting", async (t) => {
@@ -585,32 +586,33 @@ test("readScaleData and the note symbols", async (t) => {
   });
 });
 
-test("waiting for the Neanes face", async (t) => {
-  await t.test("asks the browser for Neanes at the chart's size on startup", () => {
+test("waiting for the symbol faces", async (t) => {
+  await t.test("preloads both faces the app draws symbols with", () => {
     const h = loadApp();
     t.after(() => h.close());
 
-    assert.equal(h.fontLoads.length, 1, "the font was never requested");
-    assert.equal(
-      h.fontLoads[0],
-      h.app.byzantineFont(h.app.BYZ_FONT_SIZE),
-      "the face that is preloaded must be the one the chart draws with, " +
-        "or a font swap preloads the wrong family and the first paint is blank boxes"
+    assert.deepEqual(
+      h.fontLoads.slice().sort(),
+      [h.app.byzantineFont(h.app.BYZ_FONT_SIZE), h.app.smuflFont(h.app.SMUFL_FONT_SIZE)].sort(),
+      "the faces preloaded must be the ones the chart draws with, or a font swap " +
+        "preloads the wrong family and the first paint is blank boxes"
     );
   });
 
-  await t.test("redraws once the face has resolved", async () => {
+  await t.test("redraws once, not once per face, when both have settled", async () => {
     const h = loadApp();
     t.after(() => h.close());
     const before = h.ctx.callsOf("fillRect").length;
 
     await new Promise((resolve) => setImmediate(resolve));
 
-    assert.ok(
-      h.ctx.callsOf("fillRect").length > before,
-      "the first paint used fallback metrics and was never replaced"
+    const drawn = h.ctx.callsOf("fillRect").length - before;
+    assert.ok(drawn > 0, "the fallback-metrics paint was never replaced");
+    assert.equal(
+      drawn,
+      1,
+      `two faces settling must repaint once, not once each; the default scale is one box and ${drawn} were drawn`
     );
-    assert.equal(h.app.byzFontReady, true);
   });
 
   await t.test("boots without a FontFaceSet, because jsdom and old browsers have none", () => {
@@ -618,7 +620,7 @@ test("waiting for the Neanes face", async (t) => {
     t.after(() => h.close());
 
     assert.deepEqual(h.jsdomErrors, [], "app.js threw when document.fonts was missing");
-    assert.equal(h.app.loadByzantineFont(), null);
+    assert.equal(h.app.loadSymbolFonts(), null);
   });
 
   // A vendored font file can go missing or arrive corrupt. The chart then
@@ -632,18 +634,103 @@ test("waiting for the Neanes face", async (t) => {
     await new Promise((resolve) => setImmediate(resolve));
 
     assert.deepEqual(h.jsdomErrors, [], "the rejection escaped as an unhandled error");
-    assert.equal(h.app.byzFontReady, false, "a face that never arrived is not ready");
+    assert.deepEqual(
+      { ...h.app.symbolFontsReady },
+      { Neanes: false, "Bravura Text": false },
+      "a face that never arrived is not ready"
+    );
     assert.ok(h.ctx.callsOf("fillRect").length > 0, "the chart must still be drawn");
   });
 
-  await t.test("warns when the face fails to load, so a broken font is diagnosable", async () => {
+  // The readiness observable has no production consumer by design
+  // (docs/BYZANTINE-SYMBOLS.md §7). It is per face because the faces fail
+  // independently: one missing file must not make the notation that still
+  // works report itself unusable.
+  await t.test("reports each face's readiness on its own", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.deepEqual(
+      { ...h.app.symbolFontsReady },
+      { Neanes: true, "Bravura Text": true },
+      "both faces resolved, so both must say so"
+    );
+  });
+
+  await t.test("marks only the face that failed, leaving the other ready", async () => {
+    const h = loadApp({ fonts: { reject: ["Bravura Text"] } });
+    t.after(() => h.close());
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.deepEqual(
+      { ...h.app.symbolFontsReady },
+      { Neanes: true, "Bravura Text": false },
+      "a working Neanes chart must not be reported unready because Bravura is missing"
+    );
+  });
+
+  // Switching notation hides one half of every note row. A picker left open in
+  // the half that just went away is still open, still marked on its row, and
+  // comes back on screen the moment the reader switches back.
+  await t.test("closes an open picker, whose well the switch just hid", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    const panel = openWell(h, row, "accidental");
+    assert.equal(panel.classList.contains("open"), true, "the picker never opened");
+
+    setNotation(h, "byzantine");
+
+    assert.equal(panel.classList.contains("open"), false, "the panel outlived the well it belongs to");
+    assert.equal(row.classList.contains("picker-open"), false, "the row still says a picker is open");
+  });
+
+  await t.test("closes a Byzantine picker on the way back to Generic", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNotation(h, "byzantine");
+    const row = noteRows(h)[0];
+
+    const panel = openWell(h, row, "fthora");
+    assert.equal(panel.classList.contains("open"), true, "the picker never opened");
+
+    setNotation(h, "generic");
+
+    assert.equal(panel.classList.contains("open"), false, "the panel outlived the well it belongs to");
+  });
+
+  // The faces can load and the repaint still fail — a FontFaceSet whose `ready`
+  // rejects is the plainest way in. Nothing awaits loadSymbolFonts() at the call
+  // site, so without a handler of its own the failure is an unhandled rejection
+  // and the reader is told nothing at all.
+  await t.test("warns when the repaint after the fonts settle fails", async () => {
+    const h = loadApp({ fonts: "ready-reject" });
+    t.after(() => h.close());
+
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.ok(
+      h.consoleWarnings.some((w) => /repaint/i.test(w)),
+      `the tail of the font chain must not fail silently, got ${JSON.stringify(h.consoleWarnings)}`
+    );
+  });
+
+  await t.test("warns once per face that fails, naming it", async () => {
     const h = loadApp({ fonts: "reject" });
     t.after(() => h.close());
 
     await new Promise((resolve) => setImmediate(resolve));
 
-    assert.equal(h.consoleWarnings.length, 1, "a silent failure leaves no way to find the cause");
-    assert.match(h.consoleWarnings[0], /Neanes/, "the warning must name the font that failed");
+    assert.equal(h.consoleWarnings.length, 2, "a silent failure leaves no way to find the cause");
+    assert.ok(
+      h.consoleWarnings.some((w) => /Neanes/.test(w)) &&
+        h.consoleWarnings.some((w) => /Bravura Text/.test(w)),
+      `each warning must name its own face, got ${h.consoleWarnings}`
+    );
   });
 
   await t.test("re-measures on every render, so no pre-font measurement survives", () => {
@@ -661,5 +748,172 @@ test("waiting for the Neanes face", async (t) => {
       parseFloat(h.canvas().style.width) > narrow,
       "a cached measurement would have kept the canvas at its old width"
     );
+  });
+});
+
+test("the accidental well", async (t) => {
+  await t.test("sits on every note row, before the note name", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    for (const row of noteRows(h)) {
+      const wrapper = row.querySelector(".accidental-well-wrapper");
+      assert.ok(wrapper, "a note row with no accidental well");
+      assert.ok(wrapper.querySelector(".accidental-well"), "the wrapper holds no well");
+      assert.ok(wrapper.querySelector(".accidental-picker"), "the wrapper holds no panel");
+      assert.equal(
+        wrapper.compareDocumentPosition(row.querySelector(".note-name")) &
+          h.window.Node.DOCUMENT_POSITION_FOLLOWING,
+        h.window.Node.DOCUMENT_POSITION_FOLLOWING,
+        "the accidental is drawn left of the name, so it is emitted before it"
+      );
+    }
+  });
+
+  await t.test("orders the row accidental, name, then the Byzantine three", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const row = noteRows(h)[0];
+    const marks = [
+      ...row.querySelectorAll(
+        ".accidental-well-wrapper, .note-name, .alteration-well-wrapper," +
+          " .fthora-well-wrapper, .martyria-well-wrapper"
+      ),
+    ];
+    assert.deepEqual(
+      marks.map((el) => el.className),
+      [
+        "accidental-well-wrapper",
+        "note-name",
+        "alteration-well-wrapper",
+        "fthora-well-wrapper",
+        "martyria-well-wrapper",
+      ],
+      "every row carries both notations' controls always; CSS decides which half shows"
+    );
+  });
+
+  await t.test("gives a new note the accidental well too", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNoteCount(h, 3);
+
+    assert.ok(noteRows(h).at(-1).querySelector(".accidental-well"));
+  });
+
+  await t.test("stores an accidental as a data attribute and reads it back", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeNoteSign(row, "accidental", "raileanuPlusOneQuarterTone");
+
+    assert.equal(row.dataset.accidental, "raileanuPlusOneQuarterTone");
+    assert.equal(h.app.readNoteSymbols(row).accidental, "raileanuPlusOneQuarterTone");
+  });
+
+  await t.test("clears the well without disturbing the Byzantine three", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeNoteSign(row, "accidental", "accidentalSharp");
+    h.app.writeAlteration(row, "diesis2");
+    h.app.writeNoteSign(row, "accidental", "");
+
+    assert.equal(row.dataset.accidental, undefined, "a stale attribute would be read back as set");
+    assert.equal(row.dataset.alteration, "diesis2", "clearing one well must not touch another");
+  });
+
+  await t.test("survives a notation switch, so nothing is discarded", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeNoteSign(row, "accidental", "accidentalSharp");
+    setNotation(h, "byzantine");
+    setNotation(h, "generic");
+
+    assert.equal(row.dataset.accidental, "accidentalSharp");
+  });
+
+  await t.test("survives the rebuild a scale-mode change causes", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    h.app.writeNoteSign(noteRows(h)[0], "accidental", "accidentalSharp");
+
+    selectOption(h, "scale-mode", "absolute");
+
+    assert.equal(noteRows(h)[0].dataset.accidental, "accidentalSharp");
+  });
+
+  await t.test("draws the accidental's glyphs in the well", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeNoteSign(row, "accidental", "sagittalEvoPlus4");
+
+    const well = row.querySelector(".accidental-well");
+    assert.equal(
+      well.querySelector(".glyph-ink").textContent,
+      String.fromCharCode(0xe305, 0x0020, 0xe262),
+      "a composed accidental goes into the DOM whole, spacer included"
+    );
+    assert.ok(!well.classList.contains("is-empty"));
+  });
+
+  await t.test("marks the well empty again when it is cleared", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const row = noteRows(h)[0];
+
+    h.app.writeNoteSign(row, "accidental", "accidentalSharp");
+    h.app.writeNoteSign(row, "accidental", "");
+
+    assert.ok(row.querySelector(".accidental-well").classList.contains("is-empty"));
+  });
+
+  // The well measures its glyph against the face it is drawn in. On an engine
+  // whose measureText unions the ink with the advance rect, inkBox falls back
+  // to drawing the sign on a scratch canvas and scanning it — and that draw
+  // records the font, which is the one place the descriptor's face is visible
+  // from a test.
+  await t.test("measures its glyph in Bravura Text, not in Neanes", () => {
+    const h = loadApp({ inkMetrics: "union" });
+    t.after(() => h.close());
+
+    h.app.writeNoteSign(noteRows(h)[0], "accidental", "accidentalSharp");
+
+    const scanned = h.app.inkScanCanvas.getContext("2d").callsOf("fillText");
+    assert.ok(scanned.length > 0, "the ink was never scanned, so nothing was measured");
+    assert.equal(scanned.at(-1).state.font, h.app.smuflFont());
+  });
+
+  await t.test("carries the accidental on the note item readScaleData produces", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    h.app.writeNoteSign(noteRows(h)[0], "accidental", "accidentalSharp");
+
+    const notes = h.app.readScaleData().filter((item) => item.type === "note");
+    assert.equal(notes[0].accidental, "accidentalSharp");
+    assert.equal(notes[1].accidental, "", "an empty well reads back as the empty string");
+  });
+});
+
+test("the notation classes on the editor", async (t) => {
+  await t.test("marks the editor Generic by default, and swaps the class on a switch", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // Both classes exist because both halves of the row need one: Generic shows
+    // the accidental well and the name box, Byzantine the other three.
+    assert.ok(h.editor().classList.contains("notation-generic"));
+    assert.ok(!h.editor().classList.contains("notation-byzantine"));
+
+    setNotation(h, "byzantine");
+    assert.ok(h.editor().classList.contains("notation-byzantine"));
+    assert.ok(!h.editor().classList.contains("notation-generic"));
   });
 });

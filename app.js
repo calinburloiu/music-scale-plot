@@ -72,7 +72,19 @@ const NOTE_TEXT_HEIGHT = 28;
 
 let displayZoom = 1;
 let audioCtx = null;
-let byzFontReady = false;
+// Which vendored faces have resolved, by name.
+//
+// A readiness observable with **no production consumer, by design**: nothing in
+// the five scripts reads it. It is here so a test — or a debugging session —
+// can ask "have the faces resolved yet?" without depending on timing. It
+// therefore looks exactly like dead code and is not. **Do not delete it**, and
+// do not wire it into the render path either: the redraw that follows the font
+// promises is what does the actual work, and this is a byproduct of it, not a
+// guard on it. docs/BYZANTINE-SYMBOLS.md §7 says the same at more length.
+//
+// Per face, because the faces fail independently — a missing Bravura Text says
+// nothing about whether Neanes arrived.
+const symbolFontsReady = { Neanes: false, "Bravura Text": false };
 
 function getAudioContext() {
   if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -93,7 +105,17 @@ function getNotation() {
 }
 
 function onNotationChange() {
-  editor.classList.toggle("notation-byzantine", getNotation() === "byzantine");
+  // The switch hides one half of every note row. A picker open in the half that
+  // just went away would stay open, stay marked on its row, and reappear the
+  // moment the reader switched back. A click anywhere closes the pickers, so
+  // this is only reachable from the keyboard — which is reason to handle it,
+  // not to leave it.
+  closeAllDropdowns();
+  const byzantine = getNotation() === "byzantine";
+  // Both classes, because both halves of a note row need one to key off: the
+  // accidental well and the name box in Generic, the three wells in Byzantine.
+  editor.classList.toggle("notation-byzantine", byzantine);
+  editor.classList.toggle("notation-generic", !byzantine);
   render();
 }
 
@@ -249,28 +271,35 @@ function computeRelativeDisplay(prevAbsStr, nextAbsStr) {
 function makeNoteRowHTML(degree, mode, absoluteValue) {
   const playBtn = '<button class="play-note" title="Play note">&#9654;</button>';
   const labelHtml = "<label>Note " + degree + "</label>";
-  const nameInput = '<input type="text" class="note-name" placeholder="name">';
+  // Every row carries both notations' controls always, in the order the chart
+  // draws them; CSS decides which half shows, so a switch discards nothing.
+  const nameBlock =
+    makeSymbolWellsHTML("generic") +
+    '<input type="text" class="note-name" placeholder="name">' +
+    makeSymbolWellsHTML("byzantine");
   if (mode === "absolute") {
     const isFirst = degree === 1;
     const val = isFirst ? getUnisonValue() : (absoluteValue !== undefined ? absoluteValue : "");
     const absInput = '<input type="text" class="absolute-interval" placeholder="' +
       getIntervalPlaceholder() + '" value="' + val + '"' + (isFirst ? " disabled" : "") + ">";
-    return playBtn + labelHtml + absInput + '<span class="abs-cents-label"></span>' +
-      nameInput + makeSymbolWellsHTML();
+    return playBtn + labelHtml + absInput + '<span class="abs-cents-label"></span>' + nameBlock;
   }
-  return playBtn + labelHtml + '<span class="cumulative-cents"></span>' +
-    nameInput + makeSymbolWellsHTML();
+  return playBtn + labelHtml + '<span class="cumulative-cents"></span>' + nameBlock;
 }
 
 function makeIntervalRowHTML(value, mode) {
   const defaultColor = getActivePalette()[0];
+  // Swatch first: it sits under the leftmost well of the note row above — the
+  // accidental well in Generic, the alteration well in Byzantine — and the
+  // label then fills the rest, lining up with the name box or with the fthora
+  // and martyria pair. See docs/ARCHITECTURE.md, Scale Editor.
   const labelCluster =
     '<div class="interval-label-cluster">' +
-      '<input type="text" class="interval-label" placeholder="label">' +
       '<div class="color-picker-wrapper">' +
         '<button type="button" class="color-swatch" data-color="' + defaultColor + '" style="background:' + defaultColor + ';"></button>' +
         '<div class="color-dropdown"></div>' +
       '</div>' +
+      '<input type="text" class="interval-label" placeholder="label">' +
     '</div>';
   if (mode === "absolute") {
     return '<span class="relative-cents-display"></span>' + labelCluster;
@@ -366,13 +395,14 @@ function readScaleData() {
         type: "note",
         absVal: absInp ? absInp.value.trim() : "",
       });
+      // Spread rather than hand-list: a new SYMBOL_WELLS row's field would
+      // otherwise reach `symbols` but not the note item, and signRunOf()
+      // would silently draw nothing for it.
       items.push({
         type: "note",
         degree: degree,
         name: nameEl ? nameEl.value.trim() : "",
-        alteration: symbols.alteration,
-        fthora: symbols.fthora,
-        martyria: symbols.martyria,
+        ...symbols,
       });
     } else {
       const intInp = row.querySelector(".interval");
@@ -468,29 +498,45 @@ function martyriaTextOf(noteItem) {
   return m ? resolveMartyriaGlyphs(m.note, m.genus, m.ticks) : "";
 }
 
-function fthoraTextOf(noteItem) {
-  return noteItem.fthora ? resolveFthoraGlyph(noteItem.fthora) : "";
-}
-
-function alterationTextOf(noteItem) {
-  return noteItem.alteration ? resolveAlterationGlyph(noteItem.alteration) : "";
-}
-
 /**
  * The signs a degree shows in the gutter, in reading order.
  *
- * The alteration comes first because it qualifies the fthora, which is how a
- * psaltic accidental is written. A degree carrying only one of the two draws
- * that one alone, in the same place: a well the user filled must never draw
- * nothing.
+ * Derived from `SYMBOL_WELLS`, filtered by notation, so the invariant is
+ * structural rather than a comment: the chart draws a degree's signs left to
+ * right in the order the editor puts the wells on its row. Reorder that table
+ * and both follow.
  *
- * This order is the chart's half of an invariant whose other half is
- * `BYZ_SIMPLE_WELLS` in byzantine-ui.js, which orders the wells on a note row:
- * the chart draws the signs left to right in the order the editor collects
- * them. Reorder one and reorder the other.
+ * In Byzantine notation the run is the alteration and then the fthora — the
+ * alteration first because it qualifies the fthora, which is how a psaltic
+ * accidental is written. In Generic it is the one accidental. A degree carrying
+ * only some of its wells draws those, in the same places: a well the user filled
+ * must never draw nothing, and one left empty must never open a hole.
  */
-function signRunOf(noteItem) {
-  return [alterationTextOf(noteItem), fthoraTextOf(noteItem)].filter(Boolean);
+function signRunOf(noteItem, notation) {
+  return SYMBOL_WELLS
+    .filter(function (well) {
+      return well.notation === notation;
+    })
+    .map(function (well) {
+      return noteItem[well.kind] ? well.resolve(noteItem[well.kind]) : "";
+    })
+    .filter(Boolean);
+}
+
+/**
+ * The face a notation draws its symbols in — the gutter's and the label's.
+ * Derived from SYMBOL_WELLS rather than hardcoded, so the two agree by
+ * construction: every well of a notation already names its own `font`, and
+ * they all agree within a notation (byzantineFont() for "byzantine",
+ * smuflFont() for "generic"), so the first match speaks for the notation as a
+ * whole — including the martyria well, which is not itself a SYMBOL_WELLS row
+ * but shares "byzantine"'s font by the same convention.
+ */
+function symbolFontFor(notation) {
+  const well = SYMBOL_WELLS.find(function (well) {
+    return well.notation === notation;
+  });
+  return well ? well.font : smuflFont(SMUFL_FONT_SIZE);
 }
 
 /** The widest and tallest ink among `texts`, ignoring the empty ones. */
@@ -573,37 +619,38 @@ function maxRunExtent(runs, font) {
  * line; a vertical chart anchors it `"right"` there, so the fthora keeps the
  * place it had before there was anything to its left.
  */
-function drawByzantineSigns(parts, x, y, align, vAlign) {
+function drawSignRun(parts, x, y, align, vAlign, font) {
   const run = parts.filter(Boolean);
   if (run.length === 0) return;
 
-  const font = byzantineFont(BYZ_FONT_SIZE);
   let penX = x;
   if (align === "center") penX = x - glyphRunExtent(run, font).width / 2;
   else if (align === "right") penX = x - glyphRunExtent(run, font).width;
 
   for (const text of run) {
-    drawByzantineMark(text, penX, y, "left", vAlign);
+    drawSymbol(text, penX, y, "left", vAlign, font);
     const box = inkBox(ctx, text, font);
     penX += box.right - box.left + BYZ_SIGN_GAP;
   }
 }
 
-function drawByzantineMark(text, x, y, align, vAlign) {
+function drawSymbol(text, x, y, align, vAlign, font) {
   if (!text) return;
-  ctx.font = byzantineFont(BYZ_FONT_SIZE);
+  ctx.font = font;
   ctx.fillStyle = "#000";
   drawGlyphs(ctx, text, x, y, { align: align, vAlign: vAlign });
 }
 
 /**
  * Draws a note's label: a typed name in Generic notation, a martyria in
- * Byzantine. `spec` carries both anchorings so each chart path states its own.
+ * Byzantine. `spec` carries both anchorings so each chart path states its own;
+ * `spec.symbolFont` is the face to draw a symbol label in, and nothing at all
+ * for a typed name.
  */
 function drawNoteLabel(text, x, y, spec) {
   if (!text) return;
-  if (spec.byzantine) {
-    drawByzantineMark(text, x, y, spec.align, spec.vAlign);
+  if (spec.symbolFont) {
+    drawSymbol(text, x, y, spec.align, spec.vAlign, spec.symbolFont);
     return;
   }
   ctx.font = spec.font;
@@ -613,17 +660,17 @@ function drawNoteLabel(text, x, y, spec) {
   ctx.fillText(text, x, y);
 }
 
-function drawLinesHorizontal(intervals, stackLength, signExtent, intervalTextBlockH, font, monoFont, byz) {
+function drawLinesHorizontal(intervals, stackLength, signExtent, intervalTextBlockH, font, monoFont, gutter, isByzantine) {
   // `signExtent` is the widest ink centred on an end separator — a note name
   // in Generic notation, the wider of the martyria and the gutter run in
   // Byzantine. Half of it at each end keeps the first and last one whole.
   const halfSign = signExtent / 2;
-  const axisCenterY = CANVAS_PADDING + byz.gutter + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH / 2;
+  const axisCenterY = CANVAS_PADDING + gutter.size + intervalTextBlockH + TEXT_MARGIN + TICK_LENGTH / 2;
   const tickTop = axisCenterY - TICK_LENGTH / 2;
   const tickBottom = axisCenterY + TICK_LENGTH / 2;
   const startX = CANVAS_PADDING + halfSign;
   const noteTextY = tickBottom + TEXT_MARGIN;
-  const intervalTextCenterY = CANVAS_PADDING + byz.gutter + intervalTextBlockH / 2;
+  const intervalTextCenterY = CANVAS_PADDING + gutter.size + intervalTextBlockH / 2;
 
   let x = startX;
   for (const iv of intervals) {
@@ -649,7 +696,7 @@ function drawLinesHorizontal(intervals, stackLength, signExtent, intervalTextBlo
   }
 
   const noteSpec = {
-    byzantine: byz.on,
+    symbolFont: isByzantine ? gutter.font : null,
     font: font,
     align: "center",
     vAlign: "top",
@@ -684,21 +731,21 @@ function drawLinesHorizontal(intervals, stackLength, signExtent, intervalTextBlo
 
     if (j === 0) {
       drawNoteLabel(iv.noteBelow, lx, noteTextY, noteSpec);
-      if (byz.on) drawByzantineSigns(iv.signsBelow, lx, byz.anchor, "center", "bottom");
+      drawSignRun(iv.signsBelow, lx, gutter.anchor, "center", "bottom", gutter.font);
     }
     drawNoteLabel(iv.noteAbove, lx + w, noteTextY, noteSpec);
-    if (byz.on) drawByzantineSigns(iv.signsAbove, lx + w, byz.anchor, "center", "bottom");
+    drawSignRun(iv.signsAbove, lx + w, gutter.anchor, "center", "bottom", gutter.font);
     lx += w;
   }
 }
 
-function drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont, byz) {
-  const axisCenterX = CANVAS_PADDING + byz.gutter + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH / 2;
+function drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont, gutter, isByzantine) {
+  const axisCenterX = CANVAS_PADDING + gutter.size + maxIntervalTextWidth + TEXT_MARGIN + TICK_LENGTH / 2;
   const tickLeft = axisCenterX - TICK_LENGTH / 2;
   const tickRight = axisCenterX + TICK_LENGTH / 2;
   const noteTextX = tickRight + TEXT_MARGIN;
   const intervalTextRightX = tickLeft - TEXT_MARGIN;
-  const baseY = CANVAS_PADDING + byz.overhang + stackLength;
+  const baseY = CANVAS_PADDING + gutter.overhang + stackLength;
 
   let y = baseY;
   for (const iv of intervals) {
@@ -725,7 +772,7 @@ function drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, m
   }
 
   const noteSpec = {
-    byzantine: byz.on,
+    symbolFont: isByzantine ? gutter.font : null,
     font: font,
     align: "left",
     vAlign: "middle",
@@ -761,10 +808,10 @@ function drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, m
 
     if (j === 0) {
       drawNoteLabel(iv.noteBelow, noteTextX, ly, noteSpec);
-      if (byz.on) drawByzantineSigns(iv.signsBelow, byz.anchor, ly, "right", "middle");
+      drawSignRun(iv.signsBelow, gutter.anchor, ly, "right", "middle", gutter.font);
     }
     drawNoteLabel(iv.noteAbove, noteTextX, segTopY, noteSpec);
-    if (byz.on) drawByzantineSigns(iv.signsAbove, byz.anchor, segTopY, "right", "middle");
+    drawSignRun(iv.signsAbove, gutter.anchor, segTopY, "right", "middle", gutter.font);
     ly = segTopY;
   }
 }
@@ -774,7 +821,7 @@ function render() {
 
   const notation = getNotation();
   const isByzantine = notation === "byzantine";
-  const byzFont = byzantineFont(BYZ_FONT_SIZE);
+  const symbolFont = symbolFontFor(notation);
 
   const intervals = [];
 
@@ -797,8 +844,8 @@ function render() {
         displayInterval: interval.displayInterval,
         noteBelow: isByzantine ? martyriaTextOf(note) : note.name,
         noteAbove: nextNote ? (isByzantine ? martyriaTextOf(nextNote) : nextNote.name) : "",
-        signsBelow: isByzantine ? signRunOf(note) : [],
-        signsAbove: nextNote && isByzantine ? signRunOf(nextNote) : [],
+        signsBelow: signRunOf(note, notation),
+        signsAbove: nextNote ? signRunOf(nextNote, notation) : [],
         color: interval.color || "#FFFFFF",
       });
       i += 2;
@@ -824,27 +871,16 @@ function render() {
   let maxNoteWidth = 0;
   // The tallest martyria's ink, and 0 when no degree carries one.
   let maxNoteHeight = 0;
-  // The widest and tallest gutter run, over degrees; 0 when no degree carries
-  // a sign at all.
-  let maxRunWidth = 0;
-  let maxRunHeight = 0;
 
   if (isByzantine) {
     // Measured every render: no measurement taken before the Neanes face
     // resolves is ever cached.
     const notes = maxInkExtent(
       intervals.flatMap((iv) => [iv.noteBelow, iv.noteAbove]),
-      byzFont
+      symbolFont
     );
     maxNoteWidth = notes.width;
     maxNoteHeight = notes.height;
-
-    const runs = maxRunExtent(
-      intervals.flatMap((iv) => [iv.signsBelow, iv.signsAbove]),
-      byzFont
-    );
-    maxRunWidth = runs.width;
-    maxRunHeight = runs.height;
   } else {
     ctx.font = font;
     for (const iv of intervals) {
@@ -852,6 +888,16 @@ function render() {
       if (iv.noteAbove) maxNoteWidth = Math.max(maxNoteWidth, ctx.measureText(iv.noteAbove).width);
     }
   }
+
+  // Both notations put a run in the gutter, so this is measured for both. It is
+  // 0×0 when no degree carries a sign, which is what keeps a scale with empty
+  // wells drawing exactly as it did before there were any.
+  const runs = maxRunExtent(
+    intervals.flatMap((iv) => [iv.signsBelow, iv.signsAbove]),
+    symbolFont
+  );
+  const maxRunWidth = runs.width;
+  const maxRunHeight = runs.height;
 
   ctx.font = font;
   let maxLabelWidth = 0;
@@ -877,34 +923,40 @@ function render() {
   const chartStyle = styleSelect.value;
   const isLines = chartStyle === "lines";
 
-  const signGutter = !isByzantine
-    ? 0
-    : isHorizontal
-      ? (maxRunHeight > 0 ? maxRunHeight + TEXT_MARGIN : 0)
-      : (maxRunWidth > 0 ? maxRunWidth + TEXT_MARGIN : 0);
+  const signGutter = isHorizontal
+    ? (maxRunHeight > 0 ? maxRunHeight + TEXT_MARGIN : 0)
+    : (maxRunWidth > 0 ? maxRunWidth + TEXT_MARGIN : 0);
   // The gutter is a band of its own along the left (vertical) or top
   // (horizontal) edge of the canvas. A degree's run is right- or
   // bottom-aligned at the band's far edge, one text margin clear of whatever
   // the chart lays out after it — the boxes, or the line chart's interval text.
   const signAnchor = CANVAS_PADDING + signGutter - TEXT_MARGIN;
   // The widest ink that any chart centres on an end separator: a martyria, a
-  // gutter run, or — in Generic notation, where there are no signs — a note
-  // name. The stack runs along x when horizontal, so there it is the ink's
-  // width that matters, and its height when vertical.
+  // gutter run, or — in Generic notation — a note name. The stack runs along x
+  // when horizontal, so there it is the ink's width that matters, and its
+  // height when vertical.
   const signExtent = isHorizontal
     ? Math.max(maxNoteWidth, maxRunWidth)
     : Math.max(maxNoteHeight, maxRunHeight);
+  // What the end clearance actually protects. In Byzantine both the martyria
+  // and the run are ink placed from measurement and centred on a separator. In
+  // Generic the note name is ordinary text the chart has always let overflow
+  // into the text area beside it, and an accidental must not silently change
+  // that — so only the run is protected there.
+  const overhangExtent = isByzantine
+    ? signExtent
+    : (isHorizontal ? maxRunWidth : maxRunHeight);
   // Three of the four charts start their stack one CANVAS_PADDING from the
   // edge, so they reserve only whatever ink overflows that padding, at both
   // ends, and the first and last sign are never clipped. (The horizontal line
   // chart instead starts half a sign *past* the padding — see drawLinesHorizontal.)
-  const signOverhang = isByzantine ? Math.max(0, signExtent / 2 - CANVAS_PADDING) : 0;
+  const signOverhang = Math.max(0, overhangExtent / 2 - CANVAS_PADDING);
   const noteBandH = isByzantine ? byzantineNoteBandHeight(maxNoteHeight) : NOTE_TEXT_HEIGHT;
-  const byz = {
-    on: isByzantine,
-    gutter: signGutter,
+  const gutter = {
+    size: signGutter,
     anchor: signAnchor,
     overhang: signOverhang,
+    font: symbolFont,
   };
 
   const hasBothIntervalLines = maxLabelWidth > 0 && maxRatioWidth > 0;
@@ -940,15 +992,15 @@ function render() {
   ctx.clearRect(0, 0, displayWidth, displayHeight);
 
   if (isLines && isHorizontal) {
-    drawLinesHorizontal(intervals, stackLength, signExtent, intervalTextBlockH, font, monoFont, byz);
+    drawLinesHorizontal(intervals, stackLength, signExtent, intervalTextBlockH, font, monoFont, gutter, isByzantine);
   } else if (isLines && !isHorizontal) {
-    drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont, byz);
+    drawLinesVertical(intervals, stackLength, maxIntervalTextWidth, font, monoFont, gutter, isByzantine);
   } else if (isHorizontal) {
     const baseX = CANVAS_PADDING + signOverhang;
     const baseY = CANVAS_PADDING + signGutter;
     const textY = baseY + RECT_WIDTH + TEXT_MARGIN;
     const noteSpec = {
-      byzantine: isByzantine,
+      symbolFont: isByzantine ? symbolFont : null,
       font: font,
       align: "center",
       vAlign: "top",
@@ -997,11 +1049,11 @@ function render() {
 
       if (j === 0) {
         drawNoteLabel(iv.noteBelow, x, textY, noteSpec);
-        if (isByzantine) drawByzantineSigns(iv.signsBelow, x, signAnchor, "center", "bottom");
+        drawSignRun(iv.signsBelow, x, signAnchor, "center", "bottom", symbolFont);
       }
 
       drawNoteLabel(iv.noteAbove, x + w, textY, noteSpec);
-      if (isByzantine) drawByzantineSigns(iv.signsAbove, x + w, signAnchor, "center", "bottom");
+      drawSignRun(iv.signsAbove, x + w, signAnchor, "center", "bottom", symbolFont);
 
       x += w;
     }
@@ -1009,7 +1061,7 @@ function render() {
     const baseX = CANVAS_PADDING + signGutter;
     const baseY = CANVAS_PADDING + signOverhang + stackLength;
     const noteSpec = {
-      byzantine: isByzantine,
+      symbolFont: isByzantine ? symbolFont : null,
       font: font,
       align: "left",
       vAlign: "middle",
@@ -1062,11 +1114,11 @@ function render() {
 
       if (j === 0) {
         drawNoteLabel(iv.noteBelow, textX, y, noteSpec);
-        if (isByzantine) drawByzantineSigns(iv.signsBelow, signAnchor, y, "right", "middle");
+        drawSignRun(iv.signsBelow, signAnchor, y, "right", "middle", symbolFont);
       }
 
       drawNoteLabel(iv.noteAbove, textX, rectY, noteSpec);
-      if (isByzantine) drawByzantineSigns(iv.signsAbove, signAnchor, rectY, "right", "middle");
+      drawSignRun(iv.signsAbove, signAnchor, rectY, "right", "middle", symbolFont);
 
       y = rectY;
     }
@@ -1340,24 +1392,46 @@ function onScaleModeChange() {
 }
 
 /**
- * Asks for the Neanes face and redraws once it resolves.
+ * Asks for both symbol faces and redraws once they have settled.
  *
- * PUA codepoints have no fallback glyph, so a chart drawn before the face
- * arrives shows blank boxes and measures with fallback metrics. The spec is
- * the one the chart itself draws with — `byzantineFont()` is the only place
- * the family name is written — so a font swap cannot preload the wrong face.
- * Guarded, because jsdom (and old browsers) have no FontFaceSet.
+ * PUA codepoints have no fallback glyph, so a chart drawn before a face
+ * arrives shows blank boxes and measures with fallback metrics. The specs are
+ * the ones the chart itself draws with — `byzantineFont()` and `smuflFont()`
+ * are the only places the family names are written — so a font swap cannot
+ * preload the wrong face. Guarded, because jsdom (and old browsers) have no
+ * FontFaceSet.
+ *
+ * A face that never arrives is warned about *by name* and does not stop the
+ * other: a missing or corrupt font file is otherwise invisible to anyone but
+ * the person who vendored it, and one broken face must not blank the notation
+ * that still works. The repaint happens once, when both have settled, not once
+ * per face.
  */
-function loadByzantineFont() {
+function loadSymbolFonts() {
   const fonts = document.fonts;
   if (!fonts || typeof fonts.load !== "function") return null;
-  return fonts
-    .load(byzantineFont(BYZ_FONT_SIZE))
+
+  const faces = [
+    { name: "Neanes", spec: byzantineFont(BYZ_FONT_SIZE) },
+    { name: "Bravura Text", spec: smuflFont(SMUFL_FONT_SIZE) },
+  ];
+
+  return Promise.all(
+    faces.map(function (face) {
+      return fonts.load(face.spec).then(
+        function () {
+          symbolFontsReady[face.name] = true;
+        },
+        function (error) {
+          console.warn("Symbols: the " + face.name + " face failed to load.", error);
+        }
+      );
+    })
+  )
     .then(function () {
       return fonts.ready;
     })
     .then(function () {
-      byzFontReady = true;
       // The wells stored an ink offset measured against fallback metrics, and
       // so did every cache behind them — a repaint that reused those would be
       // no repaint at all.
@@ -1365,12 +1439,12 @@ function loadByzantineFont() {
       refreshAllNoteRowWells();
       render();
     })
+    // Nothing awaits this at the call site, so a throw in the repaint — or a
+    // font set that never becomes ready — would otherwise be an unhandled
+    // rejection and tell the reader nothing. The chart is still on screen,
+    // drawn with fallback metrics; say why it never improved.
     .catch(function (error) {
-      // The face never arrived. The chart keeps drawing rather than failing,
-      // but with fallback metrics and no glyphs — wrong in both content and
-      // layout — so say so: a missing or corrupt font file is otherwise
-      // invisible to anyone but the person who vendored it.
-      console.warn("Byzantine notation: the Neanes face failed to load.", error);
+      console.warn("Symbols: the repaint after the fonts settled failed.", error);
     });
 }
 
@@ -1522,7 +1596,7 @@ function closeAllDropdowns() {
     const row = dd.closest(".interval-row");
     if (row) row.classList.remove("dropdown-open");
   }
-  closeByzantinePickers();
+  closeSymbolPickers();
 }
 
 function setSwatchColor(swatch, hex) {
@@ -1604,7 +1678,7 @@ function syncIntervalColors(sourceRow) {
 }
 
 editor.addEventListener("click", function (e) {
-  if (handleByzantineClick(e)) return;
+  if (handleSymbolClick(e)) return;
 
   const swatch = e.target.closest(".color-swatch");
   if (swatch) {
@@ -1732,4 +1806,4 @@ function initUI() {
 // covers a bfcache restore too.
 initUI();
 window.addEventListener("pageshow", initUI);
-loadByzantineFont();
+loadSymbolFonts();

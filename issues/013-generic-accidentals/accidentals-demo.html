@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMuFL accidentals in Bravura Text — Sagittal mixed symbols and the other candidate groups (issue #13)</title>
+
+<style>
+/* ---------------------------------------------------------------------------
+   Bravura Text is vendored in this repository (../../fonts/BravuraText.woff2),
+   so this page needs no network: it works from file:// and from GitHub Pages
+   alike. See ../../fonts/README.md for provenance and licence.
+
+   Bravura Text, not Bravura: the notation face declares an ascent and a descent
+   of 2.012em each, so one line of it claims 4em above the baseline and 4em
+   below, and every box on this page would be four times taller than its ink.
+   Bravura Text is 1.13em/0.33em — an ordinary text line box — and its glyphs
+   sit entirely above the baseline. §6 shows the two side by side.
+   --------------------------------------------------------------------------- */
+@font-face {
+  font-family: "Bravura Text";
+  src: url("../../fonts/BravuraText.woff2") format("woff2");
+  font-display: block;
+}
+
+:root {
+  --bg: #fbfaf7;
+  --panel: #ffffff;
+  --ink: #1d1b16;
+  --muted: #6b6559;
+  --line: #ddd8cc;
+  --rule: #b9b1a0;
+  --accent: #7a3b12;
+  --evo: #f6ece6;
+  --revo: #eaeff1;
+  --warn: #fdf3e3;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 2.5rem 1.5rem 5rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+main { max-width: 1180px; margin: 0 auto; }
+
+h1 { font-size: 1.8rem; margin: 0 0 .3rem; letter-spacing: -.01em; }
+h2 {
+  font-size: 1.15rem;
+  margin: 3rem 0 .6rem;
+  padding-top: .8rem;
+  border-top: 2px solid var(--rule);
+}
+h3 { font-size: .95rem; margin: 1.6rem 0 .5rem; color: var(--accent); }
+p { max-width: 78ch; }
+.lede { color: var(--muted); }
+.note { max-width: 78ch; font-size: .9rem; color: var(--muted); }
+
+code {
+  font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  background: #f0ece1;
+  padding: .1em .35em;
+  border-radius: 3px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1rem 1.1rem;
+  margin: .8rem 0;
+}
+.scroller { overflow-x: auto; }
+
+table { border-collapse: separate; border-spacing: 0; }
+th, td {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: .35rem .5rem;
+  text-align: center;
+  vertical-align: middle;
+}
+tr > :last-child { border-right: 0; }
+tbody tr:last-child > * { border-bottom: 0; }
+thead th {
+  background: #f3efe4;
+  font-size: .78rem;
+  font-weight: 600;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+th.row-label, td.row-label {
+  text-align: left;
+  white-space: nowrap;
+  font-size: .82rem;
+  font-weight: 600;
+  background: var(--panel);
+  border-right: 2px solid var(--rule);
+}
+td.row-label small { display: block; font-weight: 400; color: var(--muted); }
+tr.evo  td:not(.row-label) { background: var(--evo); }
+tr.revo td:not(.row-label) { background: var(--revo); }
+td.gap { color: var(--muted); font-size: .75rem; }
+
+/* ---------------------------------------------------------------------------
+   The one rule that makes a SMuFL glyph behave in a box.
+
+   Every glyph in Bravura Text has zero side bearings — its advance width is
+   exactly its ink — and every accidental sits above the baseline, between
+   roughly .11em and .75em. The strut, though, is 1.13em/0.33em, so a default
+   line box is nearly twice the ink and the symbol floats high inside it.
+   line-height:1 and a small padding put the box back on the ink.
+   --------------------------------------------------------------------------- */
+.sym {
+  font-family: "Bravura Text", serif;
+  font-size: 40px;
+  line-height: 1;
+  display: inline-block;
+  white-space: pre;   /* the U+0020 spacer inside an Evo pair must survive */
+}
+.sym.lg { font-size: 56px; }
+.sym.sm { font-size: 24px; }
+
+.cellname { display: block; font: 10px/1.3 ui-monospace, Menlo, monospace; color: var(--muted); }
+
+/* A group of glyphs laid out as the picker would lay them out. */
+.grid { display: flex; flex-wrap: wrap; gap: .3rem; }
+.opt {
+  width: 4.2rem;
+  min-height: 4.6rem;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: #fdfcf9;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: .2rem;
+  padding: .35rem .1rem;
+  cursor: default;
+}
+.opt:hover { background: #f3efe4; border-color: var(--rule); }
+.opt .sym { font-size: 30px; }
+.opt .cp { font: 9px/1.2 ui-monospace, Menlo, monospace; color: var(--muted); }
+
+.group-head {
+  display: flex;
+  align-items: baseline;
+  gap: .6rem;
+  margin: 1.4rem 0 .4rem;
+}
+.group-head h4 { margin: 0; font-size: .95rem; }
+.group-head .rng { font: 11px ui-monospace, Menlo, monospace; color: var(--muted); }
+.group-head .cnt { font-size: .8rem; color: var(--muted); }
+
+/* The well mock-up, sized like the app's Byzantine wells. */
+.well {
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  background: #fdfcf9;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+.well .sym { font-size: 26px; }
+.well.empty { color: var(--muted); font-size: .7rem; }
+
+.row { display: flex; align-items: center; gap: .9rem; flex-wrap: wrap; margin: .5rem 0; }
+.row .lbl { font-size: .82rem; color: var(--muted); min-width: 14rem; }
+
+.rulerbox {
+  position: relative;
+  display: inline-block;
+  border: 1px dashed #c9c2b2;
+  background: #fdfcf9;
+}
+.rulerbox .base {
+  position: absolute; left: 0; right: 0;
+  border-top: 1px solid #c04a2b;
+}
+
+footer { margin-top: 3.5rem; color: var(--muted); font-size: .9rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+a { color: var(--accent); }
+</style>
+</head>
+
+<body>
+<main>
+
+<h1>SMuFL accidentals in Bravura Text</h1>
+<p class="lede">
+  The glyphs for <a href="https://github.com/calinburloiu/music-scale-plot/issues/13">issue
+  #13</a>, as live text in <code>fonts/BravuraText.woff2</code> — select and copy any of
+  them. The facts, measurements and decisions are in
+  <a href="2026-09-01-smufl-accidentals-research.md">the research document</a>, linked per
+  section below; this page only shows what they look like.
+</p>
+
+<!-- ====================================================================== -->
+<h2>1 &middot; The 72-EDO ladder — Figure 2 reconstructed</h2>
+
+<p>
+  One step is a twelfth of a tone (16.67&nbsp;&cent;), the apotome six of them. <b>Revo</b>
+  is what SMuFL ships precomposed; <b>Evo (mixed)</b> is Figure 2 of the paper, whose
+  &plusmn;4 and &plusmn;5 are two codepoints in a row. Cells print their codepoints under
+  the glyph; the reasoning is
+  <a href="2026-09-01-smufl-accidentals-research.md#3--the-sagittal-mixed-symbols-for-72-edo">&sect;3
+  of the research document</a>.
+</p>
+
+<div class="panel scroller">
+  <table id="ladder"></table>
+</div>
+
+<p class="note">
+  &plusmn;1, &plusmn;2 and &plusmn;3 — the single-shaft symbols — are identical in both
+  flavours. Only &plusmn;4, &plusmn;5 and &plusmn;6 differ.
+</p>
+
+<!-- ====================================================================== -->
+<h2>2 &middot; Composing an Evo pair: the spacing question</h2>
+
+<p>
+  Zero side bearings mean two accidentals in a row touch, with not one pixel between them.
+  Three blank advance glyphs open the gap; pick one by eye:
+</p>
+
+<div class="panel">
+  <table id="spacers"></table>
+</div>
+
+<p class="note">
+  The containing element needs <code>white-space: pre</code>, or the DOM collapses the
+  leading space. Advance widths in font units:
+  <a href="2026-09-01-smufl-accidentals-research.md#1--bravura-or-bravura-text">&sect;1 of the
+  research document</a>.
+</p>
+
+<!-- ====================================================================== -->
+<h2>3 &middot; How SMuFL glyphs compose — a primer</h2>
+
+<p>
+  One worked example of each, in the order of
+  <a href="2026-09-01-smufl-accidentals-research.md#4--how-smufl-glyphs-compose--a-primer">&sect;4
+  of the research document</a>, which explains what they are.
+</p>
+
+<h3>3a &middot; Plain concatenation (what an Evo pair is)</h3>
+<p>
+  Two codepoints in a string, no markup, no positioning — they touch at the ink and read as
+  one compound accidental.
+</p>
+
+<div class="panel">
+  <div class="row">
+    <span class="lbl">two codepoints, no markup:</span>
+    <span class="sym lg">&#xE305;&#xE262;</span>
+    <code>U+E305 U+E262</code>
+  </div>
+</div>
+
+<h3>3b &middot; GPOS <code>kern</code> — pair positioning</h3>
+<p>
+  Nothing to draw: <b>none of the accidental pairs on this page is kerned</b>, so every pair
+  above is pure advance-width stacking.
+</p>
+
+<h3>3c &middot; GSUB <code>liga</code> — substituting a sequence for one glyph</h3>
+<p>
+  A shifter codepoint <code>U+EB90</code>&hellip;<code>U+EB9F</code> before a symbol is
+  swapped for one pre-shifted glyph. The proof is visual — the same sharp, three times:
+</p>
+
+<div class="panel">
+  <div class="row">
+    <span class="lbl">a sharp, unshifted &rarr; raised 2 &rarr; lowered 3:</span>
+    <span class="sym lg">&#xE262;&#x2D;&#xEB91;&#xE262;&#x2D;&#xEB9A;&#xE262;</span>
+    <code>U+E262</code> &middot; <code>U+EB91 U+E262</code> &middot; <code>U+EB9A U+E262</code>
+  </div>
+  <p class="note" style="margin:.6rem 0 0">
+    If they are not at three heights, your renderer did not apply the ligature. Canvas
+    <code>fillText()</code> applies it too.
+  </p>
+</div>
+
+<h3>3d &middot; Zero-width glyphs — overprinting</h3>
+<p>
+  Staff glyphs (<code>U+E010</code>&hellip;<code>U+E014</code>) advance by <b>zero</b>, so
+  what follows overprints them — a staff and three accidentals, from one string:
+</p>
+
+<div class="panel">
+  <div class="row">
+    <span class="lbl">5-line staff, then three accidentals:</span>
+    <span class="sym lg">&#xE014;&#xE014;&#xE014;&#xE262;&#x2D;&#xE302;&#x2D;&#xE30A;</span>
+  </div>
+  <p class="note" style="margin:.6rem 0 0">
+    The three staff glyphs stack in place; the accidentals start at x&nbsp;=&nbsp;0 of the
+    run and land on the middle line, where every movable glyph sits by default.
+  </p>
+</div>
+
+<!-- ====================================================================== -->
+<h2>4 &middot; Candidate groups for the picker</h2>
+
+<p>
+  Every plausible group, drawn in full — the material the grouping decision is made on.
+  Hover a cell for its SMuFL description; the proposal itself is
+  <a href="2026-09-01-smufl-accidentals-research.md#5--candidate-groups-for-the-picker">&sect;5
+  of the research document</a>.
+</p>
+
+<div id="groups"></div>
+
+<!-- ====================================================================== -->
+<h2>5 &middot; At well and picker size</h2>
+
+<p>
+  The glyphs at editor size, including the widest Evo pair, to check it still fits. Bravura
+  Text needs <code>line-height: 1</code> in a box this tight; with the default strut the
+  symbol floats and the row grows by half a line.
+</p>
+
+<div class="panel">
+  <div class="row">
+    <span class="lbl">wells, as in the editor:</span>
+    <span class="well empty">none</span>
+    <span class="well"><span class="sym">&#xE262;</span></span>
+    <span class="well"><span class="sym">&#xE282;</span></span>
+    <span class="well"><span class="sym">&#xE302;</span></span>
+    <span class="well"><span class="sym">&#xE305;&#xE262;</span></span>
+    <span class="well"><span class="sym">&#xE443;</span></span>
+    <span class="well"><span class="sym">&#xED33;</span></span>
+    <span class="well"><span class="sym">&#xE461;</span></span>
+  </div>
+  <div class="row">
+    <span class="lbl">the widest Evo pair still fits:</span>
+    <span class="well"><span class="sym">&#xE302;&#xE260;</span></span>
+    <span class="well"><span class="sym">&#xE304;&#xE260;</span></span>
+    <span class="well"><span class="sym">&#xE305;&#xE262;</span></span>
+    <span class="well"><span class="sym">&#xE303;&#xE262;</span></span>
+  </div>
+</div>
+
+<!-- ====================================================================== -->
+<h2>6 &middot; Why Bravura Text and not Bravura</h2>
+
+<p>
+  Both faces carry the same symbols at the same codepoints, so the choice is about metrics.
+  Read live with <code>ctx.measureText()</code> at 100&nbsp;px — the numbers the app would
+  get. The argument, and the licensing, are
+  <a href="2026-09-01-smufl-accidentals-research.md#1--bravura-or-bravura-text">&sect;&sect;1&ndash;2
+  of the research document</a>.
+</p>
+
+<div class="panel scroller">
+  <table id="metrics"></table>
+</div>
+
+<p class="note">
+  Bravura itself is <b>not</b> vendored, so its rows read a locally installed copy if you
+  have one — expect 0.249em advance and a <b>4.020em line box</b> for the sharp.
+  <span id="bravura-missing" hidden>On this machine Bravura is not installed, so those rows
+  fell back to a system font and mean nothing; install it, or drop
+  <code>Bravura.woff2</code> beside <code>BravuraText.woff2</code> and add an
+  <code>@font-face</code>, to see the real comparison.</span>
+</p>
+
+<footer>
+  Generated for issue #13. Font: Bravura Text 1.482, &copy; Steinberg Media Technologies GmbH,
+  <a href="../../fonts/Bravura-OFL.txt">SIL Open Font License 1.1</a> with Reserved Font Name
+  &ldquo;Bravura&rdquo;. Glyph names and descriptions from the
+  <a href="https://w3c.github.io/smufl/latest/">SMuFL 1.4</a> metadata.
+  See <a href="2026-09-01-smufl-accidentals-research.md">the research document</a> for the
+  reasoning and the licensing analysis.
+</footer>
+
+</main>
+
+<script>
+"use strict";
+
+/* SMuFL 1.4 range metadata, inlined so this page stays one self-contained file. */
+const GROUPS = [{"key": "standardAccidentals12Edo","title": "Standard accidentals (12-EDO)","range": "U+E260–U+E26F","glyphs": [{"n": "accidentalFlat","c": "E260","d": "Flat"},{"n": "accidentalNatural","c": "E261","d": "Natural"},{"n": "accidentalSharp","c": "E262","d": "Sharp"},{"n": "accidentalDoubleSharp","c": "E263","d": "Double sharp"},{"n": "accidentalDoubleFlat","c": "E264","d": "Double flat"},{"n": "accidentalTripleSharp","c": "E265","d": "Triple sharp"},{"n": "accidentalTripleFlat","c": "E266","d": "Triple flat"},{"n": "accidentalNaturalFlat","c": "E267","d": "Natural flat"},{"n": "accidentalNaturalSharp","c": "E268","d": "Natural sharp"},{"n": "accidentalSharpSharp","c": "E269","d": "Sharp sharp"},{"n": "accidentalParensLeft","c": "E26A","d": "Accidental parenthesis, left"},{"n": "accidentalParensRight","c": "E26B","d": "Accidental parenthesis, right"},{"n": "accidentalBracketLeft","c": "E26C","d": "Accidental bracket, left"},{"n": "accidentalBracketRight","c": "E26D","d": "Accidental bracket, right"}]},{"key": "gouldArrowQuartertoneAccidentals24Edo","title": "Gould arrow quartertone accidentals (24-EDO)","range": "U+E270–U+E27F","glyphs": [{"n": "accidentalQuarterToneFlatArrowUp","c": "E270","d": "Quarter-tone flat"},{"n": "accidentalThreeQuarterTonesFlatArrowDown","c": "E271","d": "Three-quarter-tones flat"},{"n": "accidentalQuarterToneSharpNaturalArrowUp","c": "E272","d": "Quarter-tone sharp"},{"n": "accidentalQuarterToneFlatNaturalArrowDown","c": "E273","d": "Quarter-tone flat"},{"n": "accidentalThreeQuarterTonesSharpArrowUp","c": "E274","d": "Three-quarter-tones sharp"},{"n": "accidentalQuarterToneSharpArrowDown","c": "E275","d": "Quarter-tone sharp"},{"n": "accidentalFiveQuarterTonesSharpArrowUp","c": "E276","d": "Five-quarter-tones sharp"},{"n": "accidentalThreeQuarterTonesSharpArrowDown","c": "E277","d": "Three-quarter-tones sharp"},{"n": "accidentalThreeQuarterTonesFlatArrowUp","c": "E278","d": "Three-quarter-tones flat"},{"n": "accidentalFiveQuarterTonesFlatArrowDown","c": "E279","d": "Five-quarter-tones flat"},{"n": "accidentalArrowUp","c": "E27A","d": "Arrow up (raise by one quarter-tone)"},{"n": "accidentalArrowDown","c": "E27B","d": "Arrow down (lower by one quarter-tone)"}]},{"key": "steinZimmermannAccidentals24Edo","title": "Stein-Zimmermann accidentals (24-EDO)","range": "U+E280–U+E28F","glyphs": [{"n": "accidentalQuarterToneFlatStein","c": "E280","d": "Reversed flat (quarter-tone flat) (Stein)"},{"n": "accidentalThreeQuarterTonesFlatZimmermann","c": "E281","d": "Reversed flat and flat (three-quarter-tones flat) (Zimmermann)"},{"n": "accidentalQuarterToneSharpStein","c": "E282","d": "Half sharp (quarter-tone sharp) (Stein)"},{"n": "accidentalThreeQuarterTonesSharpStein","c": "E283","d": "One and a half sharps (three-quarter-tones sharp) (Stein)"},{"n": "accidentalNarrowReversedFlat","c": "E284","d": "Narrow reversed flat(quarter-tone flat)"},{"n": "accidentalNarrowReversedFlatAndFlat","c": "E285","d": "Narrow reversed flat and flat(three-quarter-tones flat)"}]},{"key": "extendedSteinZimmermannAccidentals","title": "Extended Stein-Zimmermann accidentals","range": "U+E290–U+E29F","glyphs": [{"n": "accidentalReversedFlatArrowUp","c": "E290","d": "Reversed flat with arrow up"},{"n": "accidentalReversedFlatArrowDown","c": "E291","d": "Reversed flat with arrow down"},{"n": "accidentalFilledReversedFlatArrowUp","c": "E292","d": "Filled reversed flat with arrow up"},{"n": "accidentalFilledReversedFlatArrowDown","c": "E293","d": "Filled reversed flat with arrow down"},{"n": "accidentalReversedFlatAndFlatArrowUp","c": "E294","d": "Reversed flat and flat with arrow up"},{"n": "accidentalReversedFlatAndFlatArrowDown","c": "E295","d": "Reversed flat and flat with arrow down"},{"n": "accidentalFilledReversedFlatAndFlat","c": "E296","d": "Filled reversed flat and flat"},{"n": "accidentalFilledReversedFlatAndFlatArrowUp","c": "E297","d": "Filled reversed flat and flat with arrow up"},{"n": "accidentalFilledReversedFlatAndFlatArrowDown","c": "E298","d": "Filled reversed flat and flat with arrow down"},{"n": "accidentalHalfSharpArrowUp","c": "E299","d": "Half sharp with arrow up"},{"n": "accidentalHalfSharpArrowDown","c": "E29A","d": "Half sharp with arrow down"},{"n": "accidentalOneAndAHalfSharpsArrowUp","c": "E29B","d": "One and a half sharps with arrow up"},{"n": "accidentalOneAndAHalfSharpsArrowDown","c": "E29C","d": "One and a half sharps with arrow down"}]},{"key": "simsAccidentals72Edo","title": "Sims accidentals (72-EDO)","range": "U+E2A0–U+E2AF","glyphs": [{"n": "accidentalSims12Down","c": "E2A0","d": "1/12 tone low"},{"n": "accidentalSims6Down","c": "E2A1","d": "1/6 tone low"},{"n": "accidentalSims4Down","c": "E2A2","d": "1/4 tone low"},{"n": "accidentalSims12Up","c": "E2A3","d": "1/12 tone high"},{"n": "accidentalSims6Up","c": "E2A4","d": "1/6 tone high"},{"n": "accidentalSims4Up","c": "E2A5","d": "1/4 tone high"}]},{"key": "wyschnegradskyAccidentals72Edo","title": "Wyschnegradsky accidentals (72-EDO)","range": "U+E420–U+E43F","glyphs": [{"n": "accidentalWyschnegradsky1TwelfthsSharp","c": "E420","d": "1/12 tone sharp"},{"n": "accidentalWyschnegradsky2TwelfthsSharp","c": "E421","d": "1/6 tone sharp"},{"n": "accidentalWyschnegradsky3TwelfthsSharp","c": "E422","d": "1/4 tone sharp"},{"n": "accidentalWyschnegradsky4TwelfthsSharp","c": "E423","d": "1/3 tone sharp"},{"n": "accidentalWyschnegradsky5TwelfthsSharp","c": "E424","d": "5/12 tone sharp"},{"n": "accidentalWyschnegradsky6TwelfthsSharp","c": "E425","d": "1/2 tone sharp"},{"n": "accidentalWyschnegradsky7TwelfthsSharp","c": "E426","d": "7/12 tone sharp"},{"n": "accidentalWyschnegradsky8TwelfthsSharp","c": "E427","d": "2/3 tone sharp"},{"n": "accidentalWyschnegradsky9TwelfthsSharp","c": "E428","d": "3/4 tone sharp"},{"n": "accidentalWyschnegradsky10TwelfthsSharp","c": "E429","d": "5/6 tone sharp"},{"n": "accidentalWyschnegradsky11TwelfthsSharp","c": "E42A","d": "11/12 tone sharp"},{"n": "accidentalWyschnegradsky1TwelfthsFlat","c": "E42B","d": "1/12 tone flat"},{"n": "accidentalWyschnegradsky2TwelfthsFlat","c": "E42C","d": "1/6 tone flat"},{"n": "accidentalWyschnegradsky3TwelfthsFlat","c": "E42D","d": "1/4 tone flat"},{"n": "accidentalWyschnegradsky4TwelfthsFlat","c": "E42E","d": "1/3 tone flat"},{"n": "accidentalWyschnegradsky5TwelfthsFlat","c": "E42F","d": "5/12 tone flat"},{"n": "accidentalWyschnegradsky6TwelfthsFlat","c": "E430","d": "1/2 tone flat"},{"n": "accidentalWyschnegradsky7TwelfthsFlat","c": "E431","d": "7/12 tone flat"},{"n": "accidentalWyschnegradsky8TwelfthsFlat","c": "E432","d": "2/3 tone flat"},{"n": "accidentalWyschnegradsky9TwelfthsFlat","c": "E433","d": "3/4 tone flat"},{"n": "accidentalWyschnegradsky10TwelfthsFlat","c": "E434","d": "5/6 tone flat"},{"n": "accidentalWyschnegradsky11TwelfthsFlat","c": "E435","d": "11/12 tone flat"}]},{"key": "johnstonAccidentalsJustIntonation","title": "Johnston accidentals (just intonation)","range": "U+E2B0–U+E2BF","glyphs": [{"n": "accidentalJohnstonPlus","c": "E2B0","d": "Plus (raise by 81:80)"},{"n": "accidentalJohnstonMinus","c": "E2B1","d": "Minus (lower by 81:80)"},{"n": "accidentalJohnstonEl","c": "E2B2","d": "Inverted seven (raise by 36:35)"},{"n": "accidentalJohnstonSeven","c": "E2B3","d": "Seven (lower by 36:35)"},{"n": "accidentalJohnstonUp","c": "E2B4","d": "Up arrow (raise by 33:32)"},{"n": "accidentalJohnstonDown","c": "E2B5","d": "Down arrow (lower by 33:32)"},{"n": "accidentalJohnston13","c": "E2B6","d": "Thirteen (raise by 65:64)"},{"n": "accidentalJohnston31","c": "E2B7","d": "Inverted 13 (lower by 65:64)"}]},{"key": "extendedHelmholtzEllisAccidentalsJustIntonation","title": "Extended Helmholtz-Ellis accidentals (just intonation)","range": "U+E2C0–U+E2FF","glyphs": [{"n": "accidentalDoubleFlatOneArrowDown","c": "E2C0","d": "Double flat lowered by one syntonic comma"},{"n": "accidentalFlatOneArrowDown","c": "E2C1","d": "Flat lowered by one syntonic comma"},{"n": "accidentalNaturalOneArrowDown","c": "E2C2","d": "Natural lowered by one syntonic comma"},{"n": "accidentalSharpOneArrowDown","c": "E2C3","d": "Sharp lowered by one syntonic comma"},{"n": "accidentalDoubleSharpOneArrowDown","c": "E2C4","d": "Double sharp lowered by one syntonic comma"},{"n": "accidentalDoubleFlatOneArrowUp","c": "E2C5","d": "Double flat raised by one syntonic comma"},{"n": "accidentalFlatOneArrowUp","c": "E2C6","d": "Flat raised by one syntonic comma"},{"n": "accidentalNaturalOneArrowUp","c": "E2C7","d": "Natural raised by one syntonic comma"},{"n": "accidentalSharpOneArrowUp","c": "E2C8","d": "Sharp raised by one syntonic comma"},{"n": "accidentalDoubleSharpOneArrowUp","c": "E2C9","d": "Double sharp raised by one syntonic comma"},{"n": "accidentalDoubleFlatTwoArrowsDown","c": "E2CA","d": "Double flat lowered by two syntonic commas"},{"n": "accidentalFlatTwoArrowsDown","c": "E2CB","d": "Flat lowered by two syntonic commas"},{"n": "accidentalNaturalTwoArrowsDown","c": "E2CC","d": "Natural lowered by two syntonic commas"},{"n": "accidentalSharpTwoArrowsDown","c": "E2CD","d": "Sharp lowered by two syntonic commas"},{"n": "accidentalDoubleSharpTwoArrowsDown","c": "E2CE","d": "Double sharp lowered by two syntonic commas"},{"n": "accidentalDoubleFlatTwoArrowsUp","c": "E2CF","d": "Double flat raised by two syntonic commas"},{"n": "accidentalFlatTwoArrowsUp","c": "E2D0","d": "Flat raised by two syntonic commas"},{"n": "accidentalNaturalTwoArrowsUp","c": "E2D1","d": "Natural raised by two syntonic commas"},{"n": "accidentalSharpTwoArrowsUp","c": "E2D2","d": "Sharp raised by two syntonic commas"},{"n": "accidentalDoubleSharpTwoArrowsUp","c": "E2D3","d": "Double sharp raised by two syntonic commas"},{"n": "accidentalDoubleFlatThreeArrowsDown","c": "E2D4","d": "Double flat lowered by three syntonic commas"},{"n": "accidentalFlatThreeArrowsDown","c": "E2D5","d": "Flat lowered by three syntonic commas"},{"n": "accidentalNaturalThreeArrowsDown","c": "E2D6","d": "Natural lowered by three syntonic commas"},{"n": "accidentalSharpThreeArrowsDown","c": "E2D7","d": "Sharp lowered by three syntonic commas"},{"n": "accidentalDoubleSharpThreeArrowsDown","c": "E2D8","d": "Double sharp lowered by three syntonic commas"},{"n": "accidentalDoubleFlatThreeArrowsUp","c": "E2D9","d": "Double flat raised by three syntonic commas"},{"n": "accidentalFlatThreeArrowsUp","c": "E2DA","d": "Flat raised by three syntonic commas"},{"n": "accidentalNaturalThreeArrowsUp","c": "E2DB","d": "Natural raised by three syntonic commas"},{"n": "accidentalSharpThreeArrowsUp","c": "E2DC","d": "Sharp raised by three syntonic commas"},{"n": "accidentalDoubleSharpThreeArrowsUp","c": "E2DD","d": "Double sharp raised by three syntonic commas"},{"n": "accidentalLowerOneSeptimalComma","c": "E2DE","d": "Lower by one septimal comma"},{"n": "accidentalRaiseOneSeptimalComma","c": "E2DF","d": "Raise by one septimal comma"},{"n": "accidentalLowerTwoSeptimalCommas","c": "E2E0","d": "Lower by two septimal commas"},{"n": "accidentalRaiseTwoSeptimalCommas","c": "E2E1","d": "Raise by two septimal commas"},{"n": "accidentalLowerOneUndecimalQuartertone","c": "E2E2","d": "Lower by one undecimal quartertone"},{"n": "accidentalRaiseOneUndecimalQuartertone","c": "E2E3","d": "Raise by one undecimal quartertone"},{"n": "accidentalLowerOneTridecimalQuartertone","c": "E2E4","d": "Lower by one tridecimal quartertone"},{"n": "accidentalRaiseOneTridecimalQuartertone","c": "E2E5","d": "Raise by one tridecimal quartertone"},{"n": "accidentalCombiningLower17Schisma","c": "E2E6","d": "Combining lower by one 17-limit schisma"},{"n": "accidentalCombiningRaise17Schisma","c": "E2E7","d": "Combining raise by one 17-limit schisma"},{"n": "accidentalCombiningLower19Schisma","c": "E2E8","d": "Combining lower by one 19-limit schisma"},{"n": "accidentalCombiningRaise19Schisma","c": "E2E9","d": "Combining raise by one 19-limit schisma"},{"n": "accidentalCombiningLower23Limit29LimitComma","c": "E2EA","d": "Combining lower by one 23-limit comma"},{"n": "accidentalCombiningRaise23Limit29LimitComma","c": "E2EB","d": "Combining raise by one 23-limit comma"},{"n": "accidentalCombiningLower31Schisma","c": "E2EC","d": "Combining lower by one 31-limit schisma"},{"n": "accidentalCombiningRaise31Schisma","c": "E2ED","d": "Combining raise by one 31-limit schisma"},{"n": "accidentalCombiningOpenCurlyBrace","c": "E2EE","d": "Combining open curly brace"},{"n": "accidentalCombiningCloseCurlyBrace","c": "E2EF","d": "Combining close curly brace"},{"n": "accidentalDoubleFlatEqualTempered","c": "E2F0","d": "Double flat equal tempered semitone"},{"n": "accidentalFlatEqualTempered","c": "E2F1","d": "Flat equal tempered semitone"},{"n": "accidentalNaturalEqualTempered","c": "E2F2","d": "Natural equal tempered semitone"},{"n": "accidentalSharpEqualTempered","c": "E2F3","d": "Sharp equal tempered semitone"},{"n": "accidentalDoubleSharpEqualTempered","c": "E2F4","d": "Double sharp equal tempered semitone"},{"n": "accidentalQuarterFlatEqualTempered","c": "E2F5","d": "Lower by one equal tempered quarter-tone"},{"n": "accidentalQuarterSharpEqualTempered","c": "E2F6","d": "Raise by one equal tempered quarter tone"},{"n": "accidentalCombiningLower53LimitComma","c": "E2F7","d": "Combining lower by one 53-limit comma"},{"n": "accidentalCombiningRaise53LimitComma","c": "E2F8","d": "Combining raise by one 53-limit comma"},{"n": "accidentalEnharmonicTilde","c": "E2F9","d": "Enharmonically reinterpret accidental tilde"},{"n": "accidentalEnharmonicAlmostEqualTo","c": "E2FA","d": "Enharmonically reinterpret accidental almost equal to"},{"n": "accidentalEnharmonicEquals","c": "E2FB","d": "Enharmonically reinterpret accidental equals"}]},{"key": "spartanSagittalSingleShaftAccidentals","title": "Spartan Sagittal single-shaft accidentals","range": "U+E300–U+E30F","glyphs": [{"n": "accSagittal5v7KleismaUp","c": "E300","d": "5:7 kleisma up, (5:7k, ~11:13k, 7C less 5C)"},{"n": "accSagittal5v7KleismaDown","c": "E301","d": "5:7 kleisma down"},{"n": "accSagittal5CommaUp","c": "E302","d": "5 comma up, (5C), 1° up [22 27 29 34 41 46 53 96 EDOs], 1/12-tone up"},{"n": "accSagittal5CommaDown","c": "E303","d": "5 comma down, 1° down [22 27 29 34 41 46 53 96 EDOs], 1/12-tone down"},{"n": "accSagittal7CommaUp","c": "E304","d": "7 comma up, (7C), 1° up [43 EDO], 2° up [72 EDO], 1/6-tone up"},{"n": "accSagittal7CommaDown","c": "E305","d": "7 comma down, 1° down [43 EDO], 2° down [72 EDO], 1/6-tone down"},{"n": "accSagittal25SmallDiesisUp","c": "E306","d": "25 small diesis up, (25S, ~5:13S, ~37S, 5C plus 5C), 2° up [53 EDO]"},{"n": "accSagittal25SmallDiesisDown","c": "E307","d": "25 small diesis down, 2° down [53 EDO]"},{"n": "accSagittal35MediumDiesisUp","c": "E308","d": "35 medium diesis up, (35M, ~13M, ~125M, 5C plus 7C), 2/9-tone up"},{"n": "accSagittal35MediumDiesisDown","c": "E309","d": "35 medium diesis down, 1°[50] 2°[27] down, 2/9-tone down"},{"n": "accSagittal11MediumDiesisUp","c": "E30A","d": "11 medium diesis up, (11M), 1°[17 31] 2°46 up, 1/4-tone up"},{"n": "accSagittal11MediumDiesisDown","c": "E30B","d": "11 medium diesis down, 1°[17 31] 2°46 down, 1/4-tone down"},{"n": "accSagittal11LargeDiesisUp","c": "E30C","d": "11 large diesis up, (11L), (sharp less 11M), 3° up [46 EDO]"},{"n": "accSagittal11LargeDiesisDown","c": "E30D","d": "11 large diesis down, 3° down [46 EDO]"},{"n": "accSagittal35LargeDiesisUp","c": "E30E","d": "35 large diesis up, (35L, ~13L, ~125L, sharp less 35M), 2°50 up"},{"n": "accSagittal35LargeDiesisDown","c": "E30F","d": "35 large diesis down, 2° down [50 EDO], 5/18-tone down"}]},{"key": "spartanSagittalMultiShaftAccidentals","title": "Spartan Sagittal multi-shaft accidentals","range": "U+E310–U+E33F","glyphs": [{"n": "accSagittalSharp25SDown","c": "E310","d": "Sharp 25S-down, 3° up [53 EDO]"},{"n": "accSagittalFlat25SUp","c": "E311","d": "Flat 25S-up, 3° down [53 EDO]"},{"n": "accSagittalSharp7CDown","c": "E312","d": "Sharp 7C-down, 2° up [43 EDO], 4° up [72 EDO], 1/3-tone up"},{"n": "accSagittalFlat7CUp","c": "E313","d": "Flat 7C-up, 2° down [43 EDO], 4° down [72 EDO], 1/3-tone down"},{"n": "accSagittalSharp5CDown","c": "E314","d": "Sharp 5C-down, 2°[22 29] 3°[27 34 41] 4°[39 46 53] 5°[72] 7°[96] up, 5/12-tone up"},{"n": "accSagittalFlat5CUp","c": "E315","d": "Flat 5C-up, 2°[22 29] 3°[27 34 41] 4°[39 46 53] 5°72 7°[96] down, 5/12-tone down"},{"n": "accSagittalSharp5v7kDown","c": "E316","d": "Sharp 5:7k-down"},{"n": "accSagittalFlat5v7kUp","c": "E317","d": "Flat 5:7k-up"},{"n": "accSagittalSharp","c": "E318","d": "Sharp, (apotome up)[almost all EDOs], 1/2-tone up"},{"n": "accSagittalFlat","c": "E319","d": "Flat, (apotome down)[almost all EDOs], 1/2-tone down"},{"n": "accSagittalUnused1","c": "E31A","d": "Unused"},{"n": "accSagittalUnused2","c": "E31B","d": "Unused"},{"n": "accSagittalSharp5v7kUp","c": "E31C","d": "Sharp 5:7k-up"},{"n": "accSagittalFlat5v7kDown","c": "E31D","d": "Flat 5:7k-down"},{"n": "accSagittalSharp5CUp","c": "E31E","d": "Sharp 5C-up, 4°[22 29] 5°[27 34 41] 6°[39 46 53] up, 7/12-tone up"},{"n": "accSagittalFlat5CDown","c": "E31F","d": "Flat 5C-down, 4°[22 29] 5°[27 34 41] 6°[39 46 53] down, 7/12-tone down"},{"n": "accSagittalSharp7CUp","c": "E320","d": "Sharp 7C-up, 4° up [43 EDO], 8° up [72 EDO], 2/3-tone up"},{"n": "accSagittalFlat7CDown","c": "E321","d": "Flat 7C-down, 4° down [43 EDO], 8° down [72 EDO], 2/3-tone down"},{"n": "accSagittalSharp25SUp","c": "E322","d": "Sharp 25S-up, 7° up [53 EDO]"},{"n": "accSagittalFlat25SDown","c": "E323","d": "Flat 25S-down, 7° down [53 EDO]"},{"n": "accSagittalSharp35MUp","c": "E324","d": "Sharp 35M-up, 4° up [50 EDO], 6° up [27 EDO], 13/18-tone up"},{"n": "accSagittalFlat35MDown","c": "E325","d": "Flat 35M-down, 4° down [50 EDO], 6° down [27 EDO], 13/18-tone down"},{"n": "accSagittalSharp11MUp","c": "E326","d": "Sharp 11M-up, 3° up [17 31 EDOs], 7° up [46 EDO], 3/4-tone up"},{"n": "accSagittalFlat11MDown","c": "E327","d": "Flat 11M-down, 3° down [17 31 EDOs], 7° down [46 EDO], 3/4-tone down"},{"n": "accSagittalSharp11LUp","c": "E328","d": "Sharp 11L-up, 8° up [46 EDO]"},{"n": "accSagittalFlat11LDown","c": "E329","d": "Flat 11L-down, 8° up [46 EDO]"},{"n": "accSagittalSharp35LUp","c": "E32A","d": "Sharp 35L-up, 5° up [50 EDO]"},{"n": "accSagittalFlat35LDown","c": "E32B","d": "Flat 35L-down, 5° down [50 EDO]"},{"n": "accSagittalDoubleSharp25SDown","c": "E32C","d": "Double sharp 25S-down, 8°up [53 EDO]"},{"n": "accSagittalDoubleFlat25SUp","c": "E32D","d": "Double flat 25S-up, 8°down [53 EDO]"},{"n": "accSagittalDoubleSharp7CDown","c": "E32E","d": "Double sharp 7C-down, 5°[43] 10°[72] up, 5/6-tone up"},{"n": "accSagittalDoubleFlat7CUp","c": "E32F","d": "Double flat 7C-up, 5° down [43 EDO], 10° down [72 EDO], 5/6-tone down"},{"n": "accSagittalDoubleSharp5CDown","c": "E330","d": "Double sharp 5C-down, 5°[22 29] 7°[34 41] 9°53 up, 11/12 tone up"},{"n": "accSagittalDoubleFlat5CUp","c": "E331","d": "Double flat 5C-up, 5°[22 29] 7°[34 41] 9°53 down, 11/12 tone down"},{"n": "accSagittalDoubleSharp5v7kDown","c": "E332","d": "Double sharp 5:7k-down"},{"n": "accSagittalDoubleFlat5v7kUp","c": "E333","d": "Double flat 5:7k-up"},{"n": "accSagittalDoubleSharp","c": "E334","d": "Double sharp, (2 apotomes up)[almost all EDOs], whole-tone up"},{"n": "accSagittalDoubleFlat","c": "E335","d": "Double flat, (2 apotomes down)[almost all EDOs], whole-tone down"}]},{"key": "arelEzgiUzdilekAeuAccidentals","title": "Arel-Ezgi-Uzdilek (AEU) accidentals","range": "U+E440–U+E44F","glyphs": [{"n": "accidentalBuyukMucennebFlat","c": "E440","d": "Büyük mücenneb (flat)"},{"n": "accidentalKucukMucennebFlat","c": "E441","d": "Küçük mücenneb (flat)"},{"n": "accidentalBakiyeFlat","c": "E442","d": "Bakiye (flat)"},{"n": "accidentalKomaFlat","c": "E443","d": "Koma (flat)"},{"n": "accidentalKomaSharp","c": "E444","d": "Koma (sharp)"},{"n": "accidentalBakiyeSharp","c": "E445","d": "Bakiye (sharp)"},{"n": "accidentalKucukMucennebSharp","c": "E446","d": "Küçük mücenneb (sharp)"},{"n": "accidentalBuyukMucennebSharp","c": "E447","d": "Büyük mücenneb (sharp)"}]},{"key": "turkishFolkMusicAccidentals","title": "Turkish folk music accidentals","range": "U+E450–U+E45F","glyphs": [{"n": "accidental1CommaSharp","c": "E450","d": "1-comma sharp"},{"n": "accidental2CommaSharp","c": "E451","d": "2-comma sharp"},{"n": "accidental3CommaSharp","c": "E452","d": "3-comma sharp"},{"n": "accidental5CommaSharp","c": "E453","d": "5-comma sharp"},{"n": "accidental1CommaFlat","c": "E454","d": "1-comma flat"},{"n": "accidental2CommaFlat","c": "E455","d": "2-comma flat"},{"n": "accidental3CommaFlat","c": "E456","d": "3-comma flat"},{"n": "accidental4CommaFlat","c": "E457","d": "4-comma flat"}]},{"key": "persianAccidentals","title": "Persian accidentals","range": "U+E460–U+E46F","glyphs": [{"n": "accidentalKoron","c": "E460","d": "Koron (quarter tone flat)"},{"n": "accidentalSori","c": "E461","d": "Sori (quarter tone sharp)"}]},{"key": "arabicAccidentals","title": "Arabic accidentals","range": "U+ED30–U+ED3F","glyphs": [{"n": "accidentalDoubleFlatArabic","c": "ED30","d": "Arabic double flat"},{"n": "accidentalThreeQuarterTonesFlatArabic","c": "ED31","d": "Arabic three-quarter-tones flat"},{"n": "accidentalFlatArabic","c": "ED32","d": "Arabic half-tone flat"},{"n": "accidentalQuarterToneFlatArabic","c": "ED33","d": "Arabic quarter-tone flat"},{"n": "accidentalNaturalArabic","c": "ED34","d": "Arabic natural"},{"n": "accidentalQuarterToneSharpArabic","c": "ED35","d": "Arabic quarter-tone sharp"},{"n": "accidentalSharpArabic","c": "ED36","d": "Arabic half-tone sharp"},{"n": "accidentalThreeQuarterTonesSharpArabic","c": "ED37","d": "Arabic three-quarter-tones sharp"},{"n": "accidentalDoubleSharpArabic","c": "ED38","d": "Arabic double sharp"}]},{"key": "otherAccidentals","title": "Other accidentals","range": "U+E470–U+E49F","glyphs": [{"n": "accidentalXenakisOneThirdToneSharp","c": "E470","d": "One-third-tone sharp (Xenakis)"},{"n": "accidentalXenakisTwoThirdTonesSharp","c": "E471","d": "Two-third-tones sharp (Xenakis)"},{"n": "accidentalQuarterToneSharpBusotti","c": "E472","d": "Quarter tone sharp (Bussotti)"},{"n": "accidentalSharpOneHorizontalStroke","c": "E473","d": "One or three quarter tones sharp"},{"n": "accidentalThreeQuarterTonesSharpBusotti","c": "E474","d": "Three quarter tones sharp (Bussotti)"},{"n": "accidentalQuarterToneSharpWiggle","c": "E475","d": "Quarter tone sharp with wiggly tail"},{"n": "accidentalTavenerSharp","c": "E476","d": "Byzantine-style Büyük mücenneb sharp (Tavener)"},{"n": "accidentalTavenerFlat","c": "E477","d": "Byzantine-style Bakiye flat (Tavener)"},{"n": "accidentalQuarterToneFlatPenderecki","c": "E478","d": "Quarter tone flat (Penderecki)"},{"n": "accidentalCommaSlashUp","c": "E479","d": "Syntonic/Didymus comma (80:81) up (Bosanquet)"},{"n": "accidentalCommaSlashDown","c": "E47A","d": "Syntonic/Didymus comma (80:81) down (Bosanquet)"},{"n": "accidentalWilsonPlus","c": "E47B","d": "Wilson plus (5 comma up)"},{"n": "accidentalWilsonMinus","c": "E47C","d": "Wilson minus (5 comma down)"},{"n": "accidentalLargeDoubleSharp","c": "E47D","d": "Large double sharp"},{"n": "accidentalQuarterToneSharp4","c": "E47E","d": "Quarter-tone sharp"},{"n": "accidentalQuarterToneFlat4","c": "E47F","d": "Quarter-tone flat"},{"n": "accidentalQuarterToneFlatFilledReversed","c": "E480","d": "Filled reversed flat (quarter-tone flat)"},{"n": "accidentalSharpReversed","c": "E481","d": "Reversed sharp"},{"n": "accidentalNaturalReversed","c": "E482","d": "Reversed natural"},{"n": "accidentalDoubleFlatReversed","c": "E483","d": "Reversed double flat"},{"n": "accidentalFlatTurned","c": "E484","d": "Turned flat"},{"n": "accidentalDoubleFlatTurned","c": "E485","d": "Turned double flat"},{"n": "accidentalThreeQuarterTonesFlatGrisey","c": "E486","d": "Three-quarter-tones flat (Grisey)"},{"n": "accidentalThreeQuarterTonesFlatTartini","c": "E487","d": "Three-quarter-tones flat (Tartini)"},{"n": "accidentalQuarterToneFlatVanBlankenburg","c": "E488","d": "Quarter-tone flat (van Blankenburg)"},{"n": "accidentalThreeQuarterTonesFlatCouper","c": "E489","d": "Three-quarter-tones flat (Couper)"},{"n": "accidentalOneThirdToneSharpFerneyhough","c": "E48A","d": "One-third-tone sharp (Ferneyhough)"},{"n": "accidentalOneThirdToneFlatFerneyhough","c": "E48B","d": "One-third-tone flat (Ferneyhough)"},{"n": "accidentalTwoThirdTonesSharpFerneyhough","c": "E48C","d": "Two-third-tones sharp (Ferneyhough)"},{"n": "accidentalTwoThirdTonesFlatFerneyhough","c": "E48D","d": "Two-third-tones flat (Ferneyhough)"},{"n": "accidentalOneQuarterToneSharpFerneyhough","c": "E48E","d": "One-quarter-tone sharp (Ferneyhough)"},{"n": "accidentalOneQuarterToneFlatFerneyhough","c": "E48F","d": "One-quarter-tone flat (Ferneyhough)"}]},{"key": "medievalAndRenaissanceAccidentals","title": "Medieval and Renaissance accidentals","range": "U+E9E0–U+E9EF","glyphs": [{"n": "medRenFlatSoftB","c": "E9E0","d": "Flat, soft b (fa)"},{"n": "medRenFlatHardB","c": "E9E1","d": "Flat, hard b (mi)"},{"n": "medRenNatural","c": "E9E2","d": "Natural"},{"n": "medRenSharpCroix","c": "E9E3","d": "Croix"},{"n": "medRenFlatWithDot","c": "E9E4","d": "Flat with dot"},{"n": "medRenNaturalWithCross","c": "E9E5","d": "Natural with interrupted cross"}]},{"key": "stockhausenAccidentals","title": "Stockhausen accidentals (24-EDO)","range": "U+ED50–U+ED5F","glyphs": [{"n": "accidentalRaisedStockhausen","c": "ED50","d": "Raised (Stockhausen)"},{"n": "accidentalLoweredStockhausen","c": "ED51","d": "Lowered (Stockhausen)"},{"n": "accidentalFlatRaisedStockhausen","c": "ED52","d": "Raised flat (Stockhausen)"},{"n": "accidentalFlatLoweredStockhausen","c": "ED53","d": "Lowered flat (Stockhausen)"},{"n": "accidentalNaturalRaisedStockhausen","c": "ED54","d": "Raised natural (Stockhausen)"},{"n": "accidentalNaturalLoweredStockhausen","c": "ED55","d": "Lowered natural (Stockhausen)"},{"n": "accidentalSharpRaisedStockhausen","c": "ED56","d": "Raised sharp (Stockhausen)"},{"n": "accidentalSharpLoweredStockhausen","c": "ED57","d": "Lowered sharp (Stockhausen)"},{"n": "accidentalOneQuarterToneSharpStockhausen","c": "ED58","d": "One-quarter-tone sharp (Stockhausen)"},{"n": "accidentalOneQuarterToneFlatStockhausen","c": "ED59","d": "One-quarter-tone flat (Stockhausen)"},{"n": "accidentalThreeQuarterTonesSharpStockhausen","c": "ED5A","d": "Three-quarter-tones sharp (Stockhausen)"},{"n": "accidentalFlatRepeatedSpaceStockhausen","c": "ED5B","d": "Repeated flat, note in space (Stockhausen)"},{"n": "accidentalFlatRepeatedLineStockhausen","c": "ED5C","d": "Repeated flat, note on line (Stockhausen)"},{"n": "accidentalSharpRepeatedSpaceStockhausen","c": "ED5D","d": "Repeated sharp, note in space (Stockhausen)"},{"n": "accidentalSharpRepeatedLineStockhausen","c": "ED5E","d": "Repeated sharp, note on line (Stockhausen)"}]}];
+
+
+const C = (hex) => String.fromCodePoint(parseInt(hex, 16));
+const glyphs = (spec) => spec.split(" ").map(C).join("");
+
+/* ---------------------------------------------------------------------------
+   §1 — the 72-EDO ladder.
+
+   Thirteen degrees, -6 to +6 twelfths of a tone. Each row names the codepoints
+   it uses per degree, space-separated where a degree needs more than one:
+   that is exactly the difference between the Revo and the Evo rows.
+   --------------------------------------------------------------------------- */
+const DEGREES = [-6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6];
+
+const LADDER = [
+  {
+    label: "Standard (12-EDO)",
+    sub: "U+E260–E262",
+    cells: { "-6": "E260", "0": "E261", "6": "E262" }
+  },
+  {
+    label: "Sagittal Revo",
+    sub: "precomposed, 1 codepoint each",
+    cls: "revo",
+    cells: {
+      "-6": "E319", "-5": "E315", "-4": "E313", "-3": "E30B", "-2": "E305", "-1": "E303",
+      "0": "E261",
+      "1": "E302", "2": "E304", "3": "E30A", "4": "E312", "5": "E314", "6": "E318"
+    }
+  },
+  {
+    label: "Sagittal Evo (mixed)",
+    sub: "Figure 2 — composed by hand",
+    cls: "evo",
+    cells: {
+      "-6": "E260", "-5": "E302 E260", "-4": "E304 E260",
+      "-3": "E30B", "-2": "E305", "-1": "E303",
+      "0": "E261",
+      "1": "E302", "2": "E304", "3": "E30A",
+      "4": "E305 E262", "5": "E303 E262", "6": "E262"
+    }
+  },
+  {
+    label: "Wyschnegradsky (72-EDO)",
+    sub: "U+E420–E435, complete",
+    cells: {
+      "-6": "E430", "-5": "E42F", "-4": "E42E", "-3": "E42D", "-2": "E42C", "-1": "E42B",
+      "0": "E261",
+      "1": "E420", "2": "E421", "3": "E422", "4": "E423", "5": "E424", "6": "E425"
+    }
+  },
+  {
+    label: "Sims (72-EDO)",
+    sub: "U+E2A0–E2A5, ±1 ±2 ±3 only",
+    cells: {
+      "-6": "E260", "-3": "E2A2", "-2": "E2A1", "-1": "E2A0",
+      "0": "E261",
+      "1": "E2A3", "2": "E2A4", "3": "E2A5", "6": "E262"
+    }
+  }
+];
+
+function renderLadder() {
+  let h = "<thead><tr><th class='row-label'>notation</th>";
+  for (const d of DEGREES) {
+    const sign = d > 0 ? "+" + d : String(d);
+    h += "<th>" + sign + "<br><span style='font-weight:400;color:var(--muted)'>"
+       + (d === 0 ? "0" : (Math.abs(d) + "/12")) + "</span></th>";
+  }
+  h += "</tr></thead><tbody>";
+
+  for (const row of LADDER) {
+    h += "<tr class='" + (row.cls || "") + "'>"
+       + "<td class='row-label'>" + row.label + "<small>" + row.sub + "</small></td>";
+    for (const d of DEGREES) {
+      const spec = row.cells[String(d)];
+      if (!spec) { h += "<td class='gap'>&mdash;</td>"; continue; }
+      h += "<td><span class='sym'>" + glyphs(spec) + "</span>"
+         + "<span class='cellname'>" + spec.replace(/ /g, "+") + "</span></td>";
+    }
+    h += "</tr>";
+  }
+  document.getElementById("ladder").innerHTML = h + "</tbody>";
+}
+
+/* ---------------------------------------------------------------------------
+   §2 — the spacers, shown on the four Evo pairs that need them.
+   --------------------------------------------------------------------------- */
+const PAIRS = [
+  ["-5", "E302", "E260"],
+  ["-4", "E304", "E260"],
+  ["+4", "E305", "E262"],
+  ["+5", "E303", "E262"]
+];
+const SPACERS = [
+  ["none", "", "advance widths only"],
+  ["U+0020", " ", "½ staff space"],
+  ["-", "-", "1 staff space"],
+  ["=", "=", "2 staff spaces"]
+];
+
+function renderSpacers() {
+  let h = "<thead><tr><th class='row-label'>spacer</th>";
+  for (const p of PAIRS) h += "<th>" + p[0] + "</th>";
+  h += "<th>meaning</th></tr></thead><tbody>";
+  for (const [name, ch, meaning] of SPACERS) {
+    h += "<tr><td class='row-label'><code>" + name + "</code></td>";
+    for (const [, a, b] of PAIRS) {
+      h += "<td><span class='sym'>" + C(a) + ch + C(b) + "</span></td>";
+    }
+    h += "<td style='font-size:.82rem;color:var(--muted)'>" + meaning + "</td></tr>";
+  }
+  document.getElementById("spacers").innerHTML = h + "</tbody>";
+}
+
+/* ---------------------------------------------------------------------------
+   §4 — every candidate group, straight from the SMuFL range metadata.
+   --------------------------------------------------------------------------- */
+function renderGroups() {
+  let h = "";
+  for (const grp of GROUPS) {
+    h += "<div class='group-head'><h4>" + grp.title + "</h4>"
+       + "<span class='rng'>" + grp.range + "</span>"
+       + "<span class='cnt'>" + grp.glyphs.length + " glyphs</span></div>"
+       + "<div class='panel'><div class='grid'>";
+    for (const g of grp.glyphs) {
+      h += "<div class='opt' title='" + g.n + " — " + g.d.replace(/'/g, "&#39;") + "'>"
+         + "<span class='sym'>" + C(g.c) + "</span>"
+         + "<span class='cp'>" + g.c + "</span></div>";
+    }
+    h += "</div></div>";
+  }
+  document.getElementById("groups").innerHTML = h;
+}
+
+/* ---------------------------------------------------------------------------
+   §6 — measured, not asserted. Everything is reported as a fraction of the
+   font size, so the numbers hold at any size.
+   --------------------------------------------------------------------------- */
+const PROBES = [
+  ["sharp", "E262"],
+  ["natural", "E261"],
+  ["sagittal 5-comma up", "E302"],
+  ["Evo pair ⁄ sagittal + sharp", "E305 E262"]
+];
+
+function renderMetrics() {
+  const SIZE = 100;
+  const c = document.createElement("canvas").getContext("2d");
+  let h = "<thead><tr><th class='row-label'>face &middot; glyph</th>"
+        + "<th>advance</th><th>ink above<br>baseline</th><th>ink below<br>baseline</th>"
+        + "<th>strut above</th><th>strut below</th><th>line box</th></tr></thead><tbody>";
+
+  for (const face of ["Bravura Text", "Bravura"]) {
+    for (const [label, spec] of PROBES) {
+      c.font = SIZE + 'px "' + face + '"';
+      const m = c.measureText(glyphs(spec));
+      const em = (v) => (v / SIZE).toFixed(3) + "em";
+      const box = m.fontBoundingBoxAscent + m.fontBoundingBoxDescent;
+      h += "<tr><td class='row-label'>" + face + "<small>" + label + "</small></td>"
+         + "<td>" + em(m.width) + "</td>"
+         + "<td>" + em(m.actualBoundingBoxAscent) + "</td>"
+         + "<td>" + em(m.actualBoundingBoxDescent) + "</td>"
+         + "<td>" + em(m.fontBoundingBoxAscent) + "</td>"
+         + "<td>" + em(m.fontBoundingBoxDescent) + "</td>"
+         + "<td><b>" + em(box) + "</b></td></tr>";
+    }
+  }
+  document.getElementById("metrics").innerHTML = h + "</tbody>";
+}
+
+window.addEventListener("load", async () => {
+  renderLadder();
+  renderSpacers();
+  renderGroups();
+  // measureText is meaningless until the face is actually loaded.
+  if (document.fonts) {
+    try { await document.fonts.load('40px "Bravura Text"'); } catch (e) { /* ignore */ }
+    await document.fonts.ready;
+  }
+  renderMetrics();
+  // Only Bravura Text is vendored; say so rather than let the Bravura rows lie.
+  if (!document.fonts || !document.fonts.check('40px "Bravura"')) {
+    document.getElementById("bravura-missing").hidden = false;
+  }
+});
+</script>
+</body>
+</html>

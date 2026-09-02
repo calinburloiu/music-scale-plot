@@ -73,19 +73,24 @@ const BYZ_GENERA = freezeTable([
 // the psaltic name is enough. Enharmonic and the three chroes are not: they
 // name a flavour, and a reader coming from Ottoman makam is likelier to know
 // them as Acem, Muştar, Nişabur and Hisar — so those four labels carry both.
+//
+// The degree is written Latinised — Ni, not Νη. A label is text a reader reads
+// and types into the picker's search field, and the row beside it already
+// draws the psaltic sign itself; the Greek spelling stays in BYZ_LETTERS,
+// where the martyria picker still shows it after the Latin name.
 const BYZ_FTHORES = freezeTable([
-  { id: "diatonicNiLow", index: 0, label: "Diatonic Νη (low)" },
-  { id: "diatonicPa", index: 1, label: "Diatonic Πα" },
-  { id: "diatonicVou", index: 2, label: "Diatonic Βου" },
-  { id: "diatonicGa", index: 3, label: "Diatonic Γα" },
-  { id: "diatonicDi", index: 4, label: "Diatonic Δι" },
-  { id: "diatonicKe", index: 5, label: "Diatonic Κε" },
-  { id: "diatonicZo", index: 6, label: "Diatonic Ζω" },
-  { id: "diatonicNiHigh", index: 7, label: "Diatonic Νη (high)" },
-  { id: "hardChromaticPa", index: 8, label: "Hard chromatic Πα" },
-  { id: "hardChromaticDi", index: 9, label: "Hard chromatic Δι" },
-  { id: "softChromaticDi", index: 10, label: "Soft chromatic Δι" },
-  { id: "softChromaticKe", index: 11, label: "Soft chromatic Κε" },
+  { id: "diatonicNiLow", index: 0, label: "Diatonic Ni (low)" },
+  { id: "diatonicPa", index: 1, label: "Diatonic Pa" },
+  { id: "diatonicVou", index: 2, label: "Diatonic Vou" },
+  { id: "diatonicGa", index: 3, label: "Diatonic Ga" },
+  { id: "diatonicDi", index: 4, label: "Diatonic Di" },
+  { id: "diatonicKe", index: 5, label: "Diatonic Ke" },
+  { id: "diatonicZo", index: 6, label: "Diatonic Zo" },
+  { id: "diatonicNiHigh", index: 7, label: "Diatonic Ni (high)" },
+  { id: "hardChromaticPa", index: 8, label: "Hard chromatic Pa" },
+  { id: "hardChromaticDi", index: 9, label: "Hard chromatic Di" },
+  { id: "softChromaticDi", index: 10, label: "Soft chromatic Di" },
+  { id: "softChromaticKe", index: 11, label: "Soft chromatic Ke" },
   { id: "enharmonic", index: 12, label: "Enharmonic (Acem)" },
   { id: "chroaZygos", index: 13, label: "Zygos (Muştar)" },
   { id: "chroaKliton", index: 14, label: "Kliton (Nişabur)" },
@@ -385,10 +390,10 @@ function clampLadderPosition(position, degree, degreeCount) {
 const BYZ_FONT_SIZE = 40;
 
 // The family name lives here and nowhere else in the JavaScript: every font
-// string the app uses — the chart's, and the one `loadByzantineFont` preloads
-// — is built by `byzantineFont()` from this constant. CSS cannot read it, so
-// `style.css` repeats the name; see docs/BYZANTINE-SYMBOLS.md §6 for the full
-// list of what a font swap touches.
+// string the app uses — the chart's, and one of the two faces `loadSymbolFonts`
+// preloads — is built by `byzantineFont()` from this constant. CSS cannot read
+// it, so `style.css` repeats the name; see docs/BYZANTINE-SYMBOLS.md §6 for the
+// full list of what a font swap touches.
 const BYZ_FONT_FAMILY = '"Neanes"';
 
 function byzantineFont(size) {
@@ -721,12 +726,15 @@ function martyriaInkRange(ctx, font) {
  * font and sat visibly wrong. The ink metrics are exactly proportional to the
  * font size, so measuring once at a nominal size and reporting em removes the
  * question: CSS resolves em against the size the box really renders at, whether
- * that is the well's 22px or a picker row's 24px, attached or not.
+ * that is the well's 34px or a picker row's 24px, attached or not — and it is
+ * also why one measurement serves two faces, so long as `font` names the one
+ * the box is actually drawn in.
  */
-function inkCenteringShiftEm(ctx, text, vAlign, range) {
-  const font = byzantineFont(BYZ_FONT_SIZE);
-  const shift = inkCenteringShift(ctx, text, font, vAlign, range);
-  return { dx: shift.dx / BYZ_FONT_SIZE, dy: shift.dy / BYZ_FONT_SIZE };
+function inkCenteringShiftEm(ctx, text, vAlign, range, font) {
+  const spec = font || byzantineFont(BYZ_FONT_SIZE);
+  const size = parseFloat(spec) || BYZ_FONT_SIZE;
+  const shift = inkCenteringShift(ctx, text, spec, vAlign, range);
+  return { dx: shift.dx / size, dy: shift.dy / size };
 }
 
 /**

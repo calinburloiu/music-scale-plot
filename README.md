@@ -6,7 +6,7 @@ Supports scales from various traditions including Byzantine/psaltic music, Ottom
 
 ## Usage
 
-Open `index.html` in a browser. No build step or server required. The page loads `style.css` and, in order, `byzantine.js`, `byzantine-ui.js` and `app.js` (all `defer`), from the same directory.
+Open `index.html` in a browser. No build step or server required. The page loads `style.css` and, in order, `byzantine.js`, `smufl.js`, `symbols-ui.js`, `byzantine-ui.js` and `app.js` (all `defer`), from the same directory.
 
 1. Use the scale editor to define notes and intervals.
 2. The chart updates in real-time as you type.
@@ -32,7 +32,18 @@ Apache License 2.0 — see [LICENSE](LICENSE).
 
 ### Third-party assets
 
-`fonts/Neanes.woff2` is **not** covered by the Apache-2.0 licence above. It is the
-[Neanes](https://github.com/neanes/sbmufl) Byzantine music font, Copyright (c) 2022, Daniel,
-licensed under the [SIL Open Font License 1.1](fonts/OFL.txt). See
-[fonts/README.md](fonts/README.md) for provenance and terms.
+`fonts/Neanes.woff2` and `fonts/BravuraText.woff2` are **not** covered by the Apache-2.0
+licence above.
+
+`fonts/Neanes.woff2` is the [Neanes](https://github.com/neanes/sbmufl) Byzantine music font,
+Copyright (c) 2022, Daniel, licensed under the [SIL Open Font License 1.1](fonts/OFL.txt).
+
+`fonts/BravuraText.woff2` is the [Bravura](https://github.com/steinbergmedia/bravura) SMuFL
+reference font (the *Text* optical variant), Copyright © 2026 Steinberg Media Technologies
+GmbH, licensed under the SIL Open Font License 1.1 **with Reserved Font Name "Bravura"**
+([fonts/Bravura-OFL.txt](fonts/Bravura-OFL.txt)). Because it declares a Reserved Font Name, it
+must **not** be modified, subsetted or re-converted while still calling itself "Bravura" — the
+vendored file is upstream's own woff2 build, byte for byte; see
+[fonts/README.md](fonts/README.md) for the sha256 and the full terms.
+
+See [fonts/README.md](fonts/README.md) for both fonts' provenance and terms.

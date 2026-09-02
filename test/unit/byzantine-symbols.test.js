@@ -129,6 +129,31 @@ test("the fthora vocabulary", async (t) => {
     assert.equal(h.app.byzFthoraById("nonesuch"), null);
   });
 
+  await t.test("names the degree a fthora sits on in Latin, not Greek", () => {
+    // The letters are Latinised everywhere a *name* is read rather than a
+    // glyph drawn: nobody types Πα into a search field, and the picker row
+    // already shows the psaltic sign itself beside the label.
+    const h = loadApp();
+    t.after(() => h.close());
+    const labelOf = (id) => h.app.byzFthoraById(id).label;
+
+    assert.equal(labelOf("diatonicNiLow"), "Diatonic Ni (low)");
+    assert.equal(labelOf("diatonicPa"), "Diatonic Pa");
+    assert.equal(labelOf("diatonicVou"), "Diatonic Vou");
+    assert.equal(labelOf("diatonicGa"), "Diatonic Ga");
+    assert.equal(labelOf("diatonicDi"), "Diatonic Di");
+    assert.equal(labelOf("diatonicKe"), "Diatonic Ke");
+    assert.equal(labelOf("diatonicZo"), "Diatonic Zo");
+    assert.equal(labelOf("diatonicNiHigh"), "Diatonic Ni (high)");
+    assert.equal(labelOf("hardChromaticPa"), "Hard chromatic Pa");
+    assert.equal(labelOf("hardChromaticDi"), "Hard chromatic Di");
+    assert.equal(labelOf("softChromaticDi"), "Soft chromatic Di");
+    assert.equal(labelOf("softChromaticKe"), "Soft chromatic Ke");
+
+    const greek = Array.from(h.app.BYZ_FTHORES).filter((f) => /[\u0370-\u03ff]/.test(f.label));
+    assert.deepEqual(greek.map((f) => f.id), [], "no fthora label may carry a Greek letter");
+  });
+
   await t.test("names the four chroes by their makam equivalents too", () => {
     // Enharmonic and the three chroes are the fthores a reader is most likely
     // to know under an Ottoman name rather than a psaltic one, so each label
