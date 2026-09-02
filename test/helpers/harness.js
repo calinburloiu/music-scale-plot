@@ -387,6 +387,20 @@ function pickAlteration(harness, noteRow, alterationId) {
   pickSimpleSign(harness, noteRow, "alteration", alterationId);
 }
 
+function pickAccidental(harness, noteRow, accidentalId) {
+  pickSimpleSign(harness, noteRow, "accidental", accidentalId);
+}
+
+/**
+ * Opens a picker and types `query` into its search field, the way a user does.
+ * Returns the panel, so a test can go straight to counting what survived.
+ */
+function searchPicker(harness, noteRow, kind, query) {
+  const panel = openWell(harness, noteRow, kind);
+  typeInto(harness, panel.querySelector(".sym-search"), query);
+  return panel;
+}
+
 /**
  * Drives the martyria picker the way the UI is used: open it, click a letter in
  * the Notes column, then click a genus — the second click is what commits the
@@ -440,8 +454,10 @@ module.exports = {
   pickColor,
   openWell,
   pickAlteration,
+  pickAccidental,
   pickFthora,
   pickMartyria,
+  searchPicker,
   dismissPicker,
   measureTextWidth,
   measureTextInk,

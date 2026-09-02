@@ -65,9 +65,36 @@ const SYMBOL_WELLS = freezeTable([
   },
 ]);
 
-/** Built in Task 5. */
+/**
+ * None, then the whole SMuFL catalogue under 28 headings, with no rule.
+ *
+ * It lives here rather than in a notation's own file because it is not
+ * Byzantine, and it is three lines because the grouped builder does the work:
+ * a category is a group, an entry is an option, and the search comes free.
+ *
+ * 505 options are built and ink-measured on open — a thousand measureText calls
+ * on Blink and Gecko, milliseconds; on WebKit inkBox falls back to
+ * rasterise-and-scan, and 505 scans on first open may be visible. The results
+ * are cached by face and text, so only the first open pays. If it is slow
+ * enough to notice, render the category sections lazily as they scroll into
+ * view — nothing about the data model or the search changes if it comes to that.
+ */
 function buildAccidentalPicker(panel, row) {
-  throw new Error("buildAccidentalPicker: not implemented yet");
+  buildGroupedPicker(panel, {
+    kind: "accidental",
+    committed: row.dataset.accidental || "",
+    font: panelWell(panel).font,
+    separatorAfter: null,
+    groups: SMUFL_ACCIDENTAL_CATEGORIES.map((category) => ({
+      id: category.id,
+      title: category.title,
+      options: category.accidentals.map((accidental) => ({
+        id: accidental.id,
+        glyph: resolveAccidentalGlyphs(accidental.id),
+        label: accidental.label,
+      })),
+    })),
+  });
 }
 
 // Not a row of the table above (it has no single vocabulary and no single
