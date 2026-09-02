@@ -3,7 +3,15 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { loadApp, fireClick, noteRows } = require("../helpers/harness.js");
+const {
+  loadApp,
+  fireClick,
+  typeInto,
+  selectOption,
+  buildRelativeScale,
+  noteRows,
+  intervalRows,
+} = require("../helpers/harness.js");
 
 function toolbar(h) {
   return h.document.getElementById("toolbar");
@@ -179,5 +187,72 @@ test("the Scale Editor's own settings", async (t) => {
     const h = loadApp();
     t.after(() => h.close());
     assert.equal(h.document.getElementById("scale-name").value, "");
+  });
+});
+
+test("New", async (t) => {
+  await t.test("puts the whole page back to its defaults", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    selectOption(h, "interval-type", "edo");
+    selectOption(h, "scale-mode", "absolute");
+    selectOption(h, "notation", "byzantine");
+    selectOption(h, "chart-style", "lines");
+    typeInto(h, h.document.getElementById("scale-name"), "Hicaz");
+
+    fireClick(h, h.document.getElementById("new-file"));
+
+    const valueOf = (id) => h.document.getElementById(id).value;
+    assert.equal(valueOf("scale-name"), "", "the name is part of the reset");
+    assert.equal(valueOf("interval-type"), "ratio");
+    assert.equal(valueOf("scale-mode"), "relative");
+    assert.equal(valueOf("notation"), "generic");
+    assert.equal(valueOf("chart-style"), "boxes");
+    assert.equal(noteRows(h).length, 2);
+    assert.deepEqual(intervalRows(h).map((r) => r.querySelector(".interval").value), ["9/8"]);
+  });
+
+  await t.test("dismisses whatever the toolbar was saying", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    h.app.showToolbarMessage("Not a valid JSON file.");
+    assert.equal(h.document.getElementById("toolbar-message").hidden, false);
+
+    fireClick(h, h.document.getElementById("new-file"));
+    const message = h.document.getElementById("toolbar-message");
+    assert.equal(message.hidden, true);
+    assert.equal(message.textContent, "");
+  });
+
+  await t.test("discards a scale that was built up", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    buildRelativeScale(h, ["9/8", "10/9", "16/15"], { names: ["do", "re", "mi", "fa"] });
+    fireClick(h, h.document.getElementById("new-file"));
+
+    assert.equal(noteRows(h).length, 2);
+    assert.deepEqual(noteRows(h).map((r) => r.querySelector(".note-name").value), ["", ""]);
+  });
+});
+
+test("the toolbar message bar", async (t) => {
+  await t.test("shows text and hides again when cleared", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const message = h.document.getElementById("toolbar-message");
+    h.app.showToolbarMessage("settings.baseNote must be a whole number from 0 to 11 (0 = C), got 12.");
+    assert.equal(message.hidden, false);
+    assert.equal(
+      message.textContent,
+      "settings.baseNote must be a whole number from 0 to 11 (0 = C), got 12."
+    );
+
+    h.app.clearToolbarMessage();
+    assert.equal(message.hidden, true);
+    assert.equal(message.textContent, "");
   });
 });

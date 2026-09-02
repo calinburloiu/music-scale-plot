@@ -37,3 +37,34 @@ saveMenuBtn.addEventListener("click", function (event) {
   closeAllDropdowns();
   toggleSaveMenu(!wasOpen);
 });
+
+// --- the message bar -------------------------------------------------------
+//
+// Where a rejected file says why. The bar is the only place the file flows
+// report anything: a bad document never reaches the editor, so there is
+// nothing on screen to show what went wrong.
+
+function showToolbarMessage(text) {
+  toolbarMessage.textContent = text;
+  toolbarMessage.hidden = false;
+}
+
+function clearToolbarMessage() {
+  toolbarMessage.textContent = "";
+  toolbarMessage.hidden = true;
+}
+
+// --- New -------------------------------------------------------------------
+
+/**
+ * initUI() is already both the startup path and the pageshow handler, and it
+ * is already exactly "as if you opened the page in a new private session" —
+ * every control back to its markup default and the editor rebuilt. New is that,
+ * plus dismissing anything the bar was still saying.
+ */
+function newScaleFile() {
+  clearToolbarMessage();
+  initUI();
+}
+
+newBtn.addEventListener("click", newScaleFile);
