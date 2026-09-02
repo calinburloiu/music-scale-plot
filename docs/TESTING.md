@@ -155,6 +155,7 @@ UI tests, and there will not be any.
 | Chart **geometry** | box heights proportional to cents, stacking order, canvas size, DPR scaling |
 | Audio parameters | oscillator type and frequency, envelope ramps |
 | Export | filename and that the full-resolution bitmap is exported |
+| **The order of a row's controls** | the wells on a note row, the swatch and label on an interval row — see below |
 
 ### Out of scope
 
@@ -164,9 +165,31 @@ UI tests, and there will not be any.
   the app's own logic depends on them (`.note-row`, `.interval-row`).
 - **Markup shape.** Tests do not assert on generated HTML strings. They assert
   on values read back through the DOM API — an input's `value`, a swatch's
-  `dataset.color`, a label's computed text.
+  `dataset.color`, a label's computed text. The order of a row's controls is
+  the one exception, for the reason below.
 - **Browser behaviour.** Real font metrics, real audio output, real downloads.
   Those are stubbed; see §5.
+
+### Why a row's control order is the exception
+
+It is the only place where tests compare a list of class names, so it needs
+saying why it is not the markup-shape assertion it looks like.
+
+**The note row's order is load-bearing.** `SYMBOL_WELLS` is the single source of
+truth for two things at once: `makeSymbolWellsHTML()` emits the wells onto a row
+in that order, and `signRunOf()` reads the same table for the order the chart
+draws the gutter run. The row and the chart are therefore two ends of one
+invariant, and a test that pins the row's order pins the contract the chart
+depends on. That is app logic, not appearance.
+
+**The interval row's order is the editor's half of the same contract.** The
+swatch sits before the label so that it lands under the leftmost well of the
+note row above it, and the two rows' clusters are built to the same total width.
+Only the *DOM order* is asserted; whether the columns actually line up on screen
+is CSS, stays out of scope, and is checked by eye (§3, Manual verification).
+
+Both are asserted through the DOM API on elements the app builds — never on an
+HTML string — and nowhere else does a test care what order children come in.
 
 ### Why chart geometry counts as functionality
 
