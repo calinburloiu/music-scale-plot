@@ -80,7 +80,7 @@ special-cases length.
 **Entries are per category.** The same codepoint therefore shows up as
 several entries with several labels — `U+E261` is `accidentalNatural`
 "Natural" in Standard accidentals, `raileanuNatural` "Natural" in Răileanu,
-and `sagittalEvoZero` "0 (natural)" in mixed Sagittal. That is exactly what
+and `sagittalEvoZero` "0 divisions natural" in mixed Sagittal. That is exactly what
 lets the picker re-open on the entry the user actually chose (§8), rather
 than on whichever category happens to list the glyph first.
 
@@ -185,7 +185,7 @@ they ship in `smufl.js` — 501 in all.
 |---:|---|---|---:|
 | 1 | Standard accidentals (12-EDO) | `U+E260`–`E26F` | 14 |
 | 2 | **Răileanu accidentals** | composed (§5) | 11 |
-| 3 | Arel-Ezgi-Uzdilek (AEU) accidentals | `U+E440`–`E44F` | 8 |
+| 3 | **Turkish Arel-Ezgi-Uzdilek (AEU) accidentals** | `U+E440`–`E44F` | 8 |
 | 4 | Turkish folk music accidentals | `U+E450`–`E45F` | 8 |
 | 5 | Arabic accidentals | `U+ED30`–`ED3F` | 9 |
 | 6 | Persian accidentals | `U+E460`–`E46F` | 2 |
@@ -250,17 +250,17 @@ codepoints, plus a natural and two glyphs borrowed from elsewhere:
 
 | id | label | codes |
 |---|---|---|
-| `raileanuMinusOneQuarterTone` | `−1/4 tone` | `U+E443` |
-| `raileanuMinusTwoQuarterTones` | `−2/4 tone` | `U+E442` |
-| `raileanuMinusThreeQuarterTones` | `−3/4 tone` | `U+E440` |
-| `raileanuMinusOneThirdTone` | `−1/3 tone` | `U+E441` |
-| `raileanuMinusTwoThirdsTone` | `−2/3 tone` | `U+E2F5` |
+| `raileanuMinusOneQuarterTone` | `−1/4 tone flat` | `U+E443` |
+| `raileanuMinusTwoQuarterTones` | `−2/4 tone flat` | `U+E442` |
+| `raileanuMinusThreeQuarterTones` | `−3/4 tone flat` | `U+E440` |
+| `raileanuMinusOneThirdTone` | `−1/3 tone flat` | `U+E441` |
+| `raileanuMinusTwoThirdsTone` | `−2/3 tone flat` | `U+E2F5` |
 | `raileanuNatural` | `Natural` | `U+E261` |
-| `raileanuPlusOneQuarterTone` | `+1/4 tone` | `U+E444` |
-| `raileanuPlusTwoQuarterTones` | `+2/4 tone` | `U+E445` |
-| `raileanuPlusThreeQuarterTones` | `+3/4 tone` | `U+E446` |
-| `raileanuPlusOneThirdTone` | `+1/3 tone` | `U+E274` |
-| `raileanuPlusTwoThirdsTone` | `+2/3 tone` | `U+E283` |
+| `raileanuPlusOneQuarterTone` | `+1/4 tone sharp` | `U+E444` |
+| `raileanuPlusTwoQuarterTones` | `+2/4 tone sharp` | `U+E445` |
+| `raileanuPlusThreeQuarterTones` | `+3/4 tone sharp` | `U+E446` |
+| `raileanuPlusOneThirdTone` | `+1/3 tone sharp` | `U+E274` |
+| `raileanuPlusTwoThirdsTone` | `+2/3 tone sharp` | `U+E283` |
 
 The natural is not in the client's original list — it was inserted at the
 zero point during design, the same decision that gave the mixed-Sagittal
@@ -275,12 +275,15 @@ this category would state a pitch the category does not mean — the entry's
 `label` describes what *this catalogue entry* means, which for the SMuFL
 ranges happens to be the SMuFL description and for Răileanu is not.
 
-**Accepted consequence:** because the words "flat" and "sharp" never appear
-in these eleven labels, a search for `flat` — `matchesQuery`/
-`normalizeForSearch` in `symbols-ui.js`, shared by every grouped picker —
-does not reach this category: the search matches an option's own label or
-its category's title, and neither says "flat" here. `răileanu`, `raileanu`
-(search is diacritic-folded), `tone`, `1/4` and `natural` all do reach it.
+**The direction word is there for the search.** The interval name says how far
+a sign moves a pitch but never which way, and `flat`/`sharp` are what a reader
+types into a picker of 501 entries. `matchesQuery`/`normalizeForSearch`
+(`symbols-ui.js`, shared by every grouped picker) match an option's own label
+or its category's title, so without the word this category was unreachable by
+the most obvious query there is. With it, `flat` reaches exactly the five
+lowering entries and `sharp` exactly the five raising ones — the natural
+matches neither, which is right. `răileanu`, `raileanu` (search is
+diacritic-folded), `tone`, `1/4` and `natural` all still reach it.
 
 ---
 
@@ -288,24 +291,27 @@ its category's title, and neither says "flat" here. `răileanu`, `raileanu`
 
 `sagittalMixedSymbolAccidentals72Edo` holds the thirteen degrees of 72-EDO in
 Sagittal's *Evo* (mixed-symbol) flavour — degrees are twelfths of a tone, so
-±6 is a semitone, which is why the outer two entries carry a parenthesised
-♭/♯ and the middle one `(natural)`:
+±6 is a semitone. A label names the unit the number counts and ends in its
+direction, for the same reason Răileanu's do (§5): a bare `−3` says neither
+what it counts nor which way it moves, and matches no query a reader would
+think to type. `division` reaches all thirteen, `flat` the six below the
+natural and `sharp` the six above:
 
 | id | label | codes |
 |---|---|---|
-| `sagittalEvoMinus6` | `−6 (flat)` | `U+E260` |
-| `sagittalEvoMinus5` | `−5` | `U+E302` `U+0020` `U+E260` |
-| `sagittalEvoMinus4` | `−4` | `U+E304` `U+0020` `U+E260` |
-| `sagittalEvoMinus3` | `−3` | `U+E30B` |
-| `sagittalEvoMinus2` | `−2` | `U+E305` |
-| `sagittalEvoMinus1` | `−1` | `U+E303` |
-| `sagittalEvoZero` | `0 (natural)` | `U+E261` |
-| `sagittalEvoPlus1` | `+1` | `U+E302` |
-| `sagittalEvoPlus2` | `+2` | `U+E304` |
-| `sagittalEvoPlus3` | `+3` | `U+E30A` |
-| `sagittalEvoPlus4` | `+4` | `U+E305` `U+0020` `U+E262` |
-| `sagittalEvoPlus5` | `+5` | `U+E303` `U+0020` `U+E262` |
-| `sagittalEvoPlus6` | `+6 (sharp)` | `U+E262` |
+| `sagittalEvoMinus6` | `−6 divisions flat` | `U+E260` |
+| `sagittalEvoMinus5` | `−5 divisions flat` | `U+E302` `U+0020` `U+E260` |
+| `sagittalEvoMinus4` | `−4 divisions flat` | `U+E304` `U+0020` `U+E260` |
+| `sagittalEvoMinus3` | `−3 divisions flat` | `U+E30B` |
+| `sagittalEvoMinus2` | `−2 divisions flat` | `U+E305` |
+| `sagittalEvoMinus1` | `−1 division flat` | `U+E303` |
+| `sagittalEvoZero` | `0 divisions natural` | `U+E261` |
+| `sagittalEvoPlus1` | `+1 division sharp` | `U+E302` |
+| `sagittalEvoPlus2` | `+2 divisions sharp` | `U+E304` |
+| `sagittalEvoPlus3` | `+3 divisions sharp` | `U+E30A` |
+| `sagittalEvoPlus4` | `+4 divisions sharp` | `U+E305` `U+0020` `U+E262` |
+| `sagittalEvoPlus5` | `+5 divisions sharp` | `U+E303` `U+0020` `U+E262` |
+| `sagittalEvoPlus6` | `+6 divisions sharp` | `U+E262` |
 
 Four of the thirteen are a two-glyph sequence — a single-shaft Sagittal
 symbol, then `U+0020`, then the ordinary ♭ or ♯ it adjusts. **`U+0020` is

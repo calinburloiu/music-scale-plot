@@ -50,27 +50,33 @@ const glyphnames = readMetadata("glyphnames.json");
 // names and not SMuFL's descriptions, because this category *redefines* two of
 // the glyphs it borrows — U+E274 is SMuFL's "Three-quarter-tones sharp" but
 // Răileanu's +1/3 tone, and U+E2F5 is "Lower by one equal tempered
-// quarter-tone" but Răileanu's −2/3 tone.
+// quarter-tone" but Răileanu's −2/3 tone. Each label ends in its direction —
+// "flat" or "sharp" — because those are the words a reader searches a picker
+// of 501 accidentals with, and the interval name alone says neither.
 const RAILEANU = {
   id: "raileanuAccidentals",
   title: "Răileanu accidentals",
   accidentals: [
-    ["raileanuMinusOneQuarterTone", [0xe443], "−1/4 tone"],
-    ["raileanuMinusTwoQuarterTones", [0xe442], "−2/4 tone"],
-    ["raileanuMinusThreeQuarterTones", [0xe440], "−3/4 tone"],
-    ["raileanuMinusOneThirdTone", [0xe441], "−1/3 tone"],
-    ["raileanuMinusTwoThirdsTone", [0xe2f5], "−2/3 tone"],
+    ["raileanuMinusOneQuarterTone", [0xe443], "−1/4 tone flat"],
+    ["raileanuMinusTwoQuarterTones", [0xe442], "−2/4 tone flat"],
+    ["raileanuMinusThreeQuarterTones", [0xe440], "−3/4 tone flat"],
+    ["raileanuMinusOneThirdTone", [0xe441], "−1/3 tone flat"],
+    ["raileanuMinusTwoThirdsTone", [0xe2f5], "−2/3 tone flat"],
     ["raileanuNatural", [0xe261], "Natural"],
-    ["raileanuPlusOneQuarterTone", [0xe444], "+1/4 tone"],
-    ["raileanuPlusTwoQuarterTones", [0xe445], "+2/4 tone"],
-    ["raileanuPlusThreeQuarterTones", [0xe446], "+3/4 tone"],
-    ["raileanuPlusOneThirdTone", [0xe274], "+1/3 tone"],
-    ["raileanuPlusTwoThirdsTone", [0xe283], "+2/3 tone"],
+    ["raileanuPlusOneQuarterTone", [0xe444], "+1/4 tone sharp"],
+    ["raileanuPlusTwoQuarterTones", [0xe445], "+2/4 tone sharp"],
+    ["raileanuPlusThreeQuarterTones", [0xe446], "+3/4 tone sharp"],
+    ["raileanuPlusOneThirdTone", [0xe274], "+1/3 tone sharp"],
+    ["raileanuPlusTwoThirdsTone", [0xe283], "+2/3 tone sharp"],
   ],
 };
 
 // The thirteen degrees of 72-EDO in the Sagittal Evo (mixed-symbol) flavour,
-// from the Sagittal paper p. 4, Figure 2, last row. Evo keeps ♯ and ♭ and puts
+// from the Sagittal paper p. 4, Figure 2, last row. A label names the unit the
+// number counts ("divisions" of the octave, ±6 of them to the semitone) and
+// ends in its direction, so neither has to be inferred from a bare "−3" — and
+// so a search for "flat", "sharp" or "division" reaches the ladder at all.
+// Evo keeps ♯ and ♭ and puts
 // a single-shaft sagittal to their left; SMuFL precomposes the Revo flavour
 // only, so four of the thirteen are a sequence. U+0020 is Bravura Text's ½
 // staff space (100 units against a 200-unit staff space) — SMuFL sets zero side
@@ -79,19 +85,19 @@ const SAGITTAL_EVO = {
   id: "sagittalMixedSymbolAccidentals72Edo",
   title: "Mixed-symbol Sagittal accidentals (72-EDO)",
   accidentals: [
-    ["sagittalEvoMinus6", [0xe260], "−6 (flat)"],
-    ["sagittalEvoMinus5", [0xe302, 0x0020, 0xe260], "−5"],
-    ["sagittalEvoMinus4", [0xe304, 0x0020, 0xe260], "−4"],
-    ["sagittalEvoMinus3", [0xe30b], "−3"],
-    ["sagittalEvoMinus2", [0xe305], "−2"],
-    ["sagittalEvoMinus1", [0xe303], "−1"],
-    ["sagittalEvoZero", [0xe261], "0 (natural)"],
-    ["sagittalEvoPlus1", [0xe302], "+1"],
-    ["sagittalEvoPlus2", [0xe304], "+2"],
-    ["sagittalEvoPlus3", [0xe30a], "+3"],
-    ["sagittalEvoPlus4", [0xe305, 0x0020, 0xe262], "+4"],
-    ["sagittalEvoPlus5", [0xe303, 0x0020, 0xe262], "+5"],
-    ["sagittalEvoPlus6", [0xe262], "+6 (sharp)"],
+    ["sagittalEvoMinus6", [0xe260], "−6 divisions flat"],
+    ["sagittalEvoMinus5", [0xe302, 0x0020, 0xe260], "−5 divisions flat"],
+    ["sagittalEvoMinus4", [0xe304, 0x0020, 0xe260], "−4 divisions flat"],
+    ["sagittalEvoMinus3", [0xe30b], "−3 divisions flat"],
+    ["sagittalEvoMinus2", [0xe305], "−2 divisions flat"],
+    ["sagittalEvoMinus1", [0xe303], "−1 division flat"],
+    ["sagittalEvoZero", [0xe261], "0 divisions natural"],
+    ["sagittalEvoPlus1", [0xe302], "+1 division sharp"],
+    ["sagittalEvoPlus2", [0xe304], "+2 divisions sharp"],
+    ["sagittalEvoPlus3", [0xe30a], "+3 divisions sharp"],
+    ["sagittalEvoPlus4", [0xe305, 0x0020, 0xe262], "+4 divisions sharp"],
+    ["sagittalEvoPlus5", [0xe303, 0x0020, 0xe262], "+5 divisions sharp"],
+    ["sagittalEvoPlus6", [0xe262], "+6 divisions sharp"],
   ],
 };
 
@@ -103,7 +109,14 @@ const SAGITTAL_EVO = {
 const CATALOGUE = [
   { range: "standardAccidentals12Edo" },
   { custom: RAILEANU },
-  { range: "arelEzgiUzdilekAeuAccidentals" },
+  // SMuFL calls this range "Arel-Ezgi-Uzdilek (AEU) accidentals" and never says
+  // whose music it is. It is the Turkish classical system, so the word goes in
+  // the title — the one a reader types to find it, and the one that puts it
+  // beside Turkish folk music where it belongs.
+  {
+    range: "arelEzgiUzdilekAeuAccidentals",
+    title: "Turkish Arel-Ezgi-Uzdilek (AEU) accidentals",
+  },
   { range: "turkishFolkMusicAccidentals" },
   { range: "arabicAccidentals" },
   { range: "persianAccidentals" },
@@ -131,12 +144,13 @@ const CATALOGUE = [
   { range: "otherAccidentalsSupplement" },
 ];
 
-function categoryFromRange(key) {
+function categoryFromRange(key, title) {
   const range = ranges[key];
   if (!range) throw new Error(`Unknown SMuFL range: ${key}`);
   return {
     id: key,
-    title: range.description,
+    // The range's own description, unless CATALOGUE overrides it.
+    title: title || range.description,
     // A category keeps the range's own glyph order, and each entry's label is
     // the glyphnames.json description verbatim — the text the SMuFL tables
     // show, so a reader who knows them recognises the row. Codepoints inside a
@@ -158,7 +172,7 @@ function categoryFromRange(key) {
 }
 
 const categories = CATALOGUE.map((entry) =>
-  entry.custom ? entry.custom : categoryFromRange(entry.range)
+  entry.custom ? entry.custom : categoryFromRange(entry.range, entry.title)
 );
 
 const hex = (code) => "0x" + code.toString(16).padStart(4, "0");

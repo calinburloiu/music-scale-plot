@@ -12,9 +12,9 @@
 //
 // Entries are per category, so the same codepoint appears as several entries
 // with several labels — U+E261 is "Natural" in Standard, "Natural" in Răileanu
-// and "0 (natural)" in mixed Sagittal. That is what lets a picker re-open on the
-// entry the user actually chose. Ids are unique across the whole catalogue: for
-// the 26 SMuFL ranges the id *is* the canonical glyph name.
+// and "0 divisions natural" in mixed Sagittal. That is what lets a picker
+// re-open on the entry the user actually chose. Ids are unique across the whole
+// catalogue: for the 26 SMuFL ranges the id *is* the canonical glyph name.
 
 // The family name lives here and nowhere else in the JavaScript: every font
 // string the app uses for an accidental is built by smuflFont() from this
@@ -59,22 +59,22 @@ const SMUFL_ACCIDENTAL_CATEGORIES = freezeTable([
     id: "raileanuAccidentals",
     title: "Răileanu accidentals",
     accidentals: freezeTable([
-      { id: "raileanuMinusOneQuarterTone", codes: Object.freeze([0xe443]), label: "−1/4 tone" },
-      { id: "raileanuMinusTwoQuarterTones", codes: Object.freeze([0xe442]), label: "−2/4 tone" },
-      { id: "raileanuMinusThreeQuarterTones", codes: Object.freeze([0xe440]), label: "−3/4 tone" },
-      { id: "raileanuMinusOneThirdTone", codes: Object.freeze([0xe441]), label: "−1/3 tone" },
-      { id: "raileanuMinusTwoThirdsTone", codes: Object.freeze([0xe2f5]), label: "−2/3 tone" },
+      { id: "raileanuMinusOneQuarterTone", codes: Object.freeze([0xe443]), label: "−1/4 tone flat" },
+      { id: "raileanuMinusTwoQuarterTones", codes: Object.freeze([0xe442]), label: "−2/4 tone flat" },
+      { id: "raileanuMinusThreeQuarterTones", codes: Object.freeze([0xe440]), label: "−3/4 tone flat" },
+      { id: "raileanuMinusOneThirdTone", codes: Object.freeze([0xe441]), label: "−1/3 tone flat" },
+      { id: "raileanuMinusTwoThirdsTone", codes: Object.freeze([0xe2f5]), label: "−2/3 tone flat" },
       { id: "raileanuNatural", codes: Object.freeze([0xe261]), label: "Natural" },
-      { id: "raileanuPlusOneQuarterTone", codes: Object.freeze([0xe444]), label: "+1/4 tone" },
-      { id: "raileanuPlusTwoQuarterTones", codes: Object.freeze([0xe445]), label: "+2/4 tone" },
-      { id: "raileanuPlusThreeQuarterTones", codes: Object.freeze([0xe446]), label: "+3/4 tone" },
-      { id: "raileanuPlusOneThirdTone", codes: Object.freeze([0xe274]), label: "+1/3 tone" },
-      { id: "raileanuPlusTwoThirdsTone", codes: Object.freeze([0xe283]), label: "+2/3 tone" },
+      { id: "raileanuPlusOneQuarterTone", codes: Object.freeze([0xe444]), label: "+1/4 tone sharp" },
+      { id: "raileanuPlusTwoQuarterTones", codes: Object.freeze([0xe445]), label: "+2/4 tone sharp" },
+      { id: "raileanuPlusThreeQuarterTones", codes: Object.freeze([0xe446]), label: "+3/4 tone sharp" },
+      { id: "raileanuPlusOneThirdTone", codes: Object.freeze([0xe274]), label: "+1/3 tone sharp" },
+      { id: "raileanuPlusTwoThirdsTone", codes: Object.freeze([0xe283]), label: "+2/3 tone sharp" },
     ]),
   },
   {
     id: "arelEzgiUzdilekAeuAccidentals",
-    title: "Arel-Ezgi-Uzdilek (AEU) accidentals",
+    title: "Turkish Arel-Ezgi-Uzdilek (AEU) accidentals",
     accidentals: freezeTable([
       { id: "accidentalBuyukMucennebFlat", codes: Object.freeze([0xe440]), label: "Büyük mücenneb (flat)" },
       { id: "accidentalKucukMucennebFlat", codes: Object.freeze([0xe441]), label: "Küçük mücenneb (flat)" },
@@ -127,19 +127,19 @@ const SMUFL_ACCIDENTAL_CATEGORIES = freezeTable([
     id: "sagittalMixedSymbolAccidentals72Edo",
     title: "Mixed-symbol Sagittal accidentals (72-EDO)",
     accidentals: freezeTable([
-      { id: "sagittalEvoMinus6", codes: Object.freeze([0xe260]), label: "−6 (flat)" },
-      { id: "sagittalEvoMinus5", codes: Object.freeze([0xe302, 0x0020, 0xe260]), label: "−5" },
-      { id: "sagittalEvoMinus4", codes: Object.freeze([0xe304, 0x0020, 0xe260]), label: "−4" },
-      { id: "sagittalEvoMinus3", codes: Object.freeze([0xe30b]), label: "−3" },
-      { id: "sagittalEvoMinus2", codes: Object.freeze([0xe305]), label: "−2" },
-      { id: "sagittalEvoMinus1", codes: Object.freeze([0xe303]), label: "−1" },
-      { id: "sagittalEvoZero", codes: Object.freeze([0xe261]), label: "0 (natural)" },
-      { id: "sagittalEvoPlus1", codes: Object.freeze([0xe302]), label: "+1" },
-      { id: "sagittalEvoPlus2", codes: Object.freeze([0xe304]), label: "+2" },
-      { id: "sagittalEvoPlus3", codes: Object.freeze([0xe30a]), label: "+3" },
-      { id: "sagittalEvoPlus4", codes: Object.freeze([0xe305, 0x0020, 0xe262]), label: "+4" },
-      { id: "sagittalEvoPlus5", codes: Object.freeze([0xe303, 0x0020, 0xe262]), label: "+5" },
-      { id: "sagittalEvoPlus6", codes: Object.freeze([0xe262]), label: "+6 (sharp)" },
+      { id: "sagittalEvoMinus6", codes: Object.freeze([0xe260]), label: "−6 divisions flat" },
+      { id: "sagittalEvoMinus5", codes: Object.freeze([0xe302, 0x0020, 0xe260]), label: "−5 divisions flat" },
+      { id: "sagittalEvoMinus4", codes: Object.freeze([0xe304, 0x0020, 0xe260]), label: "−4 divisions flat" },
+      { id: "sagittalEvoMinus3", codes: Object.freeze([0xe30b]), label: "−3 divisions flat" },
+      { id: "sagittalEvoMinus2", codes: Object.freeze([0xe305]), label: "−2 divisions flat" },
+      { id: "sagittalEvoMinus1", codes: Object.freeze([0xe303]), label: "−1 division flat" },
+      { id: "sagittalEvoZero", codes: Object.freeze([0xe261]), label: "0 divisions natural" },
+      { id: "sagittalEvoPlus1", codes: Object.freeze([0xe302]), label: "+1 division sharp" },
+      { id: "sagittalEvoPlus2", codes: Object.freeze([0xe304]), label: "+2 divisions sharp" },
+      { id: "sagittalEvoPlus3", codes: Object.freeze([0xe30a]), label: "+3 divisions sharp" },
+      { id: "sagittalEvoPlus4", codes: Object.freeze([0xe305, 0x0020, 0xe262]), label: "+4 divisions sharp" },
+      { id: "sagittalEvoPlus5", codes: Object.freeze([0xe303, 0x0020, 0xe262]), label: "+5 divisions sharp" },
+      { id: "sagittalEvoPlus6", codes: Object.freeze([0xe262]), label: "+6 divisions sharp" },
     ]),
   },
   {

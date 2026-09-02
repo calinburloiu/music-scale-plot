@@ -67,7 +67,7 @@ test("the accidentals picker", async (t) => {
       String.fromCharCode(0xe305, 0x0020, 0xe262),
       "a composed accidental previews whole, spacer included"
     );
-    assert.equal(option.querySelector(".sym-label").textContent, "+4");
+    assert.equal(option.querySelector(".sym-label").textContent, "+4 divisions sharp");
 
     // The same codepoint, a different category, a different label.
     assert.equal(
@@ -185,18 +185,48 @@ test("searching the accidentals picker", async (t) => {
     const panel = searchPicker(h, noteRows(h)[0], "accidental", "flat");
     const visible = visibleOptions(panel);
 
-    assert.equal(visible.length, 156, "every option whose label says flat, and no other");
-    assert.equal(visibleCategories(panel).length, 18, "each under its own category heading");
+    assert.equal(visible.length, 166, "every option whose label says flat, and no other");
+    assert.equal(visibleCategories(panel).length, 19, "each under its own category heading");
     for (const option of visible) {
       assert.match(option.querySelector(".sym-label").textContent, /flat/i);
     }
-    // The known, accepted consequence of labelling Răileanu by interval rather
-    // than by SMuFL's description: the word "flat" never appears there.
-    assert.equal(
-      panel.querySelectorAll('.accidental-option[data-group-of="raileanuAccidentals"]:not([hidden])')
-        .length,
-      0
+  });
+
+  await t.test("reaches the Răileanu flats, and only its flats, for `flat`", () => {
+    // Răileanu's labels are interval names, so the direction word is the only
+    // thing in them a reader searching for a flat would type.
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const panel = searchPicker(h, noteRows(h)[0], "accidental", "flat");
+
+    assert.deepEqual(
+      [
+        ...panel.querySelectorAll(
+          '.accidental-option[data-group-of="raileanuAccidentals"]:not([hidden])'
+        ),
+      ].map((option) => option.dataset.accidental),
+      [
+        "raileanuMinusOneQuarterTone",
+        "raileanuMinusTwoQuarterTones",
+        "raileanuMinusThreeQuarterTones",
+        "raileanuMinusOneThirdTone",
+        "raileanuMinusTwoThirdsTone",
+      ],
+      "the five lowering entries, and neither the natural nor a sharp"
     );
+  });
+
+  await t.test("reaches the whole Evo ladder for `division`", () => {
+    // Its labels count 72-EDO divisions, so the unit is the word that says
+    // what the numbers in them mean.
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const panel = searchPicker(h, noteRows(h)[0], "accidental", "division");
+
+    assert.deepEqual(visibleCategories(panel), ["sagittalMixedSymbolAccidentals72Edo"]);
+    assert.equal(visibleOptions(panel).length, 13, "all thirteen degrees, singular −1 and +1 included");
   });
 
   await t.test("narrows to the quarter-tone flats for `quarter flat`", () => {
@@ -213,14 +243,19 @@ test("searching the accidentals picker", async (t) => {
     }
   });
 
-  await t.test("folds diacritics, so `ţurkish` reaches the Turkish category", () => {
+  await t.test("folds diacritics, so `ţurkish` reaches both Turkish categories", () => {
+    // Arel-Ezgi-Uzdilek is the Turkish classical system; its own name says so
+    // nowhere, which is why the word is in the category's title.
     const h = loadApp();
     t.after(() => h.close());
 
     const panel = searchPicker(h, noteRows(h)[0], "accidental", "ţurkish");
 
-    assert.deepEqual(visibleCategories(panel), ["turkishFolkMusicAccidentals"]);
-    assert.equal(visibleOptions(panel).length, 8, "a title match shows the category entire");
+    assert.deepEqual(visibleCategories(panel), [
+      "arelEzgiUzdilekAeuAccidentals",
+      "turkishFolkMusicAccidentals",
+    ]);
+    assert.equal(visibleOptions(panel).length, 16, "a title match shows each category entire");
   });
 
   await t.test("finds Răileanu from ASCII, and by an interval name", () => {

@@ -11,7 +11,7 @@ const { loadApp } = require("../helpers/harness.js");
 const CATALOGUE = [
   ["standardAccidentals12Edo", "Standard accidentals (12-EDO)", 14, 0xe260, 0xe26d],
   ["raileanuAccidentals", "Răileanu accidentals", 11, 0xe443, 0xe283],
-  ["arelEzgiUzdilekAeuAccidentals", "Arel-Ezgi-Uzdilek (AEU) accidentals", 8, 0xe440, 0xe447],
+  ["arelEzgiUzdilekAeuAccidentals", "Turkish Arel-Ezgi-Uzdilek (AEU) accidentals", 8, 0xe440, 0xe447],
   ["turkishFolkMusicAccidentals", "Turkish folk music accidentals", 8, 0xe450, 0xe457],
   ["arabicAccidentals", "Arabic accidentals", 9, 0xed30, 0xed38],
   ["persianAccidentals", "Persian accidentals", 2, 0xe460, 0xe461],
@@ -124,7 +124,7 @@ test("the SMuFL accidental catalogue", async (t) => {
     // user actually chose rather than on the first category that draws the glyph.
     assert.equal(h.app.smuflAccidentalById("accidentalNatural").label, "Natural");
     assert.equal(h.app.smuflAccidentalById("raileanuNatural").label, "Natural");
-    assert.equal(h.app.smuflAccidentalById("sagittalEvoZero").label, "0 (natural)");
+    assert.equal(h.app.smuflAccidentalById("sagittalEvoZero").label, "0 divisions natural");
     for (const id of ["accidentalNatural", "raileanuNatural", "sagittalEvoZero"]) {
       assert.deepEqual(Array.from(h.app.smuflAccidentalById(id).codes), [0xe261]);
     }
@@ -138,17 +138,17 @@ test("the Răileanu accidentals", async (t) => {
   // one equal tempered quarter-tone" but Răileanu's −2/3 tone), so printing the
   // SMuFL text here would state a pitch the category does not mean.
   const RAILEANU = [
-    ["raileanuMinusOneQuarterTone", "−1/4 tone", 0xe443],
-    ["raileanuMinusTwoQuarterTones", "−2/4 tone", 0xe442],
-    ["raileanuMinusThreeQuarterTones", "−3/4 tone", 0xe440],
-    ["raileanuMinusOneThirdTone", "−1/3 tone", 0xe441],
-    ["raileanuMinusTwoThirdsTone", "−2/3 tone", 0xe2f5],
+    ["raileanuMinusOneQuarterTone", "−1/4 tone flat", 0xe443],
+    ["raileanuMinusTwoQuarterTones", "−2/4 tone flat", 0xe442],
+    ["raileanuMinusThreeQuarterTones", "−3/4 tone flat", 0xe440],
+    ["raileanuMinusOneThirdTone", "−1/3 tone flat", 0xe441],
+    ["raileanuMinusTwoThirdsTone", "−2/3 tone flat", 0xe2f5],
     ["raileanuNatural", "Natural", 0xe261],
-    ["raileanuPlusOneQuarterTone", "+1/4 tone", 0xe444],
-    ["raileanuPlusTwoQuarterTones", "+2/4 tone", 0xe445],
-    ["raileanuPlusThreeQuarterTones", "+3/4 tone", 0xe446],
-    ["raileanuPlusOneThirdTone", "+1/3 tone", 0xe274],
-    ["raileanuPlusTwoThirdsTone", "+2/3 tone", 0xe283],
+    ["raileanuPlusOneQuarterTone", "+1/4 tone sharp", 0xe444],
+    ["raileanuPlusTwoQuarterTones", "+2/4 tone sharp", 0xe445],
+    ["raileanuPlusThreeQuarterTones", "+3/4 tone sharp", 0xe446],
+    ["raileanuPlusOneThirdTone", "+1/3 tone sharp", 0xe274],
+    ["raileanuPlusTwoThirdsTone", "+2/3 tone sharp", 0xe283],
   ];
 
   await t.test("lists eleven entries, with the natural at the zero point", () => {
@@ -170,19 +170,19 @@ test("the mixed-symbol Sagittal accidentals", async (t) => {
   // Thirteen degrees of 72-EDO in the Evo flavour. SMuFL precomposes Revo only,
   // so ±4 and ±5 are a sagittal glyph, a U+0020 half-staff-space, then ♯ or ♭.
   const EVO = [
-    ["sagittalEvoMinus6", "−6 (flat)", [0xe260]],
-    ["sagittalEvoMinus5", "−5", [0xe302, 0x0020, 0xe260]],
-    ["sagittalEvoMinus4", "−4", [0xe304, 0x0020, 0xe260]],
-    ["sagittalEvoMinus3", "−3", [0xe30b]],
-    ["sagittalEvoMinus2", "−2", [0xe305]],
-    ["sagittalEvoMinus1", "−1", [0xe303]],
-    ["sagittalEvoZero", "0 (natural)", [0xe261]],
-    ["sagittalEvoPlus1", "+1", [0xe302]],
-    ["sagittalEvoPlus2", "+2", [0xe304]],
-    ["sagittalEvoPlus3", "+3", [0xe30a]],
-    ["sagittalEvoPlus4", "+4", [0xe305, 0x0020, 0xe262]],
-    ["sagittalEvoPlus5", "+5", [0xe303, 0x0020, 0xe262]],
-    ["sagittalEvoPlus6", "+6 (sharp)", [0xe262]],
+    ["sagittalEvoMinus6", "−6 divisions flat", [0xe260]],
+    ["sagittalEvoMinus5", "−5 divisions flat", [0xe302, 0x0020, 0xe260]],
+    ["sagittalEvoMinus4", "−4 divisions flat", [0xe304, 0x0020, 0xe260]],
+    ["sagittalEvoMinus3", "−3 divisions flat", [0xe30b]],
+    ["sagittalEvoMinus2", "−2 divisions flat", [0xe305]],
+    ["sagittalEvoMinus1", "−1 division flat", [0xe303]],
+    ["sagittalEvoZero", "0 divisions natural", [0xe261]],
+    ["sagittalEvoPlus1", "+1 division sharp", [0xe302]],
+    ["sagittalEvoPlus2", "+2 divisions sharp", [0xe304]],
+    ["sagittalEvoPlus3", "+3 divisions sharp", [0xe30a]],
+    ["sagittalEvoPlus4", "+4 divisions sharp", [0xe305, 0x0020, 0xe262]],
+    ["sagittalEvoPlus5", "+5 divisions sharp", [0xe303, 0x0020, 0xe262]],
+    ["sagittalEvoPlus6", "+6 divisions sharp", [0xe262]],
   ];
 
   await t.test("lists the thirteen degrees with their exact codepoint sequences", () => {
