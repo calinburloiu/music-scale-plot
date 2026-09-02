@@ -55,7 +55,15 @@ None of them names a codepoint. Codepoints live only in the resolvers (§4).
 - **`BYZ_NOTES`** — 21 letters (7 letters × low/mid/high octaves), ascending
   in pitch. The array **index is the note's ladder position** (see §5) and
   coincides with SBMuFL codepoint order, which is exactly why the resolver can
-  compute a codepoint by arithmetic instead of a lookup table.
+  compute a codepoint by arithmetic instead of a lookup table. Each row carries
+  both spellings of its letter, `latin` and `greek`; the martyria picker labels
+  a row `Pa (Πα)` — Latin first, because that is what a reader types and the
+  glyph beside it is already the psaltic letter. `BYZ_FTHORES` follows the same
+  rule with no gloss at all (`Diatonic Pa`, `Hard chromatic Di`). `BYZ_GENERA`
+  does **not**: its labels still read `Ζω (diatonic)`, `Hard chromatic Πα` and
+  so on. That is the one place the two spellings still disagree, and it is
+  visible in the martyria picker, whose Genus column sits beside a Notes column
+  that now leads with the Latin name.
 - **`BYZ_GENERA`** — 12 genus (ichos) signs, in SBMuFL block order. Each row's
   `index` is the offset within that block; the resolver adds it to whichever
   register base applies (§4).

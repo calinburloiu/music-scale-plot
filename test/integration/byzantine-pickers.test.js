@@ -482,7 +482,7 @@ test("the martyria picker: the Notes column", async (t) => {
     );
   });
 
-  await t.test("shows the bare letter and its Greek and Latin name", () => {
+  await t.test("shows the bare letter and its Latin name, with the Greek after it", () => {
     const h = byzantineApp(t);
     const panel = openWell(h, noteRows(h)[0], "martyria");
 
@@ -492,7 +492,11 @@ test("the martyria picker: the Notes column", async (t) => {
       h.app.resolveMartyriaGlyphs("midPa", h.app.GENUS_NONE, 0),
       "the Notes column previews the letter without a genus"
     );
-    assert.equal(option.querySelector(".sym-label").textContent, "Πα Pa");
+    assert.equal(
+      option.querySelector(".sym-label").textContent,
+      "Pa (Πα)",
+      "the name a reader types comes first; the Greek is the gloss"
+    );
   });
 
   await t.test("disables the positions that would not leave room for the whole scale", () => {

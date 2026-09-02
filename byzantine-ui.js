@@ -205,7 +205,9 @@ function buildNotesColumn(degree, degreeCount, draft, showTicks) {
         className: "martyria-note-option",
         data: { note: note.id, ticks: String(group.ticks) },
         glyph: resolveMartyriaGlyphs(note.id, GENUS_NONE, group.ticks),
-        label: note.greek + " " + note.latin,
+        // Latin first: it is what a reader types, and the glyph beside it is
+        // already the psaltic letter. The Greek spelling follows as a gloss.
+        label: note.latin + " (" + note.greek + ")",
         disabled: !isLadderPositionLegal(position, degree, degreeCount),
       });
       if (draft && draft.note === note.id && draft.ticks === group.ticks) {

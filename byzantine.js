@@ -73,19 +73,24 @@ const BYZ_GENERA = freezeTable([
 // the psaltic name is enough. Enharmonic and the three chroes are not: they
 // name a flavour, and a reader coming from Ottoman makam is likelier to know
 // them as Acem, Muştar, Nişabur and Hisar — so those four labels carry both.
+//
+// The degree is written Latinised — Ni, not Νη. A label is text a reader reads
+// and types into the picker's search field, and the row beside it already
+// draws the psaltic sign itself; the Greek spelling stays in BYZ_LETTERS,
+// where the martyria picker still shows it after the Latin name.
 const BYZ_FTHORES = freezeTable([
-  { id: "diatonicNiLow", index: 0, label: "Diatonic Νη (low)" },
-  { id: "diatonicPa", index: 1, label: "Diatonic Πα" },
-  { id: "diatonicVou", index: 2, label: "Diatonic Βου" },
-  { id: "diatonicGa", index: 3, label: "Diatonic Γα" },
-  { id: "diatonicDi", index: 4, label: "Diatonic Δι" },
-  { id: "diatonicKe", index: 5, label: "Diatonic Κε" },
-  { id: "diatonicZo", index: 6, label: "Diatonic Ζω" },
-  { id: "diatonicNiHigh", index: 7, label: "Diatonic Νη (high)" },
-  { id: "hardChromaticPa", index: 8, label: "Hard chromatic Πα" },
-  { id: "hardChromaticDi", index: 9, label: "Hard chromatic Δι" },
-  { id: "softChromaticDi", index: 10, label: "Soft chromatic Δι" },
-  { id: "softChromaticKe", index: 11, label: "Soft chromatic Κε" },
+  { id: "diatonicNiLow", index: 0, label: "Diatonic Ni (low)" },
+  { id: "diatonicPa", index: 1, label: "Diatonic Pa" },
+  { id: "diatonicVou", index: 2, label: "Diatonic Vou" },
+  { id: "diatonicGa", index: 3, label: "Diatonic Ga" },
+  { id: "diatonicDi", index: 4, label: "Diatonic Di" },
+  { id: "diatonicKe", index: 5, label: "Diatonic Ke" },
+  { id: "diatonicZo", index: 6, label: "Diatonic Zo" },
+  { id: "diatonicNiHigh", index: 7, label: "Diatonic Ni (high)" },
+  { id: "hardChromaticPa", index: 8, label: "Hard chromatic Pa" },
+  { id: "hardChromaticDi", index: 9, label: "Hard chromatic Di" },
+  { id: "softChromaticDi", index: 10, label: "Soft chromatic Di" },
+  { id: "softChromaticKe", index: 11, label: "Soft chromatic Ke" },
   { id: "enharmonic", index: 12, label: "Enharmonic (Acem)" },
   { id: "chroaZygos", index: 13, label: "Zygos (Muştar)" },
   { id: "chroaKliton", index: 14, label: "Kliton (Nişabur)" },
