@@ -72,10 +72,18 @@ const NOTE_TEXT_HEIGHT = 28;
 
 let displayZoom = 1;
 let audioCtx = null;
-// Which vendored faces have resolved, by name. A readiness observable with no
-// production consumer by design — see docs/BYZANTINE-SYMBOLS.md §7. Per face,
-// because the faces fail independently and a missing Bravura Text says nothing
-// about whether Neanes arrived.
+// Which vendored faces have resolved, by name.
+//
+// A readiness observable with **no production consumer, by design**: nothing in
+// the five scripts reads it. It is here so a test — or a debugging session —
+// can ask "have the faces resolved yet?" without depending on timing. It
+// therefore looks exactly like dead code and is not. **Do not delete it**, and
+// do not wire it into the render path either: the redraw that follows the font
+// promises is what does the actual work, and this is a byproduct of it, not a
+// guard on it. docs/BYZANTINE-SYMBOLS.md §7 says the same at more length.
+//
+// Per face, because the faces fail independently — a missing Bravura Text says
+// nothing about whether Neanes arrived.
 const symbolFontsReady = { Neanes: false, "Bravura Text": false };
 
 function getAudioContext() {

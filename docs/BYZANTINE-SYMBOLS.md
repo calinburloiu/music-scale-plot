@@ -370,7 +370,9 @@ production consumer** — nothing in `app.js`, `byzantine.js`, `smufl.js`,
 future debugging session) can ask "have the faces resolved yet?" without
 depending on timing. Do not "clean it up" as dead code, and do not wire it
 into the render path — the redraw that follows the font promises is what does
-the actual work; the record is a byproduct of it, not a guard on it.
+the actual work; the record is a byproduct of it, not a guard on it. That
+warning is repeated at the declaration in `app.js`, because a reader deciding
+whether to delete an unread variable is looking at the code, not at this file.
 
 It is **per face** rather than one boolean over all of them. The faces fail
 independently, and the whole point of §7's per-name warning is that one
