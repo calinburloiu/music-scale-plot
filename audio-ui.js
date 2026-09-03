@@ -72,6 +72,15 @@ audioEditor.addEventListener("touchstart", handlePlayStart);
 document.addEventListener("mouseup", stopTone);
 document.addEventListener("touchend", stopTone);
 
+/**
+ * The current scale as a playback plan, in the reader's chosen base note —
+ * shared by playScale() and renderScaleWav() so both start from exactly the
+ * same schedule.
+ */
+function currentPlaybackPlan() {
+  return scalePlaybackPlan(scaleFrequencies(readScaleData(), getBaseFrequency()));
+}
+
 // --- the transport ---------------------------------------------------------
 
 const playScaleBtn = document.getElementById("play-scale");
@@ -103,7 +112,7 @@ function playScale() {
     return;
   }
 
-  const plan = scalePlaybackPlan(scaleFrequencies(readScaleData(), getBaseFrequency()));
+  const plan = currentPlaybackPlan();
   if (plan.length === 0) return;
 
   const ctx = getAudioContext();
@@ -203,7 +212,7 @@ function tickSoundingNote() {
  * the buffer's end, so nothing is cut off.
  */
 async function renderScaleWav() {
-  const plan = scalePlaybackPlan(scaleFrequencies(readScaleData(), getBaseFrequency()));
+  const plan = currentPlaybackPlan();
   const total = plan.length * QUARTER_SECONDS;
   const offline = new OfflineAudioContext(
     1,
