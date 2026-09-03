@@ -607,7 +607,10 @@ and writes a mono, 16-bit, 44.1 kHz WAV. `scheduleScale()` is shared by live
 playback and the render, the only difference being which context and destination
 it is handed — so the exported file is what the reader heard by construction,
 not because two implementations happen to agree. There is no scheduling lead
-offline: nothing can be late in a render that is not realtime.
+offline: nothing can be late in a render that is not realtime. The constructor is
+resolved as `OfflineAudioContext || webkitOfflineAudioContext`, the same fallback
+`getAudioContext()` makes for the online one: the two lost their prefix in the
+same Safari release, so a browser needing one needs the other.
 
 **The sample rate is fixed at 44100, not taken from the device's
 `AudioContext`** — the same principle `savePNG()` follows in re-rendering at

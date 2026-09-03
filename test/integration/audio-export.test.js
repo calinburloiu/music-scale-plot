@@ -36,6 +36,25 @@ test("rendering the scale offline", async (t) => {
     assert.equal(offline.length, Math.ceil(3 * h.app.QUARTER_SECONDS * 44100));
   });
 
+  await t.test("reaches Safari's prefixed constructor, like the online one does", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+
+    // getAudioContext() already falls back to webkitAudioContext; the two
+    // constructors went unprefixed in the same Safari release, so a browser
+    // that needs one needs the other. Standing this one up on the prefix alone
+    // is the only way to tell a resolved constructor from a bare reference.
+    const prefixed = h.window.OfflineAudioContext;
+    delete h.window.OfflineAudioContext;
+    h.window.webkitOfflineAudioContext = prefixed;
+
+    const bytes = await h.app.renderScaleWav();
+
+    assert.equal(h.offlineContexts.length, 1, "the render still happened");
+    assert.ok(bytes.length > 44, "and produced a file, not just a header");
+  });
+
   await t.test("starts at zero offline — nothing can be late in a render", async () => {
     const h = loadApp();
     t.after(() => h.close());

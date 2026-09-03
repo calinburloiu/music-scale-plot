@@ -368,7 +368,11 @@ function tickSoundingNote() {
 async function renderScaleWav() {
   const plan = currentPlaybackPlan();
   const total = plan.length * QUARTER_SECONDS;
-  const offline = new OfflineAudioContext(
+  // Resolved the same way getAudioContext() resolves the online one: the two
+  // constructors lost their prefix in the same Safari release, so a browser
+  // that needs the fallback for one needs it for the other.
+  const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  const offline = new OfflineCtx(
     1,
     Math.ceil(total * EXPORT_SAMPLE_RATE),
     EXPORT_SAMPLE_RATE
