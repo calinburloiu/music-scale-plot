@@ -211,6 +211,54 @@ test("escaping interval values that came from a file", async (t) => {
   // first caller that can pass an arbitrary string straight out of a file:
   // validateScaleDocument only requires an interval to be "a string or a
   // finite number" (persistence.js), with no character restrictions.
+  await t.test("commits each row's symbols in one repaint, not one per sign", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    setNotation(h, "byzantine");
+    buildRelativeScale(h, ["9/8", "9/8"]);
+    for (const row of noteRows(h)) {
+      pickAlteration(h, row, "diesis2");
+      pickFthora(h, row, "diatonicPa");
+      pickMartyria(h, row, { note: "midPa", genus: "alpha" });
+    }
+    // The ladder gives each row its own martyria note, so capture what the
+    // editor actually holds rather than assuming three identical rows.
+    const signature = (r) =>
+      [r.dataset.alteration, r.dataset.fthora, r.dataset.martyriaNote].join("|");
+    const before = noteRows(h).map(signature);
+
+    await saveScale(h);
+    const saved = savedScaleFile(h).text;
+
+    fireClick(h, h.document.getElementById("new-file"));
+    setNotation(h, "byzantine");
+
+    // The one place the amount of work *is* the behaviour. Each sanctioned
+    // writer repaints every well on its row, which is right for a picker
+    // changing one sign and wasteful when a whole row is set at once: four
+    // writes meant four full passes, three of them thrown away by the next.
+    let refreshes = 0;
+    const original = h.window.refreshNoteRowWells;
+    h.window.refreshNoteRowWells = function (row) {
+      refreshes++;
+      return original.call(this, row);
+    };
+    await pickScaleFile(h, saved);
+    h.window.refreshNoteRowWells = original;
+
+    const rows = noteRows(h);
+    assert.equal(rows.length, 3);
+    assert.equal(
+      refreshes,
+      rows.length * 2,
+      "each row should be painted once as it is built and once as its symbols land"
+    );
+
+    // And every row still ends up holding exactly what the file said.
+    assert.deepEqual(rows.map(signature), before, "the symbols must survive the round trip");
+  });
+
   await t.test("paints the chart once, and never from the scale it is replacing", async () => {
     const h = loadApp();
     t.after(() => h.close());

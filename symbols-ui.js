@@ -428,10 +428,51 @@ function readNoteSymbols(row) {
   return symbols;
 }
 
-/** Commits one simple well's sign to its row. `id` empty clears the well. */
-function writeNoteSign(row, kind, id) {
+/** Sets one simple well's data-* attribute. No repaint — see writeNoteSign. */
+function setNoteSignData(row, kind, id) {
   if (id) row.dataset[kind] = id;
   else delete row.dataset[kind];
+}
+
+/**
+ * Sets the martyria's three data-* attributes. No repaint, and no note clears
+ * all three: never leave an empty attribute behind for readNoteSymbols to step
+ * over. This file owns the martyria's attribute vocabulary because
+ * readNoteSymbols above reads it; byzantine-ui.js's writers wrap this.
+ */
+function setMartyriaData(row, noteId, genusId, ticks) {
+  if (!noteId) {
+    delete row.dataset.martyriaNote;
+    delete row.dataset.martyriaGenus;
+    delete row.dataset.martyriaTicks;
+    return;
+  }
+  row.dataset.martyriaNote = noteId;
+  row.dataset.martyriaGenus = genusId || GENUS_NONE;
+  row.dataset.martyriaTicks = String(ticks || 0);
+}
+
+/** Commits one simple well's sign to its row. `id` empty clears the well. */
+function writeNoteSign(row, kind, id) {
+  setNoteSignData(row, kind, id);
+  refreshNoteRowWells(row);
+}
+
+/**
+ * readNoteSymbols' inverse: commits a row's whole symbol set in one pass.
+ *
+ * The single-sign writers each end in refreshNoteRowWells(), which repaints
+ * *every* well on the row — it is not told which attribute changed. That is the
+ * right trade for a picker, where one gesture changes one sign. Setting a whole
+ * row through them instead costs one full pass per sign, all but the last
+ * immediately overwritten, and each pass re-measures every non-empty well's
+ * glyph on canvas to place its ink. Open sets four at once, so it takes this
+ * door: same attributes, same final paint, one pass.
+ */
+function writeNoteSymbols(row, symbols) {
+  for (const well of SYMBOL_WELLS) setNoteSignData(row, well.kind, symbols[well.kind] || "");
+  const martyria = symbols.martyria;
+  setMartyriaData(row, martyria ? martyria.note : "", martyria && martyria.genus, martyria && martyria.ticks);
   refreshNoteRowWells(row);
 }
 

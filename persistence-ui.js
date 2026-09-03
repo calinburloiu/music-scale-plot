@@ -268,13 +268,15 @@ function applyNoteState(row, note) {
   const nameInput = row.querySelector(".note-name");
   if (nameInput) nameInput.value = note.generic.name;
   // Through the sanctioned writers, so a well is painted exactly as a picker
-  // would have painted it.
-  writeNoteSign(row, "accidental", note.generic.accidental);
-  writeNoteSign(row, "alteration", note.byzantine.alteration);
-  writeNoteSign(row, "fthora", note.byzantine.fthora);
-  const martyria = note.byzantine.martyria;
-  if (martyria) writeMartyria(row, martyria.note, martyria.genus, martyria.ticks);
-  else clearMartyria(row);
+  // would have painted it — but the batch one, which sets all four attributes
+  // and repaints the row once. Written sign by sign this cost four full passes
+  // over every well, three of them thrown away by the next.
+  writeNoteSymbols(row, {
+    accidental: note.generic.accidental,
+    alteration: note.byzantine.alteration,
+    fthora: note.byzantine.fthora,
+    martyria: note.byzantine.martyria,
+  });
 }
 
 function applyIntervalState(row, properties) {

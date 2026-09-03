@@ -54,22 +54,14 @@ function writeMartyriaDraft(panel, noteId, genusId, ticks) {
 }
 
 function writeMartyria(row, noteId, genusId, ticks) {
-  // No note is no martyria: never leave an empty attribute behind for
-  // readNoteSymbols to step over.
-  if (!noteId) {
-    clearMartyria(row);
-    return;
-  }
-  row.dataset.martyriaNote = noteId;
-  row.dataset.martyriaGenus = genusId || GENUS_NONE;
-  row.dataset.martyriaTicks = String(ticks || 0);
+  // setMartyriaData keeps the "no note is no martyria" rule, so an empty noteId
+  // clears the row here exactly as clearMartyria would.
+  setMartyriaData(row, noteId, genusId, ticks);
   refreshNoteRowWells(row);
 }
 
 function clearMartyria(row) {
-  delete row.dataset.martyriaNote;
-  delete row.dataset.martyriaGenus;
-  delete row.dataset.martyriaTicks;
+  setMartyriaData(row, "");
   refreshNoteRowWells(row);
 }
 
