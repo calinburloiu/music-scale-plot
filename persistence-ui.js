@@ -106,6 +106,9 @@ toolbarMessageDismiss.addEventListener("click", clearToolbarMessage);
  * plus dismissing anything the bar was still saying.
  */
 function newScaleFile() {
+  // As if opened in a new private session: nothing from the old scale — audio
+  // included — may keep going into the fresh one.
+  stopScale();
   clearToolbarMessage();
   initUI();
 }
@@ -362,6 +365,10 @@ function loadScaleFileText(text) {
     return false;
   }
   applyDocumentState(result.doc);
+  // Both Open branches (the file-picker path and the fallback input) funnel
+  // through here, so one call covers both: the scale being replaced is the
+  // one whose audio, if any, must not keep sounding into the new one.
+  stopScale();
   clearToolbarMessage();
   return true;
 }

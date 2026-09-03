@@ -10,6 +10,7 @@ const {
   selectOption,
   typeInto,
   intervalRows,
+  pickScaleFile,
 } = require("../helpers/harness.js");
 const { closeTo, equalArray } = require("../helpers/assertions.js");
 
@@ -395,5 +396,54 @@ test("refusing to play an invalid scale", async (t) => {
 
     pressPlay(h);
     assert.equal(h.app.isScalePlaying(), true);
+  });
+});
+
+test("New and Open stop a playing scale", async (t) => {
+  await t.test("New stops playback, resets the transport and clears the highlight", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+
+    pressPlay(h);
+    h.audioContexts[0].currentTime = h.app.PLAYBACK_LEAD_SECONDS + 0.1;
+    h.app.updateSoundingNote();
+    assert.equal(h.app.isScalePlaying(), true, "sanity: the scale is playing");
+    assert.equal(soundingDegree(h), 1, "sanity: something is lit before New runs");
+
+    fireClick(h, h.document.getElementById("new-file"));
+
+    assert.equal(h.app.isScalePlaying(), false, "New must stop the old melody");
+    assert.equal(h.document.getElementById("play-scale").disabled, false, "Play is idle again");
+    assert.equal(h.document.getElementById("stop-scale").disabled, true, "Stop is idle again");
+    assert.equal(
+      h.all("#editor .play-note.sounding").length,
+      0,
+      "no row of the brand-new scale is lit"
+    );
+  });
+
+  await t.test("Open stops playback, resets the transport and clears the highlight", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const blankDocument = h.app.serializeScaleDocument(h.app.collectDocumentState());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+
+    pressPlay(h);
+    h.audioContexts[0].currentTime = h.app.PLAYBACK_LEAD_SECONDS + 0.1;
+    h.app.updateSoundingNote();
+    assert.equal(h.app.isScalePlaying(), true, "sanity: the scale is playing");
+    assert.equal(soundingDegree(h), 1, "sanity: something is lit before Open runs");
+
+    await pickScaleFile(h, blankDocument);
+
+    assert.equal(h.app.isScalePlaying(), false, "Open must stop the old melody");
+    assert.equal(h.document.getElementById("play-scale").disabled, false, "Play is idle again");
+    assert.equal(h.document.getElementById("stop-scale").disabled, true, "Stop is idle again");
+    assert.equal(
+      h.all("#editor .play-note.sounding").length,
+      0,
+      "no row of the opened scale is lit"
+    );
   });
 });
