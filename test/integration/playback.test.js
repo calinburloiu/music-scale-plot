@@ -447,3 +447,43 @@ test("New and Open stop a playing scale", async (t) => {
     );
   });
 });
+
+test("stopping the scale cancels the pending highlight frame", async (t) => {
+  await t.test("a deliberate Stop leaves no further tick scheduled", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+
+    // Wraps the real tickSoundingNote so every invocation is counted, whether
+    // it comes from the frame playScale() first schedules or from one it
+    // reschedules itself — jsdom's real requestAnimationFrame (pretendToBeVisual)
+    // is what actually delivers those frames, not a stub. Since audio-ui.js
+    // declares tickSoundingNote as a plain (non-strict) top-level function,
+    // this reassigns the very global binding requestAnimationFrame(tickSoundingNote)
+    // resolves at call time, so the wrapper intercepts every call, including
+    // ones scheduled after this reassignment.
+    let tickCount = 0;
+    const originalTick = h.window.tickSoundingNote;
+    h.window.tickSoundingNote = function (...args) {
+      tickCount++;
+      return originalTick.apply(this, args);
+    };
+
+    pressPlay(h);
+    assert.equal(tickCount, 0, "the first tick has not run yet — only scheduled");
+
+    // Let the first real frame land: it runs the tick once and, because the
+    // scale is still playing, reschedules itself for the next frame.
+    await new Promise((resolve) => h.window.requestAnimationFrame(resolve));
+    assert.equal(tickCount, 1, "sanity: the loop is alive before Stop");
+
+    pressStop(h);
+
+    // If stopScale() cancels the frame the last tick just scheduled, that
+    // frame never fires and the count stays put. If the cancellation is
+    // missing, the stale frame still fires on the next real tick.
+    await new Promise((resolve) => h.window.requestAnimationFrame(resolve));
+    await new Promise((resolve) => h.window.requestAnimationFrame(resolve));
+    assert.equal(tickCount, 1, "Stop must cancel the frame it leaves pending");
+  });
+});
