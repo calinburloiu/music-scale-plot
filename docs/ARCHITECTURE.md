@@ -104,7 +104,15 @@ the **fthora well** and the **martyria well** (Byzantine), each a small button t
 resolved glyph (or sits empty) and opens its own picker panel when clicked. Clicking a row of
 a picker is the whole gesture: it writes the choice to the note row and closes the panel.
 There is no Apply and no Cancel — a click outside, a second click on the well or another
-picker opening all dismiss without changing anything. Three of the four wells hold a single
+picker opening all dismiss without changing anything. That "click outside" is one listener in
+`app.js` calling `closeAllDropdowns()`, and it is registered on **`document.documentElement`,
+not on `document`** — the difference is load-bearing on iOS. Safari there generates no mouse
+events at all for a tap on a "nonclickable" element, and an element counts as clickable only
+when it or one of its *ancestors* carries a mouse handler; `document` is not an element, so a
+listener on it leaves every plain `<div>`, `<h2>` and `<label>` nonclickable and swallows the
+tap. `<html>` is in the ancestor chain, so every tap reaches it. Registered on `document`, all
+six overlays — the colour dropdown, the four pickers and the Save menu — became impossible to
+dismiss on iOS while covering the controls beneath them. Three of the four wells hold a single
 value from one flat vocabulary and share one picker builder with a search field; the martyria
 picker is the one that takes two clicks and has no search, because it commits a pair: its
 Notes column only narrows the Genus column beside it (and resets the genus to None), and the

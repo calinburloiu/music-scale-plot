@@ -1821,7 +1821,22 @@ editor.addEventListener("click", function (e) {
   }
 });
 
-document.addEventListener("click", function () {
+// The one gesture that takes every transient overlay down: a click that got
+// this far without a trigger having stopped it landed outside all of them.
+//
+// On the root element rather than on `document`, and that is not a detail.
+// Safari on iOS generates no mouse events at all for a tap on a "nonclickable"
+// element — its Web Content Guide says so outright — and an element counts as
+// clickable only when it, or one of its *ancestors*, carries a mouse handler.
+// `document` is no element's ancestor; it is not an element. A listener there
+// leaves every plain <div>, <h2> and <label> on the page nonclickable, the tap
+// is swallowed whole, and the overlay a reader is trying to dismiss stays up
+// with no gesture left that closes it — every picker, the colour dropdown and
+// the Save menu alike, each of them covering the controls underneath.
+// <html> *is* in the ancestor chain, so registering here makes the whole page
+// clickable and the tap arrives. Every other engine bubbles to both nodes, so
+// nothing changes for them.
+document.documentElement.addEventListener("click", function () {
   closeAllDropdowns();
 });
 
