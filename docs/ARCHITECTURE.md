@@ -201,6 +201,28 @@ top — which is what tilted the three Byzantine wells against each other, an em
 worst of all, its hint being absolutely positioned and so leaving the button no in-flow
 baseline at all.
 
+### Invalid intervals
+
+An interval box holds something the app can read, or it is marked. `parseRatioPair()`
+matches a ratio whole — two whole numbers above zero — rather than parsing term by term,
+and `intervalToCents()` is as strict for the other two types: a whole step count for
+`edo`, a complete finite number for `cents`. So "9.5/8" no longer reads as 9/8, "7x" no
+longer reads as 7 steps, and "203.91c" no longer reads as 203.91 cents. A descending
+interval is still legal, written `8/9` or as a negative step or cents count.
+
+That strictness makes **"parses" and "is a usable interval" the same question**, which is
+what `isValidIntervalValue()` asks and what the chart already answered by drawing nothing
+for a `NaN`. The editor can therefore never paint a box red that the chart has drawn.
+
+`markInvalidIntervals()` toggles `.is-invalid` on every interval box, and is called from
+`updateAllLabels()` — already the funnel for every editor input, add and remove note, mode
+or type switch, and the end of an Open — so a value is marked however it arrived. An empty
+box counts as invalid: it names no interval. Note 1's absolute box is skipped, being
+disabled and pinned to `getUnisonValue()`.
+
+Neither **Save As Music Scale Plot file** nor **Save As PNG** will run while a box is
+marked; see [File Persistence](#file-persistence).
+
 ### Initial state
 
 The editor starts with Note 1, one interval (ratio defaulting to `9/8`, label empty), and Note 2. Both note name fields are initially empty. The user fills in only what they need — names and labels are optional and omitted from the chart when left blank.

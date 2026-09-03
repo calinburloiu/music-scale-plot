@@ -45,6 +45,16 @@ test("intervalToCents with the 'ratio' interval type", async (t) => {
     isNaNValue(h.app.intervalToCents("9/0"), "zero denominator");
   });
 
+  await t.test("returns NaN for a ratio whose terms are not whole numbers", () => {
+    // A ratio is a pair of integers. "9.5/8" used to read as 9/8, because
+    // parseInt stops at the dot — the chart drew a value the user never typed.
+    isNaNValue(h.app.intervalToCents("9.5/8"), "fractional numerator");
+    isNaNValue(h.app.intervalToCents("9/8.5"), "fractional denominator");
+    isNaNValue(h.app.intervalToCents("9x/8"), "trailing junk on the numerator");
+    isNaNValue(h.app.intervalToCents("9/8x"), "trailing junk on the denominator");
+    isNaNValue(h.app.intervalToCents("9/8/7"), "three terms");
+  });
+
   await t.test("returns NaN for a non-positive ratio, which has no cents value", () => {
     isNaNValue(h.app.intervalToCents("-9/8"));
     isNaNValue(h.app.intervalToCents("9/-8"));
@@ -75,6 +85,14 @@ test("intervalToCents with the 'edo' interval type", async (t) => {
   await t.test("returns NaN for unparseable input", () => {
     isNaNValue(h.app.intervalToCents(""));
     isNaNValue(h.app.intervalToCents("abc"));
+  });
+
+  await t.test("returns NaN for a step count that is not a whole number", () => {
+    // A division of the octave is counted in whole steps. "7.5" used to read
+    // as 7, and "7x" as 7, because parseInt stops where the digits do.
+    isNaNValue(h.app.intervalToCents("7.5"), "fractional");
+    isNaNValue(h.app.intervalToCents("7x"), "trailing junk");
+    isNaNValue(h.app.intervalToCents("7 8"), "two numbers");
   });
 
   await t.test("intervalToDisplayString shows the bare step count", () => {
@@ -118,6 +136,13 @@ test("intervalToCents with the 'cents' interval type", async (t) => {
   await t.test("returns NaN for unparseable input", () => {
     isNaNValue(h.app.intervalToCents(""));
     isNaNValue(h.app.intervalToCents("abc"));
+  });
+
+  await t.test("returns NaN for a number with anything after it", () => {
+    // "203.91c" used to read as 203.91, because parseFloat stops at the c.
+    isNaNValue(h.app.intervalToCents("203.91c"), "trailing junk");
+    isNaNValue(h.app.intervalToCents("200 300"), "two numbers");
+    isNaNValue(h.app.intervalToCents("Infinity"), "not a finite cents value");
   });
 
   await t.test("intervalToDisplayString appends the cents sign", () => {

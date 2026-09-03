@@ -219,12 +219,25 @@ function gcd(a, b) {
   return a || 1;
 }
 
+/**
+ * A ratio is a pair of whole numbers, both above zero, or it is not a ratio.
+ *
+ * Matched whole rather than parsed term by term: parseInt stops where the
+ * digits do, so "9.5/8" used to read as 9/8 and "9x/8" as 9/8 — the chart drew
+ * a value nobody typed. Neither sign is accepted either. A negative term makes
+ * a ratio with no cents value, which intervalToCents used to reject one layer
+ * later; refusing it here makes "parses" and "is a usable interval" the same
+ * question, which is the question the editor's invalid marking and the save
+ * guard both ask. Nothing is lost: a descending interval is 8/9, not -9/8.
+ */
+const RATIO_PATTERN = /^\s*(\d+)\s*\/\s*(\d+)\s*$/;
+
 function parseRatioPair(str) {
-  const parts = str.split("/");
-  if (parts.length !== 2) return null;
-  const p = parseInt(parts[0], 10);
-  const q = parseInt(parts[1], 10);
-  if (!p || !q || isNaN(p) || isNaN(q)) return null;
+  const terms = RATIO_PATTERN.exec(String(str));
+  if (!terms) return null;
+  const p = parseInt(terms[1], 10);
+  const q = parseInt(terms[2], 10);
+  if (!p || !q) return null;
   return [p, q];
 }
 
@@ -512,6 +525,9 @@ function getCentsPerEdoDivision() {
   return 1200 / getEdoDivisions();
 }
 
+/** A whole number of steps, optionally signed: a descending interval is negative. */
+const EDO_STEPS_PATTERN = /^[+-]?\d+$/;
+
 function ratioToCents(r) {
   return 1200 * Math.log2(r);
 }
@@ -525,11 +541,18 @@ function intervalToCents(str) {
     const v = r[0] / r[1];
     return (v <= 0) ? NaN : ratioToCents(v);
   } else if (type === "edo") {
-    const steps = parseInt(trimmed, 10);
-    return isNaN(steps) ? NaN : steps * getCentsPerEdoDivision();
+    // A division of the octave is counted in whole steps, and the whole box has
+    // to be that count: parseInt would read "7.5" as 7 and "7x" as 7. Negative
+    // is fine — that is a descending interval.
+    if (!EDO_STEPS_PATTERN.test(trimmed)) return NaN;
+    return parseInt(trimmed, 10) * getCentsPerEdoDivision();
   } else {
-    const c = parseFloat(trimmed);
-    return isNaN(c) ? NaN : c;
+    // Likewise parseFloat would read "203.91c" as 203.91. Number() reads the
+    // whole string or nothing, and rules out the infinities Number("") would
+    // otherwise let through as 0 — hence the empty check.
+    if (trimmed === "") return NaN;
+    const c = Number(trimmed);
+    return Number.isFinite(c) ? c : NaN;
   }
 }
 
@@ -1181,6 +1204,37 @@ function updateAllLabels() {
   } else {
     updateAbsCentsLabels();
     updateRelativeCentsDisplays();
+  }
+  markInvalidIntervals();
+}
+
+/**
+ * Whether a box holds something this app can read as an interval.
+ *
+ * One question with one answer: parsing is strict enough that "has cents" and
+ * "is a usable interval" are the same thing, so the chart can never draw a box
+ * the editor has painted red. An empty box names no interval and is invalid
+ * too — saving a scale with a hole in it would lose the hole.
+ */
+function isValidIntervalValue(value) {
+  return !Number.isNaN(intervalToCents(String(value == null ? "" : value)));
+}
+
+/**
+ * Paints every interval box that does not parse, and unpaints the rest.
+ *
+ * Called from updateAllLabels(), which already runs on every editor input, on
+ * add and remove note, on a mode or type switch, and at the end of an Open — so
+ * a value is marked however it arrived, whether the user typed it or a
+ * hand-edited file brought it in.
+ *
+ * Note 1's absolute box is skipped: it is disabled and the editor pins it to
+ * getUnisonValue(), so there is nothing there the user could have got wrong.
+ */
+function markInvalidIntervals() {
+  for (const input of editor.querySelectorAll(".interval, .absolute-interval")) {
+    const invalid = !input.disabled && !isValidIntervalValue(input.value);
+    input.classList.toggle("is-invalid", invalid);
   }
 }
 

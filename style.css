@@ -959,6 +959,26 @@ body {
   box-shadow: 0 0 0 3px var(--focus-glow);
 }
 
+/* A box the app cannot read as an interval. The rules sit after the :hover and
+   :focus above so the tint survives both — a user fixing the value is looking
+   at the box with the cursor in it, which is exactly when the mark has to stay
+   visible. --accent is the same red the message bar and the cents labels use.
+
+   Both selectors are needed: the relative value lives on the interval row, the
+   absolute one on the note row. */
+.interval-row .interval.is-invalid,
+.note-row .absolute-interval.is-invalid {
+  border-color: var(--accent);
+  background: rgba(138, 46, 26, 0.12);
+}
+
+.interval-row .interval.is-invalid:focus,
+.note-row .absolute-interval.is-invalid:focus {
+  border-color: var(--accent);
+  background: rgba(138, 46, 26, 0.12);
+  box-shadow: 0 0 0 3px rgba(138, 46, 26, 0.18);
+}
+
 .interval-row .cents-label {
   flex: 0 0 auto;
   min-width: 70px;
