@@ -88,7 +88,11 @@ test("the colour dropdown offers the active palette", async (t) => {
     swatch.dispatchEvent(new h.window.MouseEvent("click", { bubbles: true }));
     assert.equal(h.all(".color-dropdown.open").length, 1);
 
-    h.document.dispatchEvent(new h.window.MouseEvent("click", { bubbles: true }));
+    // Dispatched on an element, not on `document`: a real click always has an
+    // element for its target and reaches `document` only by bubbling through
+    // <html>, which is where the dismissal listens (see app.js, and
+    // test/integration/outside-dismiss.test.js for why it has to).
+    h.document.body.dispatchEvent(new h.window.MouseEvent("click", { bubbles: true }));
     assert.equal(h.all(".color-dropdown.open").length, 0);
   });
 
