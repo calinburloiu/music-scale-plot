@@ -490,12 +490,55 @@ the buttons must return to idle whether or not anyone is looking. `stopScale()`
 clears that handler *before* stopping the nodes, so a deliberate stop does not
 also run the natural-end path.
 
-Two interaction rules follow from there being one voice: pressing a per-note
-button stops a playing scale first, and **Stop** stops whichever of the two is
-sounding. Editing the scale during playback deliberately does *not* interrupt
-it — the plan was scheduled in full when Play was pressed, stopping on every
-keystroke would make the editor unusable while listening, and re-scheduling
-mid-melody has no musical meaning.
+Three interaction rules follow from there being one voice: pressing a per-note
+button stops a playing scale first, **Play** stops a note being held, and
+**Stop** stops whichever of the two is sounding. Editing the scale during
+playback deliberately does *not* interrupt it — the plan was scheduled in full
+when Play was pressed, stopping on every keystroke would make the editor
+unusable while listening, and re-scheduling mid-melody has no musical meaning.
+
+### The keyboard
+
+Both ways to reach the voice have a key: **Space** toggles Play/Stop, and
+**1…9** sound their degree for as long as they are held, wearing the same
+`.sounding` pressed look the transport moves along a playing scale. A mouse
+press gets that look from `:active` on the button it is held over; a key never
+touches the button, so `audio-ui.js` puts it on and takes it off by hand.
+
+Both listen on the `document`, so both have to decide whether a keystroke was
+meant for them or for whatever has focus — and they give **different answers**,
+because the two keys conflict with different things:
+
+| Focused | Space | 1…9 |
+|---|---|---|
+| Nothing (`<body>`) | toggles | plays |
+| `<input>`, `<textarea>`, `<select>`, `contenteditable` | ignored | ignored |
+| `<button>`, `<a href>`, `<summary>` | ignored | plays |
+
+A digit is only ever eaten by something you can type into — which is the point:
+typing `3/2` into an interval box must not play degrees 3 and 2. Space is eaten
+by those *and* by a focused button, because the browser is already turning it
+into a click there; handling it as well would run New **and** start the scale
+from one keystroke. A `<select>` blocks both, since a digit is option typeahead
+and Space opens the list. Every chord (Ctrl/Cmd/Alt) is left alone.
+
+Space is taken off the page on every keydown, repeats included, or a held Space
+scrolls it — but only the first acts, since toggling on every repeat would make
+the transport unusable. A repeated digit is likewise one press, not a tremolo.
+
+**A digit past the end of the scale sounds nothing.** `getFrequencyForDegree()`
+falls back to the base frequency for a degree that does not exist, which is
+right for a button that can only be clicked where it exists; from the keyboard
+it would be a note with no button to show where it came from.
+
+The held degree is remembered in `keyboardDegree`, and that is what makes
+rolling one finger onto the next key work: the keyup for a key released *after*
+another took the voice names a degree that is no longer held, so it is ignored
+rather than cutting the note that is actually sounding. `stopTone()` clears it
+before its own early return, so the look and the voice it belongs to always end
+together no matter who ended them — a mouse press, Play, Stop, or the key
+itself. A `blur` on the window releases a held note too: focus can leave
+mid-hold, and then the keyup never arrives at all.
 
 ### WAV export
 

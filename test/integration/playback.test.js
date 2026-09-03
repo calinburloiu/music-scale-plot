@@ -339,6 +339,20 @@ test("one transport, one voice", async (t) => {
     assert.equal(ctx.oscillators.at(-1).stopped, null, "and is still held");
   });
 
+  await t.test("Play silences a held note before it starts", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+
+    pressNote(h, 0);
+    const ctx = h.audioContexts[0];
+    ctx.currentTime = 0.2;
+    pressPlay(h);
+
+    closeTo(ctx.oscillators[0].stopped, 0.2 + h.app.RELEASE_SECONDS, 1e-12, "the held note ends");
+    assert.equal(h.app.isScalePlaying(), true, "and the scale takes the voice");
+  });
+
   await t.test("Stop silences a held note too", () => {
     const h = loadApp();
     t.after(() => h.close());

@@ -275,8 +275,11 @@ test/
     │                               both notations' hidden state, both I/O
     │                               branches, a bad file, a cancelled picker
     ├── playback.test.js            the transport: scheduling, envelopes, button
-    │                               state, the sounding-note highlight, the two
-    │                               interaction rules and the Play guard
+    │                               state, the sounding-note highlight, the
+    │                               three interaction rules and the Play guard
+    ├── audio-shortcuts.test.js     the keyboard's half of the transport: Space,
+    │                               the number keys, and the focus guard that
+    │                               keeps a digit out of an interval box
     └── audio-export.test.js        the offline render, the WAV bytes, both save
                                      paths, the filename and the guard
 ```
@@ -369,7 +372,8 @@ number.
 | `buildAbsoluteScale(h, absolutes, extra)` | Same for absolute mode. |
 | `setNoteCount(h, n)` | Click add/remove until the editor holds `n` notes. |
 | `typeInto(h, el, value)` | Set a value and dispatch `input`, like a user typing. |
-| `pressKey(h, el, key)` | Press a key on an element, bubbling and cancelable, the way a user with focus there does; returns whether the default was prevented. |
+| `pressKey(h, el, key, init)` | Press a key on an element, bubbling and cancelable, the way a user with focus there does; returns whether the default was prevented. `init` reaches the event unchanged, for what a plain press does not set — `{ repeat: true }` for the keydowns a held key sends, and the modifier flags for a chord. |
+| `releaseKey(h, el, key, init)` | Release a key — the other half of a press-and-hold. Separate from `pressKey` rather than an option on it, because the two halves are what a hold *is*. |
 | `selectOption(h, id, value)` | Change a `<select>` and dispatch `change`. |
 | `pickColor(h, row, hex)` | Open a row's dropdown and click a swatch. |
 | `noteRows(h)` / `intervalRows(h)` | The editor's rows, in order. |

@@ -47,6 +47,10 @@ function startTone(frequency) {
 }
 
 function stopTone() {
+  // Before the early return, so the look a held number key put on a button
+  // always ends with the voice it belongs to — whoever ended it, and whether
+  // or not there was still an oscillator to silence.
+  releaseKeyboardDegree();
   if (!activeOsc) return;
   const ctx = getAudioContext();
   activeGain.gain.cancelScheduledValues(ctx.currentTime);
@@ -71,6 +75,105 @@ audioEditor.addEventListener("mousedown", handlePlayStart);
 audioEditor.addEventListener("touchstart", handlePlayStart);
 document.addEventListener("mouseup", stopTone);
 document.addEventListener("touchend", stopTone);
+
+// --- the keyboard ----------------------------------------------------------
+//
+// Space toggles the transport, and 1…9 sound their degree for as long as they
+// are held. Both listen on the document, so both have to decide whether the
+// keystroke was meant for them or for whatever has focus. Two different
+// answers, because the two keys conflict with different things: a digit is
+// only ever eaten by something you can type into, while Space is *also* the
+// browser's click on a focused button.
+
+/** Anything a keystroke can be typed into: the key belongs to it, not to us. */
+function isTextEntryElement(element) {
+  if (!element) return false;
+  if (element.isContentEditable) return true;
+  const tag = element.tagName;
+  // SELECT is here because it eats both keys this file claims: a digit is
+  // option typeahead, and Space opens the list.
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
+/** Anything the browser turns a Space into a click on. */
+function isSpaceActivatedElement(element) {
+  if (!element) return false;
+  const tag = element.tagName;
+  return tag === "BUTTON" || tag === "SUMMARY" || (tag === "A" && element.hasAttribute("href"));
+}
+
+/** `key` as a scale degree; 0 for every other key, "0" included. */
+function numberKeyDegree(key) {
+  return typeof key === "string" && key.length === 1 && key >= "1" && key <= "9"
+    ? Number(key)
+    : 0;
+}
+
+/**
+ * The degree a held number key is sounding, or null.
+ *
+ * A mouse press gets the pressed look from `:active` on the button it is held
+ * over. A key never touches the button, so the look is put on and taken off by
+ * hand — and remembering *which* degree owns it is also what stops a stale
+ * keyup, from a key released after another one took the voice, cutting the
+ * note that is actually sounding.
+ */
+let keyboardDegree = null;
+
+function releaseKeyboardDegree() {
+  if (keyboardDegree === null) return;
+  keyboardDegree = null;
+  setSoundingDegree(null);
+}
+
+function playKeyboardDegree(degree) {
+  // startTone() runs stopScale(), which runs stopTone(), which clears whatever
+  // the last key left — so the two lines below are the whole handover.
+  startTone(getFrequencyForDegree(degree));
+  keyboardDegree = degree;
+  setSoundingDegree(degree);
+}
+
+function handleAudioKeyDown(event) {
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  const focused = document.activeElement;
+  if (isTextEntryElement(focused)) return;
+
+  if (event.key === " ") {
+    if (isSpaceActivatedElement(focused)) return;
+    // Off the page on every keydown, repeats included, or a held Space scrolls
+    // it. Act only on the first: toggling on every repeat would make the
+    // transport unusable from the keyboard.
+    event.preventDefault();
+    if (event.repeat) return;
+    if (isScalePlaying()) stopScale();
+    else playScale();
+    return;
+  }
+
+  const degree = numberKeyDegree(event.key);
+  if (degree === 0 || event.repeat) return;
+  // A degree the scale does not have sounds nothing, rather than taking
+  // getFrequencyForDegree()'s fall back to the base frequency: from the
+  // keyboard that would be a note with no button to show where it came from.
+  if (!audioEditor.querySelector('.note-row[data-degree="' + degree + '"]')) return;
+  playKeyboardDegree(degree);
+}
+
+function handleAudioKeyUp(event) {
+  if (keyboardDegree === null) return;
+  if (numberKeyDegree(event.key) !== keyboardDegree) return;
+  stopTone();
+}
+
+/** Focus can leave mid-hold, and then the keyup never arrives. */
+function handleWindowBlur() {
+  if (keyboardDegree !== null) stopTone();
+}
+
+document.addEventListener("keydown", handleAudioKeyDown);
+document.addEventListener("keyup", handleAudioKeyUp);
+window.addEventListener("blur", handleWindowBlur);
 
 /**
  * The current scale as a playback plan, in the reader's chosen base note —
@@ -114,6 +217,11 @@ function playScale() {
 
   const plan = currentPlaybackPlan();
   if (plan.length === 0) return;
+
+  // The third rule that follows from there being one voice, and the one the
+  // keyboard makes easy to reach: hold a number key, then press Space. After
+  // the guards, so a Play that does not happen silences nothing.
+  stopTone();
 
   const ctx = getAudioContext();
   // Play is always reached from a user gesture, so the autoplay policy permits

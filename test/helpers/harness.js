@@ -369,12 +369,35 @@ function typeInto(harness, element, value) {
  * delegated to #editor or to document, and they call preventDefault() to keep
  * the browser's own behaviour off the page. Returns whether the default was
  * prevented, so a test can assert that too.
+ *
+ * `init` reaches the event unchanged, for the fields a plain press does not
+ * set: `{ repeat: true }` for the second and later keydowns a held key sends,
+ * and the modifier flags for a chord.
  */
-function pressKey(harness, element, key) {
+function pressKey(harness, element, key, init = {}) {
   const event = new harness.window.KeyboardEvent("keydown", {
     key: key,
     bubbles: true,
     cancelable: true,
+    ...init,
+  });
+  element.dispatchEvent(event);
+  return event.defaultPrevented;
+}
+
+/**
+ * Releases a key on `element` — the other half of a press-and-hold.
+ *
+ * Separate from pressKey() rather than an option on it, because the two halves
+ * are what a hold *is*: a test that holds a key and never lets go is testing a
+ * different thing from one that presses and releases.
+ */
+function releaseKey(harness, element, key, init = {}) {
+  const event = new harness.window.KeyboardEvent("keyup", {
+    key: key,
+    bubbles: true,
+    cancelable: true,
+    ...init,
   });
   element.dispatchEvent(event);
   return event.defaultPrevented;
@@ -633,6 +656,7 @@ module.exports = {
   fireClick,
   typeInto,
   pressKey,
+  releaseKey,
   selectOption,
   setNotation,
   noteRows,
