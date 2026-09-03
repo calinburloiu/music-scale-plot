@@ -125,6 +125,11 @@ test("rendering the scale offline", async (t) => {
 });
 
 /** Clicks Save ▸ Save Audio As WAV, the way a user reaches it. */
+/** One macrotask, which is the boundary the revoke is deferred across. */
+function tick(h) {
+  return new Promise((resolve) => h.window.setTimeout(resolve, 0));
+}
+
 async function saveAudio(h) {
   fireClick(h, h.document.getElementById("save-menu"));
   fireClick(h, h.document.getElementById("save-audio"));
@@ -132,8 +137,8 @@ async function saveAudio(h) {
   // timer below is registered *before* downloadAudioFile() registers its own
   // setTimeout(revoke, 0) — and timers fire in registration order. One tick
   // reaches the download; the second reaches the revoke.
-  await new Promise((resolve) => h.window.setTimeout(resolve, 0));
-  await new Promise((resolve) => h.window.setTimeout(resolve, 0));
+  await tick(h);
+  await tick(h);
 }
 
 function messageText(h) {
@@ -179,12 +184,22 @@ test("saving the audio", async (t) => {
     const h = loadApp();
     t.after(() => h.close());
 
-    await saveAudio(h);
-    // Revoking synchronously can cancel the download the click just started,
-    // so it happens on the next macrotask — by which time it has happened.
+    fireClick(h, h.document.getElementById("save-menu"));
+    fireClick(h, h.document.getElementById("save-audio"));
+
+    // Stop between the two ticks, because the end state cannot tell a deferred
+    // revoke from a synchronous one — both look revoked once the dust settles.
+    // The first tick reaches the download; a revoke that ran straight after the
+    // click would already have fired by here, and a browser cancels a download
+    // whose object URL is dead.
+    await tick(h);
     assert.equal(h.objectUrls.length, 1);
-    assert.equal(h.objectUrls[0].revoked, true);
-    assert.equal(h.downloads[0].href, h.objectUrls[0].url, "the click used the live URL");
+    assert.equal(h.downloads.length, 1, "the click has happened");
+    assert.equal(h.objectUrls[0].revoked, false, "and the URL it used is still live");
+
+    await tick(h);
+    assert.equal(h.objectUrls[0].revoked, true, "revoked on the next macrotask");
+    assert.equal(h.downloads[0].href, h.objectUrls[0].url, "the click used that URL");
   });
 
   await t.test("writes through the file picker where the browser has one", async () => {
