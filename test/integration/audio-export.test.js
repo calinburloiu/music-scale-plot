@@ -223,6 +223,21 @@ test("saving the audio", async (t) => {
     assert.equal(messageText(h), "Could not save the audio file.");
   });
 
+  await t.test("reports a render that fails, not just a failed dialog", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+    // Simulates an OfflineAudioContext render that rejects — nothing to do
+    // with the save dialog, which is never even reached.
+    h.window.OfflineAudioContext.prototype.startRendering = () =>
+      Promise.reject(new Error("render failed"));
+
+    await saveAudio(h);
+
+    assert.equal(messageText(h), "Could not save the audio file.");
+    assert.equal(h.downloads.length, 0, "nothing was handed out");
+  });
+
   await t.test("refuses a scale with an unreadable interval", async () => {
     const h = loadApp();
     t.after(() => h.close());

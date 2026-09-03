@@ -235,11 +235,16 @@ async function saveAudioFile() {
     return;
   }
 
-  const bytes = await renderScaleWav();
-  const fileName = suggestedFileName(scaleNameInput.value, AUDIO_FILE_EXTENSION);
+  // The render sits inside the same try/catch as the dialog: a rejection here
+  // (an OfflineAudioContext that fails to render) must report exactly the
+  // same message as a failed dialog, not slip out as an unhandled rejection.
+  // It never raises AbortError itself, so that branch still means only what
+  // it always has — the user cancelled the dialog.
+  try {
+    const bytes = await renderScaleWav();
+    const fileName = suggestedFileName(scaleNameInput.value, AUDIO_FILE_EXTENSION);
 
-  if (typeof window.showSaveFilePicker === "function") {
-    try {
+    if (typeof window.showSaveFilePicker === "function") {
       const handle = await window.showSaveFilePicker({
         suggestedName: fileName,
         types: AUDIO_FILE_PICKER_TYPES,
@@ -247,15 +252,15 @@ async function saveAudioFile() {
       const writable = await handle.createWritable();
       await writable.write(bytes);
       await writable.close();
-    } catch (error) {
-      // A cancelled dialog is not an error to report: the user chose not to save.
-      if (error && error.name === "AbortError") return;
-      showToolbarMessage("Could not save the audio file.");
+      return;
     }
-    return;
-  }
 
-  downloadAudioFile(fileName, bytes);
+    downloadAudioFile(fileName, bytes);
+  } catch (error) {
+    // A cancelled dialog is not an error to report: the user chose not to save.
+    if (error && error.name === "AbortError") return;
+    showToolbarMessage("Could not save the audio file.");
+  }
 }
 
 /**
