@@ -32,6 +32,25 @@ function isPlainObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/**
+ * Whether an interval value means the unison — the pitch Note 1 always carries
+ * in absolute mode, where its input sits disabled. A ratio is the unison when
+ * its two terms match, so "2/2" reads the same as "1/1"; edo steps and cents
+ * are the unison at zero, however it is spelled. Meaning, not spelling: the
+ * editor re-pins the slot to getUnisonValue() on Open, so an equivalent value
+ * loses nothing, while a genuinely different one is refused by name rather
+ * than silently overwritten.
+ */
+function isUnisonInterval(value, type) {
+  const text = String(value).trim();
+  if (type === "ratio") {
+    const terms = /^(\d+)\s*\/\s*(\d+)$/.exec(text);
+    if (!terms) return false;
+    return Number(terms[1]) !== 0 && Number(terms[1]) === Number(terms[2]);
+  }
+  return text !== "" && Number.isFinite(Number(text)) && Number(text) === 0;
+}
+
 function hasEnumWord(map, word) {
   return typeof word === "string" && Object.prototype.hasOwnProperty.call(map, word);
 }
@@ -251,6 +270,16 @@ function validateScaleDocument(raw) {
     intervals.push(item);
   }
 
+  // Note 1 is the base note, so in absolute mode the first entry is the unison
+  // by definition and the editor pins it there. Anything else in that slot is
+  // a hand-edit that cannot be honoured, and §6's principle is that such a
+  // thing is named rather than dropped without a word.
+  if (mode === "absoluteIntervals" && !isUnisonInterval(intervals[0], intervalType.type)) {
+    return scaleFileError(
+      `scaleEditor.intervals[0] must be the unison Note 1 carries, got ${JSON.stringify(intervals[0])}.`
+    );
+  }
+
   const noteProperties = [];
   for (let i = 0; i < noteCount; i++) {
     const note = validateNoteProperties(editorRaw.noteProperties[i], i + 1);
@@ -297,7 +326,21 @@ function validateScaleDocument(raw) {
 }
 
 function validateNoteProperties(raw, degree) {
-  const source = isPlainObject(raw) ? raw : {};
+  // A note that is not a note, or a half that is not a half, is named rather
+  // than quietly read as blank: "unknown keys are ignored" is a promise about
+  // *additions* a future version might make, not a licence to swallow a
+  // garbled file. Both halves may be absent — the writer omits one with
+  // nothing set — but present and wrong is an error.
+  if (!isPlainObject(raw)) {
+    return scaleFileError(`The properties of note ${degree} must be an object.`);
+  }
+  const source = raw;
+  if (source.generic !== undefined && !isPlainObject(source.generic)) {
+    return scaleFileError(`The generic half of note ${degree} must be an object.`);
+  }
+  if (source.byzantine !== undefined && !isPlainObject(source.byzantine)) {
+    return scaleFileError(`The byzantine half of note ${degree} must be an object.`);
+  }
   const generic = isPlainObject(source.generic) ? source.generic : {};
   const byzantine = isPlainObject(source.byzantine) ? source.byzantine : {};
 
@@ -323,8 +366,16 @@ function validateNoteProperties(raw, degree) {
 
   let martyria = null;
   if (byzantine.martyria !== undefined && byzantine.martyria !== null) {
-    const martyriaRaw = isPlainObject(byzantine.martyria) ? byzantine.martyria : {};
-    // The one martyria field that is not optional: no note is no martyria.
+    if (!isPlainObject(byzantine.martyria)) {
+      return scaleFileError(`The martyria on note ${degree} must be an object.`);
+    }
+    const martyriaRaw = byzantine.martyria;
+    // The one martyria field that is not optional: no note is no martyria. A
+    // missing note gets its own sentence — "Unknown martyria note undefined"
+    // names a value the file never contained.
+    if (martyriaRaw.note === undefined) {
+      return scaleFileError(`A martyria on note ${degree} needs a note.`);
+    }
     if (typeof martyriaRaw.note !== "string" || !byzNoteById(martyriaRaw.note)) {
       return scaleFileError(
         `Unknown martyria note ${JSON.stringify(martyriaRaw.note)} on note ${degree}.`
@@ -352,7 +403,10 @@ function validateNoteProperties(raw, degree) {
 }
 
 function validateIntervalProperties(raw, index) {
-  const source = isPlainObject(raw) ? raw : {};
+  if (!isPlainObject(raw)) {
+    return scaleFileError(`scaleEditor.intervalProperties[${index}] must be an object.`);
+  }
+  const source = raw;
   // Always written, so always required: there is no single default colour —
   // it depends on the active palette, which depends on chart.style.
   if (typeof source.color !== "string" || !HEX_COLOR_PATTERN.test(source.color)) {

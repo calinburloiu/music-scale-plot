@@ -263,6 +263,44 @@ test("reading a .musp.json document", async (t) => {
     assert.equal(result.doc.scaleEditor.intervals.length, 2);
   });
 
+  await t.test("accepts any spelling of the unison in the first absolute slot", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // Note 1 carries the unison by definition — its input is disabled — so the
+    // editor re-pins that slot to getUnisonValue() on Open. Any value that
+    // *means* the unison is therefore normalised rather than rejected: the
+    // pitch is identical, so nothing a reader would notice is lost.
+    for (const spelling of ["1/1", "2/2", "8/8"]) {
+      const result = h.app.parseScaleDocument(
+        docText((base) => {
+          base.scaleEditor.mode = "absoluteIntervals";
+          base.scaleEditor.intervals = [spelling, "9/8"];
+        })
+      );
+      assert.equal(result.ok, true, `${spelling} should read as the unison: ${result.error}`);
+    }
+  });
+
+  await t.test("reads zero as the unison when the intervals are edo steps or cents", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    for (const type of ["edo", "cents"]) {
+      for (const zero of [0, "0", "0.0"]) {
+        const result = h.app.parseScaleDocument(
+          docText((base) => {
+            base.scaleEditor.intervalType =
+              type === "edo" ? { type: "edo", divisionCount: 72 } : { type: "cents" };
+            base.scaleEditor.mode = "absoluteIntervals";
+            base.scaleEditor.intervals = [zero, 7];
+          })
+        );
+        assert.equal(result.ok, true, `${type} ${JSON.stringify(zero)}: ${result.error}`);
+      }
+    }
+  });
+
   await t.test("ignores keys it does not know, so a future minor addition still opens", () => {
     const h = loadApp();
     t.after(() => h.close());
@@ -339,6 +377,63 @@ test("rejecting a bad .musp.json document", async (t) => {
       "an unknown mode",
       docText((b) => { b.scaleEditor.mode = "x"; }),
       'scaleEditor.mode must be "relativeIntervals" or "absoluteIntervals", got "x".',
+    ],
+    [
+      "a non-unison first absolute interval",
+      docText((b) => {
+        b.scaleEditor.mode = "absoluteIntervals";
+        b.scaleEditor.intervals = ["3/2", "9/8"];
+      }),
+      'scaleEditor.intervals[0] must be the unison Note 1 carries, got "3/2".',
+    ],
+    [
+      "a non-unison first absolute interval in cents",
+      docText((b) => {
+        b.scaleEditor.intervalType = { type: "cents" };
+        b.scaleEditor.mode = "absoluteIntervals";
+        b.scaleEditor.intervals = [100, 200];
+      }),
+      "scaleEditor.intervals[0] must be the unison Note 1 carries, got 100.",
+    ],
+    [
+      "a note that is not an object",
+      docText((b) => { b.scaleEditor.noteProperties = [5, {}]; }),
+      "The properties of note 1 must be an object.",
+    ],
+    [
+      "a generic half that is not an object",
+      docText((b) => { b.scaleEditor.noteProperties[0] = { generic: 5 }; }),
+      "The generic half of note 1 must be an object.",
+    ],
+    [
+      "a byzantine half that is not an object",
+      docText((b) => { b.scaleEditor.noteProperties[0] = { byzantine: "x" }; }),
+      "The byzantine half of note 1 must be an object.",
+    ],
+    [
+      "a non-text note name",
+      docText((b) => { b.scaleEditor.noteProperties[0] = { generic: { name: 7 } }; }),
+      "The name on note 1 must be text.",
+    ],
+    [
+      "a martyria that is not an object",
+      docText((b) => { b.scaleEditor.noteProperties[0] = { byzantine: { martyria: 5 } }; }),
+      "The martyria on note 1 must be an object.",
+    ],
+    [
+      "a martyria with no note",
+      docText((b) => { b.scaleEditor.noteProperties[0] = { byzantine: { martyria: { genus: "alpha" } } }; }),
+      "A martyria on note 1 needs a note.",
+    ],
+    [
+      "an interval property that is not an object",
+      docText((b) => { b.scaleEditor.intervalProperties = ["#FFFFFF"]; }),
+      "scaleEditor.intervalProperties[0] must be an object.",
+    ],
+    [
+      "a non-text interval label",
+      docText((b) => { b.scaleEditor.intervalProperties = [{ color: "#FFFFFF", label: 7 }]; }),
+      "scaleEditor.intervalProperties[0].label must be text.",
     ],
     [
       "an unknown interval type",

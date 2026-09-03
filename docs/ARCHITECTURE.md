@@ -302,12 +302,16 @@ different word for it, translated at the boundary by the bidirectional maps in
 **Cardinality**, for *n* notes (*n* ≥ 2): `noteProperties` has *n* entries; `intervalProperties`
 always has *n* − 1, one per interval *between* successive notes; `intervals` has *n* − 1 in
 relative mode and *n* in absolute mode, where the first entry is the unison the editor
-shows disabled on Note 1. On Open, that first entry is always replaced by the unison
-regardless of what the file says: `makeNoteRowHTML` pins degree 1 to `getUnisonValue()`
-in absolute mode and never reads its `absoluteValue` argument. The app itself never
-writes anything else there, so this is a no-op for every file it produces; a hand-edited
-file with a non-unison value in that slot opens with `1/1` shown and no message, the one
-field in this format silently overwritten rather than rejected.
+shows disabled on Note 1. That first entry is **required to be a unison**: Note 1 is the
+base note, so no other value there has a meaning the editor could show.
+`isUnisonInterval()` judges it by meaning rather than spelling — a ratio whose two terms
+match (`1/1`, but `2/2` too), or zero however written for `edo` and `cents` — and
+`validateScaleDocument` refuses anything else by name, the way it refuses any other
+unusable field. An equivalent spelling *is* accepted and then normalised, because
+`makeNoteRowHTML` pins degree 1 to `getUnisonValue()` in absolute mode and never reads its
+`absoluteValue` argument: `2/2` opens showing `1/1`, which is the same pitch, so nothing a
+reader would notice is lost. The app itself never writes anything but the unison there, so
+none of this is reachable from a file it produced.
 
 **The writer omits anything at its default**, so an untouched note serialises as `{}` and
 a half with nothing set (`generic` or `byzantine`) disappears entirely. Defaults are `""`
@@ -336,10 +340,18 @@ array length, every symbol id — before anything is touched, so a rejected file
 editor exactly as it was; there is never a half-loaded scale. Symbol ids are resolved
 against the real tables (`smuflAccidentalById`, `byzFthoraById`, `byzAlterationById`,
 `byzNoteById`, `byzGenusById`), so a typo in a hand-edited file is *named* in the error
-rather than silently dropped into an empty well. Two deliberate softenings: unknown keys
-are ignored, so a file from a future minor addition still opens, and `chart.zoom` is
+rather than silently dropped into an empty well. A container that is *present but not an
+object* — a `noteProperties` entry, either of its `generic`/`byzantine` halves, a
+`martyria`, an `intervalProperties` entry — is named for the same reason: "unknown keys are
+ignored" is a promise about *additions* a later version might make, not a licence to read a
+garbled file as blank. A `martyria` with no `note` at all gets its own sentence rather than
+being reported as an unknown note whose value the file never contained. Two deliberate
+softenings: unknown keys are ignored, so a file from a future minor addition still opens,
+and `chart.zoom` is
 clamped to 10–100 rather than rejected, because the value has one obvious safe reading and
-the zoom slider would clamp it anyway. On success, `{ ok: true, doc }` carries a document
+the zoom slider would clamp it anyway. The one value normalised rather than either honoured
+or refused is a non-canonical spelling of the unison in `intervals[0]` (above), and only
+because every accepted spelling names the identical pitch. On success, `{ ok: true, doc }` carries a document
 with every default filled back in; on failure, `{ ok: false, error }` carries one message
 naming the field and, where useful, the offending value.
 
