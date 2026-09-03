@@ -124,11 +124,18 @@ function isSpaceActivatedElement(element) {
   return tag === "BUTTON" || tag === "SUMMARY" || (tag === "A" && element.hasAttribute("href"));
 }
 
+/**
+ * The highest degree a number key reaches: there is no key past 9, so a taller
+ * scale's remaining degrees are mouse-only. app.js reads it too, to decide
+ * which play buttons may advertise a key.
+ */
+const NUMBER_KEY_DEGREE_LIMIT = 9;
+
 /** `key` as a scale degree; 0 for every other key, "0" included. */
 function numberKeyDegree(key) {
-  return typeof key === "string" && key.length === 1 && key >= "1" && key <= "9"
-    ? Number(key)
-    : 0;
+  if (typeof key !== "string" || key.length !== 1) return 0;
+  const degree = Number(key);
+  return degree >= 1 && degree <= NUMBER_KEY_DEGREE_LIMIT ? degree : 0;
 }
 
 /**

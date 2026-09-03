@@ -70,6 +70,13 @@ function buildExportEpilogue(names) {
  *   would, to `{ reject: ["Bravura Text"] }` to fail only the faces named — one
  *   file can go missing without the other — or to `"ready-reject"` to have the
  *   faces load but the set never become ready
+ * @param {string} [options.platform] what `navigator.platform` reports, for the
+ *   shortcut hints — `"MacIntel"` to reach the ⌘ notation. jsdom's own default
+ *   is `""`, the Ctrl fallback
+ * @param {string} [options.uaDataPlatform] what `navigator.userAgentData.platform`
+ *   reports (`"macOS"`, `"Windows"`, …). jsdom has no `userAgentData` at all,
+ *   as Firefox and Safari do not; where it exists it is the non-deprecated
+ *   answer and the hints prefer it
  * @param {Object<string,string>} [options.restored] CSS selector to value, written
  *   into every matching control *before* the scripts run — the way a browser
  *   restores form state across a soft reload
@@ -148,6 +155,24 @@ function loadApp(options = {}) {
       offlineContexts.push(this);
     }
   };
+
+  // --- the platform --------------------------------------------------------
+  // Only the shortcut hints read it, to write a chord in the notation of the
+  // machine the reader is on. jsdom reports `""`, which is what a browser that
+  // will not say also reports — so the default exercises the Ctrl fallback and
+  // a test opts in to the Apple branch.
+  if (options.platform !== undefined) {
+    Object.defineProperty(window.navigator, "platform", {
+      value: options.platform,
+      configurable: true,
+    });
+  }
+  if (options.uaDataPlatform !== undefined) {
+    Object.defineProperty(window.navigator, "userAgentData", {
+      value: { platform: options.uaDataPlatform },
+      configurable: true,
+    });
+  }
 
   // --- fonts ---------------------------------------------------------------
   // jsdom implements no FontFaceSet. app.js waits on one before its first real

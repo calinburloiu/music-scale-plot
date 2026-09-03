@@ -269,8 +269,26 @@ function escapeAttribute(value) {
   return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
+/**
+ * A note row's play button, naming the number key that also sounds the degree.
+ *
+ * Only degrees 1…9 have one, so only they claim one: `aria-keyshortcuts` on a
+ * degree no key reaches would announce a shortcut that does nothing. The ▶ is
+ * the button's whole text content and is no accessible name — a screen reader
+ * reads out the character, not what pressing it does — so the name comes from
+ * `aria-label` and the tooltip carries the hint on top of it.
+ */
+function makePlayButtonHTML(degree) {
+  const name = "Play note " + degree;
+  const reachable = degree <= NUMBER_KEY_DEGREE_LIMIT;
+  const hint = reachable ? " (key " + degree + ")" : "";
+  const keys = reachable ? ' aria-keyshortcuts="' + degree + '"' : "";
+  return '<button class="play-note" aria-label="' + name + '" title="' + name + hint + '"' +
+    keys + ">&#9654;</button>";
+}
+
 function makeNoteRowHTML(degree, mode, absoluteValue) {
-  const playBtn = '<button class="play-note" title="Play note">&#9654;</button>';
+  const playBtn = makePlayButtonHTML(degree);
   const labelHtml = "<label>Note " + degree + "</label>";
   // Every row carries both notations' controls always, in the order the chart
   // draws them; CSS decides which half shows, so a switch discards nothing.

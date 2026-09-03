@@ -434,3 +434,36 @@ function handleFileShortcut(event) {
 }
 
 document.addEventListener("keydown", handleFileShortcut);
+
+// --- announcing the shortcuts ----------------------------------------------
+//
+// `aria-keyshortcuts` is written into index.html, because it names *both*
+// chords the handler above accepts and reads the same on every machine. The
+// tooltip cannot: a reader sees one keyboard, and "Ctrl+S" on a Mac is wrong.
+// Only the two chords need this — Space is Space everywhere, so the transport's
+// hints are static markup.
+
+/** True on a Mac, an iPhone or an iPad, where the chord key is ⌘. */
+function isApplePlatform() {
+  const data = navigator.userAgentData;
+  const platform = (data && data.platform) || navigator.platform || "";
+  return /^(mac|iphone|ipad|ipod)/i.test(platform);
+}
+
+/** A chord as this machine's own keyboard writes it: "⌘S" or "Ctrl+S". */
+function chordHint(letter) {
+  return isApplePlatform() ? "⌘" + letter : "Ctrl+" + letter;
+}
+
+/**
+ * Writes each chord into its control's tooltip.
+ *
+ * Composed from the control's own accessible name rather than appended to
+ * whatever the title already says, so running it twice cannot stack two hints.
+ */
+function applyShortcutHints() {
+  openBtn.title = openBtn.getAttribute("aria-label") + " (" + chordHint("O") + ")";
+  saveScaleItem.title = saveScaleItem.textContent + " (" + chordHint("S") + ")";
+}
+
+applyShortcutHints();

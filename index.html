@@ -12,7 +12,8 @@
       <button type="button" id="new-file" class="toolbar-btn" aria-label="New" title="New">
         <img src="icons/new.svg" alt="">
       </button>
-      <button type="button" id="open-file" class="toolbar-btn" aria-label="Open" title="Open">
+      <button type="button" id="open-file" class="toolbar-btn" aria-label="Open" title="Open"
+              aria-keyshortcuts="Control+O Meta+O">
         <img src="icons/open.svg" alt="">
       </button>
       <div class="save-menu-wrapper">
@@ -21,7 +22,7 @@
           <img src="icons/save.svg" alt="">
         </button>
         <div class="save-menu-panel" id="save-menu-panel">
-          <button type="button" id="save-scale">Save As Music Scale Plot file</button>
+          <button type="button" id="save-scale" aria-keyshortcuts="Control+S Meta+S">Save As Music Scale Plot file</button>
           <hr>
           <button type="button" id="save-png">Save Chart As PNG</button>
           <button type="button" id="save-audio">Save Audio As WAV</button>
@@ -35,10 +36,12 @@
         <img src="icons/remove-note.svg" alt="">
       </button>
       <span class="toolbar-separator"></span>
-      <button type="button" id="play-scale" class="toolbar-btn" aria-label="Play scale" title="Play scale">
+      <button type="button" id="play-scale" class="toolbar-btn" aria-label="Play scale"
+              title="Play scale (Space)" aria-keyshortcuts="Space">
         <img src="icons/play.svg" alt="">
       </button>
-      <button type="button" id="stop-scale" class="toolbar-btn" aria-label="Stop playing" title="Stop playing" disabled>
+      <button type="button" id="stop-scale" class="toolbar-btn" aria-label="Stop playing"
+              title="Stop playing (Space)" aria-keyshortcuts="Space" disabled>
         <img src="icons/stop.svg" alt="">
       </button>
       <input type="file" id="open-file-input" accept=".musp.json,application/json" hidden>
@@ -107,7 +110,8 @@
       </div>
       <div id="editor">
         <div class="row note-row" data-degree="1">
-          <button class="play-note" title="Play note">&#9654;</button>
+          <button class="play-note" aria-label="Play note 1" title="Play note 1 (key 1)"
+                  aria-keyshortcuts="1">&#9654;</button>
           <label>Note 1</label>
           <span class="cumulative-cents"></span>
           <div class="accidental-well-wrapper">
@@ -140,7 +144,8 @@
           </div>
         </div>
         <div class="row note-row" data-degree="2">
-          <button class="play-note" title="Play note">&#9654;</button>
+          <button class="play-note" aria-label="Play note 2" title="Play note 2 (key 2)"
+                  aria-keyshortcuts="2">&#9654;</button>
           <label>Note 2</label>
           <span class="cumulative-cents"></span>
           <div class="accidental-well-wrapper">

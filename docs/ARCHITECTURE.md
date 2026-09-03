@@ -554,6 +554,40 @@ together no matter who ended them — a mouse press, Play, Stop, or the key
 itself. A `blur` on the window releases a held note too: focus can leave
 mid-hold, and then the keyup never arrives at all.
 
+### Announcing the shortcuts
+
+Every control that has a keyboard shortcut says so, in both halves: a `title`
+for the reader who can see the tooltip, and `aria-keyshortcuts` for the one
+whose screen reader announces it. A control with no shortcut claims none — the
+browser owns Ctrl+N, so **New** has nothing to say.
+
+| Control | `title` | `aria-keyshortcuts` |
+|---|---|---|
+| Open | Open (⌘O / Ctrl+O) | `Control+O Meta+O` |
+| Save As Music Scale Plot file | … (⌘S / Ctrl+S) | `Control+S Meta+S` |
+| Play scale | Play scale (Space) | `Space` |
+| Stop playing | Stop playing (Space) | `Space` |
+| A note row's play button, degrees 1–9 | Play note 3 (key 3) | `3` |
+
+`aria-keyshortcuts` lives in the markup, because it names **both** chords the
+handler accepts and reads the same on every machine. The tooltip cannot: a
+reader sees one keyboard, and "Ctrl+S" on a Mac is wrong. So
+`persistence-ui.js`'s `applyShortcutHints()` writes those two titles at load
+time in the platform's own notation, preferring `navigator.userAgentData` over
+the deprecated `navigator.platform` where a browser offers it. It composes each
+title from the control's accessible name rather than appending to whatever the
+title already says, so running it twice cannot stack two hints. Only the chords
+need this — Space is Space everywhere, so the transport's hints are static.
+
+A note row's play button carries all three of `aria-label`, `title` and
+`aria-keyshortcuts`, built by `makePlayButtonHTML()`. The `aria-label` is not
+decoration: the button's whole text content is ▶ (U+25B6), which a screen
+reader reads out as the character rather than as what pressing it does. Past
+`NUMBER_KEY_DEGREE_LIMIT` a degree claims no key, because none reaches it —
+announcing one would be announcing a shortcut that does nothing. That constant
+lives in `audio-ui.js` beside `numberKeyDegree()`, which is what enforces it, so
+the two cannot drift.
+
 ### WAV export
 
 **Save Audio As WAV** renders the same melody through an `OfflineAudioContext`

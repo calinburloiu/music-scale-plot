@@ -18,6 +18,7 @@ const {
   releaseKey,
   noteRows,
   intervalRows,
+  setNoteCount,
   openWell,
 } = require("../helpers/harness.js");
 const { closeTo } = require("../helpers/assertions.js");
@@ -390,6 +391,62 @@ test("the number keys and the focus guard", async (t) => {
     pressKey(h, button, "1");
 
     assert.equal(voices(h).length, 1, "the digit still reaches the transport");
+  });
+});
+
+test("the number keys are discoverable", async (t) => {
+  await t.test("each play button names its own key", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNoteCount(h, 4);
+
+    const buttons = noteRows(h).map((r) => r.querySelector(".play-note"));
+    assert.deepEqual(
+      buttons.map((b) => b.getAttribute("title")),
+      ["Play note 1 (key 1)", "Play note 2 (key 2)", "Play note 3 (key 3)", "Play note 4 (key 4)"]
+    );
+    assert.deepEqual(
+      buttons.map((b) => b.getAttribute("aria-keyshortcuts")),
+      ["1", "2", "3", "4"]
+    );
+  });
+
+  await t.test("names the button, because its ▶ is no accessible name", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // The button's whole text content is U+25B6, which a screen reader reads
+    // as the character rather than as what pressing it does.
+    assert.deepEqual(
+      noteRows(h).map((r) => r.querySelector(".play-note").getAttribute("aria-label")),
+      ["Play note 1", "Play note 2"]
+    );
+  });
+
+  await t.test("claims no key past the ninth degree, because there is none", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNoteCount(h, 10);
+
+    const tenth = noteRows(h)[9].querySelector(".play-note");
+    assert.equal(tenth.getAttribute("title"), "Play note 10");
+    assert.equal(tenth.getAttribute("aria-keyshortcuts"), null, "no key reaches degree 10");
+    assert.equal(tenth.getAttribute("aria-label"), "Play note 10", "but it is still named");
+  });
+
+  await t.test("keeps the hints right after the editor is rebuilt", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNoteCount(h, 3);
+
+    // Switching mode rebuilds every row through the other branch of the row
+    // builder, which is where a second copy of the markup would drift.
+    selectOption(h, "scale-mode", "absolute");
+
+    assert.deepEqual(
+      noteRows(h).map((r) => r.querySelector(".play-note").getAttribute("title")),
+      ["Play note 1 (key 1)", "Play note 2 (key 2)", "Play note 3 (key 3)"]
+    );
   });
 });
 
