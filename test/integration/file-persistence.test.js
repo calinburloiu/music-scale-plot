@@ -22,6 +22,11 @@ const {
   pickScaleFile,
 } = require("../helpers/harness.js");
 
+/** What the toolbar's message bar currently says, without the dismiss button. */
+function messageText(h) {
+  return h.document.getElementById("toolbar-message-text").textContent;
+}
+
 /** Clicks Save ▸ Save As Music Scale Plot file, the way a user reaches it. */
 async function saveScale(h) {
   fireClick(h, h.document.getElementById("save-menu"));
@@ -150,7 +155,7 @@ test("saving a scale document", async (t) => {
     assert.equal(h.writtenFiles.length, 0);
     const message = h.document.getElementById("toolbar-message");
     assert.equal(message.hidden, false);
-    assert.equal(message.textContent, "Could not save the file.");
+    assert.equal(messageText(h), "Could not save the file.");
   });
 });
 
@@ -464,7 +469,7 @@ test("opening a scale document", async (t) => {
     const message = h.document.getElementById("toolbar-message");
     assert.equal(message.hidden, false);
     assert.equal(
-      message.textContent,
+      messageText(h),
       "settings.baseNote must be a whole number from 0 to 11 (0 = C), got 12."
     );
   });
@@ -479,7 +484,7 @@ test("opening a scale document", async (t) => {
     const good = savedScaleFile(h).text;
 
     await pickScaleFile(h, "{ not json");
-    assert.equal(h.document.getElementById("toolbar-message").textContent, "Not a valid JSON file.");
+    assert.equal(h.document.getElementById("toolbar-message-text").textContent, "Not a valid JSON file.");
 
     await pickScaleFile(h, good);
     assert.equal(h.document.getElementById("toolbar-message").hidden, true);
@@ -525,7 +530,7 @@ test("opening a scale document", async (t) => {
     assert.equal(noteRows(h).length, 3, "nothing changed");
     const message = h.document.getElementById("toolbar-message");
     assert.equal(message.hidden, false);
-    assert.equal(message.textContent, "Could not open the file.");
+    assert.equal(messageText(h), "Could not open the file.");
   });
 
   await t.test("opens the fallback file dialog when there is no picker", () => {
@@ -551,6 +556,6 @@ test("opening a scale document", async (t) => {
     assert.equal(noteRows(h).length, 3, "nothing changed");
     const message = h.document.getElementById("toolbar-message");
     assert.equal(message.hidden, false);
-    assert.equal(message.textContent, "Could not open the file.");
+    assert.equal(messageText(h), "Could not open the file.");
   });
 });

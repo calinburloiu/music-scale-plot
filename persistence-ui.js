@@ -13,6 +13,8 @@ const saveMenuBtn = document.getElementById("save-menu");
 const saveMenuPanel = document.getElementById("save-menu-panel");
 const saveScaleItem = document.getElementById("save-scale");
 const toolbarMessage = document.getElementById("toolbar-message");
+const toolbarMessageText = document.getElementById("toolbar-message-text");
+const toolbarMessageDismiss = document.getElementById("toolbar-message-dismiss");
 const openFileInput = document.getElementById("open-file-input");
 
 // --- the Save menu ---------------------------------------------------------
@@ -60,15 +62,24 @@ saveMenuBtn.addEventListener("click", function (event) {
 // report anything: a bad document never reaches the editor, so there is
 // nothing on screen to show what went wrong.
 
+// The text goes in its own span rather than straight onto #toolbar-message,
+// because the dismiss button is a child of the bar: writing the container's
+// textContent would delete the button along with the old message, and the next
+// message would have no way out. The button carries no text node of its own —
+// its × is a CSS ::before and its name an aria-label — so the bar's textContent
+// stays exactly the message, which is what the live region announces.
+
 function showToolbarMessage(text) {
-  toolbarMessage.textContent = text;
+  toolbarMessageText.textContent = text;
   toolbarMessage.hidden = false;
 }
 
 function clearToolbarMessage() {
-  toolbarMessage.textContent = "";
+  toolbarMessageText.textContent = "";
   toolbarMessage.hidden = true;
 }
+
+toolbarMessageDismiss.addEventListener("click", clearToolbarMessage);
 
 // --- New -------------------------------------------------------------------
 

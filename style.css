@@ -1224,12 +1224,48 @@ body {
    #toolbar's own bottom padding is already the gap above it. The bottom margin
    is what holds it off #toolbar-bar's rule when it shows. */
 #toolbar-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
   margin: 0 2rem 0.45rem;
   padding: 0.4rem 0.6rem;
   border-radius: 3px;
   background: rgba(138, 46, 26, 0.1);
   color: var(--accent);
   font-size: 0.82rem;
+}
+
+#toolbar-message-text {
+  flex: 1;
+}
+
+/* The × is drawn here rather than written in the markup so the button carries
+   no text node: #toolbar-message is the role="alert" live region, and a glyph
+   inside it would be read out along with the message. The accessible name comes
+   from the button's aria-label instead.
+
+   `line-height: 1` on a 1rem glyph keeps the button's box the height of the
+   character, so it sits on the message's first line however many lines the
+   message wraps to. */
+#toolbar-message-dismiss {
+  flex: none;
+  padding: 0 0.2rem;
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.65;
+}
+
+#toolbar-message-dismiss::before {
+  content: "\00d7";
+}
+
+#toolbar-message-dismiss:hover,
+#toolbar-message-dismiss:focus-visible {
+  opacity: 1;
 }
 
 /* === Chart Panel ============================================ */

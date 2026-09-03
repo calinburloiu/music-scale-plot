@@ -57,6 +57,14 @@ a menu with "Save As Music Scale Plot file" and, below a separator, "Save As PNG
 `.toolbar-separator`, then **Add note** and **Remove last note**; a `role="alert"` message
 bar (`#toolbar-message`, hidden until a file operation has something to say) and the
 hidden `<input type="file" id="open-file-input">` used by the Open fallback complete it.
+
+The message bar holds two children: `#toolbar-message-text`, which is what
+`showToolbarMessage()`/`clearToolbarMessage()` write, and `#toolbar-message-dismiss`, the
+button that closes it. The text has its own element because the button is a sibling
+inside the bar — writing the container's `textContent` would delete the button along with
+the old message, leaving the next message with no way out. The button carries no text
+node: its × is a CSS `::before` and its accessible name an `aria-label`, so the live
+region announces the message and nothing else.
 Each button is icon-only (`<img src="icons/*.svg" alt="">`) with its accessible name given
 entirely by `aria-label`/`title`. **Add note**, **Remove last note** and **Save as PNG**
 kept their element ids (`add-note`, `remove-note`, `save-png`) across the move from the

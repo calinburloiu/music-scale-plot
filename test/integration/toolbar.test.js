@@ -17,6 +17,11 @@ function toolbar(h) {
   return h.document.getElementById("toolbar");
 }
 
+/** What the toolbar's message bar currently says, without the dismiss button. */
+function messageText(h) {
+  return h.document.getElementById("toolbar-message-text").textContent;
+}
+
 test("the toolbar", async (t) => {
   await t.test("sits before the page container so it can stick to the top", () => {
     const h = loadApp();
@@ -91,7 +96,7 @@ test("the toolbar", async (t) => {
     const message = h.document.getElementById("toolbar-message");
     assert.ok(message, "there is no #toolbar-message");
     assert.equal(message.hidden, true);
-    assert.equal(message.textContent, "");
+    assert.equal(messageText(h), "");
     assert.equal(message.getAttribute("role"), "alert");
   });
 
@@ -307,7 +312,7 @@ test("New", async (t) => {
     fireClick(h, h.document.getElementById("new-file"));
     const message = h.document.getElementById("toolbar-message");
     assert.equal(message.hidden, true);
-    assert.equal(message.textContent, "");
+    assert.equal(messageText(h), "");
   });
 
   await t.test("discards a scale that was built up", () => {
@@ -322,6 +327,72 @@ test("New", async (t) => {
   });
 });
 
+test("dismissing the toolbar message", async (t) => {
+  function dismissBtn(h) {
+    return h.document.getElementById("toolbar-message-dismiss");
+  }
+
+  await t.test("offers a dismiss button, named for a reader who cannot see the glyph", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const button = dismissBtn(h);
+    assert.ok(button, "there is no #toolbar-message-dismiss");
+    assert.equal(button.tagName, "BUTTON");
+    assert.equal(button.getAttribute("type"), "button", "it must not submit anything");
+    assert.ok(
+      button.getAttribute("aria-label"),
+      "the × is drawn in CSS, so the accessible name has to come from aria-label"
+    );
+  });
+
+  await t.test("hides the bar when the button is clicked", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    h.app.showToolbarMessage("Not a valid JSON file.");
+    assert.equal(h.document.getElementById("toolbar-message").hidden, false);
+
+    fireClick(h, dismissBtn(h));
+
+    const message = h.document.getElementById("toolbar-message");
+    assert.equal(message.hidden, true, "the button must hide the bar");
+    assert.equal(messageText(h), "", "and empty it");
+  });
+
+  await t.test("keeps the button through a clear, so the bar can be dismissed twice", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // The button lives inside #toolbar-message. Clearing by writing the
+    // container's textContent would delete it along with the text, and the
+    // second message would have no way out.
+    h.app.showToolbarMessage("Not a valid JSON file.");
+    fireClick(h, dismissBtn(h));
+
+    h.app.showToolbarMessage("Could not open the file.");
+    assert.equal(h.document.getElementById("toolbar-message").hidden, false);
+    assert.ok(dismissBtn(h), "the dismiss button must survive a clear");
+
+    fireClick(h, dismissBtn(h));
+    assert.equal(h.document.getElementById("toolbar-message").hidden, true);
+  });
+
+  await t.test("contributes no text of its own to the alert", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // The glyph is a CSS ::before, so what a screen reader announces when the
+    // live region changes is the message and nothing else.
+    h.app.showToolbarMessage("settings.baseNote must be a whole number from 0 to 11 (0 = C), got 12.");
+    assert.equal(
+      messageText(h),
+      "settings.baseNote must be a whole number from 0 to 11 (0 = C), got 12."
+    );
+    assert.equal(dismissBtn(h).textContent, "", "the button must carry no text node");
+  });
+});
+
 test("the toolbar message bar", async (t) => {
   await t.test("shows text and hides again when cleared", () => {
     const h = loadApp();
@@ -331,13 +402,13 @@ test("the toolbar message bar", async (t) => {
     h.app.showToolbarMessage("settings.baseNote must be a whole number from 0 to 11 (0 = C), got 12.");
     assert.equal(message.hidden, false);
     assert.equal(
-      message.textContent,
+      messageText(h),
       "settings.baseNote must be a whole number from 0 to 11 (0 = C), got 12."
     );
 
     h.app.clearToolbarMessage();
     assert.equal(message.hidden, true);
-    assert.equal(message.textContent, "");
+    assert.equal(messageText(h), "");
   });
 });
 
