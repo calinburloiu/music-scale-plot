@@ -21,8 +21,9 @@ music-scale-plot/
 │                             # the martyria draft, the ladder
 ├── persistence-ui.js        # The toolbar and the file flows: New/Open/Save,
 │                             # collectDocumentState/applyDocumentState
-├── audio-ui.js              # The transport, the sounding-note highlight and the
-│                             # WAV export; also the per-note play buttons
+├── audio-ui.js              # The transport, the sounding-note highlight, the
+│                             # keyboard and the WAV export; also the per-note
+│                             # play buttons
 ├── app.js                   # Everything else: editor DOM management, chart rendering,
 │                             # PNG export — runs at load time, so it loads last
 ├── docs/
@@ -514,6 +515,19 @@ because the two keys conflict with different things:
 | Nothing (`<body>`) | toggles | plays |
 | `<input>`, `<textarea>`, `<select>`, `contenteditable` | ignored | ignored |
 | `<button>`, `<a href>`, `<summary>` | ignored | plays |
+
+A **disabled** button is not in the Space column: there is no click to stand
+aside for, and standing aside anyway costs the whole shortcut. Both transport
+buttons disable themselves on click, and Firefox leaves the focus sitting on
+them when they do — Chromium and WebKit move it to `<body>` — so without the
+exclusion, clicking **Stop** with the mouse would take Space away from the
+transport in Firefox, and the shortcut would look broken exactly after the
+gesture a reader is most likely to make.
+
+Of the rows above, today's `index.html` only actually contains `<input>`,
+`<select>` and `<button>`. The rest are named because the cost is a word and
+the failure would be silent — a page that later grows a comment field or a
+`<details>` would otherwise play a scale into it.
 
 A digit is only ever eaten by something you can type into — which is the point:
 typing `3/2` into an interval box must not play degrees 3 and 2. Space is eaten

@@ -47,9 +47,11 @@ function startTone(frequency) {
 }
 
 function stopTone() {
-  // Before the early return, so the look a held number key put on a button
-  // always ends with the voice it belongs to — whoever ended it, and whether
-  // or not there was still an oscillator to silence.
+  // Here, rather than in each of stopTone()'s callers, so that no caller has
+  // to know a keyboard exists: the look a held number key put on a button ends
+  // with the voice it belongs to whether the mouse, Play, Stop or the key
+  // itself ended it. Before the early return only for want of a reason to be
+  // after it.
   releaseKeyboardDegree();
   if (!activeOsc) return;
   const ctx = getAudioContext();
@@ -85,19 +87,39 @@ document.addEventListener("touchend", stopTone);
 // only ever eaten by something you can type into, while Space is *also* the
 // browser's click on a focused button.
 
-/** Anything a keystroke can be typed into: the key belongs to it, not to us. */
+/**
+ * Anything whose own key handling owns the keystroke: every form field, plus
+ * contenteditable. Not only the ones you type *text* into — the zoom slider is
+ * an INPUT too, and Space belongs to it as much as to a text box.
+ *
+ * SELECT is here because it eats both keys this file claims: a digit is option
+ * typeahead, and Space opens the list.
+ *
+ * TEXTAREA and contenteditable match nothing in today's index.html. They are
+ * named anyway because the cost is a word and the failure is silent: a page
+ * that grows a comment field would otherwise play a scale into it.
+ */
 function isTextEntryElement(element) {
   if (!element) return false;
   if (element.isContentEditable) return true;
   const tag = element.tagName;
-  // SELECT is here because it eats both keys this file claims: a digit is
-  // option typeahead, and Space opens the list.
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
 }
 
-/** Anything the browser turns a Space into a click on. */
+/**
+ * Anything the browser turns a Space into a click on. Only BUTTON exists in
+ * today's index.html; the other two are named for the same reason as above.
+ *
+ * A **disabled** button is not one of them, and the exclusion is load-bearing
+ * rather than tidy. Both transport buttons disable themselves on click, and
+ * Firefox leaves the focus sitting on them when they do — so without this,
+ * clicking Stop with the mouse would take Space away from the transport
+ * altogether, and the shortcut would look broken exactly after the gesture a
+ * reader is most likely to make. Nothing is given up: there is no click to
+ * stand aside for.
+ */
 function isSpaceActivatedElement(element) {
-  if (!element) return false;
+  if (!element || element.disabled) return false;
   const tag = element.tagName;
   return tag === "BUTTON" || tag === "SUMMARY" || (tag === "A" && element.hasAttribute("href"));
 }
@@ -161,7 +183,8 @@ function handleAudioKeyDown(event) {
 }
 
 function handleAudioKeyUp(event) {
-  if (keyboardDegree === null) return;
+  // Covers "nothing is held" too: numberKeyDegree() returns a number, so this
+  // is never equal to a null keyboardDegree.
   if (numberKeyDegree(event.key) !== keyboardDegree) return;
   stopTone();
 }

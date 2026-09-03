@@ -16,7 +16,7 @@ Client-side web app for plotting microtonal music scales (Byzantine/psaltic, Ott
 - `symbols-ui.js` — the well and picker machinery shared by both notations: the `SYMBOL_WELLS` registry, the grouped-list picker builder, and search. Built on `byzantine.js` and `smufl.js`.
 - `byzantine-ui.js` — only what is Byzantine: the alteration, fthora and martyria picker builders, the martyria draft, and the ladder applied to the editor. Built on `symbols-ui.js`.
 - `persistence-ui.js` — the DOM half of file persistence: the toolbar's handles, the Save menu, the message bar, `collectDocumentState`/`applyDocumentState`, New/Open/Save, and the file keyboard shortcuts. Built on `persistence.js`.
-- `audio-ui.js` — the DOM half of audio: the Play/Stop transport and its button state, the sounding-note highlight, the WAV export flow, and the per-note press-and-hold playback that used to live in `app.js`.
+- `audio-ui.js` — the DOM half of audio: the Play/Stop transport and its button state, the sounding-note highlight, the WAV export flow, the per-note press-and-hold playback that used to live in `app.js`, and the keyboard shortcuts that reach both (Space, and `1`…`9`).
 - `app.js` — everything else: editor DOM management, interval parsing, canvas rendering, PNG export, color picker. Runs at load time, so it loads last.
 - `style.css` — all styling.
 - `fonts/` — vendored Neanes and Bravura Text SBMuFL/SMuFL fonts (see `README.md`'s NOTICE for licensing).
@@ -65,7 +65,7 @@ Key concepts:
   (the `.musp.json` format, no DOM), `audio.js` (the audio model, no DOM),
   `symbols-ui.js` (wells and pickers shared by both notations), `byzantine-ui.js`
   (only what is Byzantine), `persistence-ui.js` (the toolbar and file flows),
-  `audio-ui.js` (the transport, the highlight and the WAV export), `app.js`
+  `audio-ui.js` (the transport, the highlight, the keyboard and the WAV export), `app.js`
   (everything else; it runs at load time, so it goes last). **Never convert
   these to ES modules**: a `<script type="module">`
   is fetched under CORS and a `file://` page has an opaque origin, so modules

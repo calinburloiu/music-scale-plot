@@ -10,6 +10,7 @@ const assert = require("node:assert/strict");
 
 const {
   loadApp,
+  fireClick,
   buildRelativeScale,
   buildAbsoluteScale,
   selectOption,
@@ -100,12 +101,18 @@ test("Space toggles the transport", async (t) => {
     buildRelativeScale(h, ["9/8"]);
 
     pressLoose(h, " ");
+    const scheduled = h.audioContexts[0].oscillators.length;
     // A held Space that stopped what the first press started would make the
-    // transport unusable from the keyboard.
+    // transport unusable from the keyboard. Exactly one repeat: an even number
+    // of them toggles back to where it started and hides the bug.
     assert.equal(pressLoose(h, " ", { repeat: true }), true, "still off the page");
-    assert.equal(pressLoose(h, " ", { repeat: true }), true);
 
     assert.equal(h.app.isScalePlaying(), true, "the scale plays on");
+    assert.equal(
+      h.audioContexts[0].oscillators.length,
+      scheduled,
+      "and it is the same melody, not a second one"
+    );
   });
 
   await t.test("stays out of an interval box", () => {
@@ -136,6 +143,45 @@ test("Space toggles the transport", async (t) => {
     const button = h.document.getElementById("new-file");
     assert.equal(pressFocused(h, button, " "), false);
     assert.equal(h.app.isScalePlaying(), false);
+  });
+
+  await t.test("still toggles when the focused button is disabled", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+
+    // A disabled button has no click for Space to conflict with, so nothing is
+    // gained by standing aside — and standing aside costs the whole shortcut,
+    // because a button that disables itself on click can keep the focus. See
+    // the next test for the path a user actually takes there.
+    const button = h.document.getElementById("stop-scale");
+    button.disabled = false;
+    button.focus();
+    button.disabled = true;
+    assert.ok(h.document.activeElement === button, "focus stays on the disabled button");
+
+    assert.equal(pressKey(h, button, " "), true, "Space is ours again");
+    assert.equal(h.app.isScalePlaying(), true);
+  });
+
+  await t.test("still starts the scale after Stop was clicked with the mouse", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+
+    // Firefox leaves the focus on a button that its own click disabled, which
+    // is exactly what Stop does. Verified against all three engines: Chromium
+    // and WebKit move focus to <body> here, Firefox does not — and jsdom
+    // behaves as Firefox does, so this reproduces the browser that breaks.
+    pressLoose(h, " ");
+    const stop = h.document.getElementById("stop-scale");
+    stop.focus();
+    fireClick(h, stop);
+    assert.equal(h.app.isScalePlaying(), false, "the click stopped it");
+    assert.equal(stop.disabled, true, "and disabled the button under the focus");
+
+    pressKey(h, stop, " ");
+    assert.equal(h.app.isScalePlaying(), true, "Space starts it again");
   });
 
   await t.test("leaves a focused select alone", () => {
@@ -277,12 +323,17 @@ test("the number keys and the focus guard", async (t) => {
   await t.test("stay out of an interval box", () => {
     const h = loadApp();
     t.after(() => h.close());
-    buildRelativeScale(h, ["9/8"]);
+    // Three degrees, so that 3 and 2 are both degrees this scale really has:
+    // a digit past the end of the scale is refused for its own reason, and
+    // would leave the focus guard untested.
+    buildRelativeScale(h, ["9/8", "10/9"]);
 
     // The whole point of the guard: typing 3/2 must not play degrees 3 and 2.
     const input = intervalRows(h)[0].querySelector(".interval");
     assert.equal(pressFocused(h, input, "3"), false, "the digit must reach the box");
-    assert.equal(h.audioContexts.length, 0);
+    pressKey(h, input, "2");
+    assert.equal(h.audioContexts.length, 0, "neither digit sounded");
+    assert.equal(soundingDegree(h), null);
   });
 
   await t.test("stay out of the EDO divisions box", () => {
@@ -290,8 +341,9 @@ test("the number keys and the focus guard", async (t) => {
     t.after(() => h.close());
     selectOption(h, "interval-type", "edo");
 
+    // "2", a degree the default scale has, so the guard is what refuses it.
     const input = h.document.getElementById("edo-divisions");
-    assert.equal(pressFocused(h, input, "5"), false);
+    assert.equal(pressFocused(h, input, "2"), false);
     assert.equal(h.audioContexts.length, 0);
   });
 
@@ -322,7 +374,7 @@ test("the number keys and the focus guard", async (t) => {
     const panel = openWell(h, noteRows(h)[0], "accidental");
     const search = panel.querySelector(".sym-search");
     assert.ok(h.document.activeElement === search, "the picker focuses its search field");
-    assert.equal(pressKey(h, search, "4"), false);
+    assert.equal(pressKey(h, search, "2"), false);
     assert.equal(h.audioContexts.length, 0);
   });
 
@@ -356,6 +408,23 @@ test("one voice, from the keyboard too", async (t) => {
     assert.equal(h.app.isScalePlaying(), false, "the scale gives way to the held note");
     assert.equal(ctx.oscillators.length, scheduled + 1, "the held note is sounding");
     assert.equal(ctx.oscillators.at(-1).stopped, null, "and is still held");
+  });
+
+  await t.test("Space takes the voice from a key being held", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+
+    // The sequence the third one-voice rule exists for, and the one the
+    // keyboard makes easy to reach: hold a number key, then press Space.
+    pressLoose(h, "1");
+    const ctx = h.audioContexts[0];
+    ctx.currentTime = 0.2;
+    pressLoose(h, " ");
+
+    closeTo(ctx.oscillators[0].stopped, 0.2 + h.app.RELEASE_SECONDS, 1e-12, "the held note ends");
+    assert.equal(h.app.isScalePlaying(), true, "and the scale takes the voice");
+    assert.equal(soundingDegree(h), null, "the held note's look goes with it");
   });
 
   await t.test("a second digit takes the voice from the first", () => {
