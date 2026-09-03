@@ -1223,7 +1223,12 @@ function joinWithAnd(items) {
 }
 
 /**
- * Why the scale cannot be saved, or null when it can.
+ * Why the scale cannot be handed to `verb`, or null when it can.
+ *
+ * The verb is a parameter because the same guard now refuses more than one
+ * action: Play reaches it too, and a reader who pressed Play is not saving
+ * anything. Every future action that refuses a broken scale names itself here
+ * rather than growing a second message.
  *
  * Positions are counted in the units the user is looking at: interval rows in
  * relative mode, note rows in absolute, where the value lives on the note
@@ -1231,7 +1236,7 @@ function joinWithAnd(items) {
  * boxes show which, but a long scale scrolls past the fold and the bar is what
  * stays on screen.
  */
-function invalidIntervalMessage() {
+function invalidIntervalMessage(verb = "save") {
   const absolute = getScaleMode() === "absolute";
   const rows = [...editor.querySelectorAll(absolute ? ".note-row" : ".interval-row")];
   const positions = [];
@@ -1245,9 +1250,9 @@ function invalidIntervalMessage() {
   const nouns = INTERVAL_TYPE_NOUNS[getIntervalType()];
   const thing = absolute ? "note" : "interval";
   if (positions.length === 1) {
-    return `Cannot save: ${thing} ${positions[0]} is not a valid ${nouns[0]}.`;
+    return `Cannot ${verb}: ${thing} ${positions[0]} is not a valid ${nouns[0]}.`;
   }
-  return `Cannot save: ${thing}s ${joinWithAnd(positions)} are not valid ${nouns[1]}.`;
+  return `Cannot ${verb}: ${thing}s ${joinWithAnd(positions)} are not valid ${nouns[1]}.`;
 }
 
 function updateCumulativeCents() {

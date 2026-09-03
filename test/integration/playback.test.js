@@ -391,7 +391,11 @@ test("refusing to play an invalid scale", async (t) => {
 
     assert.equal(h.app.isScalePlaying(), false, "nothing may play");
     assert.equal(h.audioContexts.length, 0, "not even an AudioContext");
-    assert.equal(messageText(h), "Cannot save: interval 2 is not a valid ratio.");
+    assert.equal(
+      messageText(h),
+      "Cannot play: interval 2 is not a valid ratio.",
+      "the bar names the action the reader took, and Play saves nothing"
+    );
   });
 
   await t.test("the complaint takes itself down when the box is fixed", () => {

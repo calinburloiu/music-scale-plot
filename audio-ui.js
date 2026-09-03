@@ -237,9 +237,9 @@ function playScale() {
   if (isScalePlaying()) return;
 
   // A scale with a hole in it is not one the app should play, any more than it
-  // is one it should hand out — the same guard, message and self-clearing
-  // behaviour the two saves use.
-  const problem = invalidIntervalMessage();
+  // is one it should hand out — the same guard and self-clearing behaviour the
+  // two saves use, but named for the action the reader actually took.
+  const problem = invalidIntervalMessage("play");
   if (problem) {
     showToolbarMessage(problem, INVALID_SCALE_MESSAGE);
     return;

@@ -437,9 +437,15 @@ does not ask for it. Noted here as a follow-up, not done.
 
 **Both Play and Save Audio refuse a scale with an unreadable interval**, through the
 existing `invalidIntervalMessage()` check and the `INVALID_SCALE_MESSAGE` kind — the
-same guard, the same message and the same self-clearing behaviour that `savePNG()` and
-`saveScaleFile()` already use. A scale with a hole in it is not one the app should play
-or hand out, in any format.
+same guard and the same self-clearing behaviour that `savePNG()` and `saveScaleFile()`
+already use. A scale with a hole in it is not one the app should play or hand out, in
+any format.
+
+**Amended in review:** this originally said the same *message* too, and it shipped that
+way — so pressing Play on a broken scale answered *"Cannot save: …"* when nothing was
+being saved. `invalidIntervalMessage()` now takes the verb, defaulting to `"save"`, and
+`playScale()` passes `"play"`. The guard stays shared; only the word for the action the
+reader actually took varies.
 
 A cancelled save dialog (`AbortError`) reports nothing: the user chose not to save. A
 dialog that genuinely fails reports "Could not save the audio file." through the

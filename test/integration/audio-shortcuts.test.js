@@ -214,7 +214,8 @@ test("Space toggles the transport", async (t) => {
     assert.equal(h.app.isScalePlaying(), false, "nothing may play");
     assert.equal(
       h.document.getElementById("toolbar-message-text").textContent,
-      "Cannot save: interval 2 is not a valid ratio."
+      "Cannot play: interval 2 is not a valid ratio.",
+      "Space reaches Play, so the bar must say play, not save"
     );
   });
 });

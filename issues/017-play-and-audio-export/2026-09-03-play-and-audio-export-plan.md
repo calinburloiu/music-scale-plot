@@ -82,7 +82,7 @@ Every task's requirements implicitly include all of these.
 
 Two things the spec decided that look like mistakes on first reading. Do not "fix" them:
 
-1. **The Play guard reuses the save guard's wording**, so refusing to play an unreadable scale says *"Cannot save: interval 2 is not a valid ratio."* — design §8 asks for the same guard, the same message and the same `INVALID_SCALE_MESSAGE` self-clearing behaviour. Rewording would mean parameterising `invalidIntervalMessage()` and editing tests that pin the current text; it is out of scope for issue #17.
+1. ~~**The Play guard reuses the save guard's wording**~~ — **amended in review.** The guard did say *"Cannot save"* on Play, as design §8's "the same guard, the same message" asked. It was wrong: the reader pressed Play and nothing was being saved. `invalidIntervalMessage()` now takes the verb (`invalidIntervalMessage("play")` from `playScale()`), so Play says *"Cannot play: interval 2 is not a valid ratio."* while both saves are unchanged. Every future action that refuses a broken scale names itself the same way.
 2. **PNG export keeps its hardcoded `scale.png`.** Design §7.3 notes bringing it in line with the scale's name would be an improvement and explicitly does not do it here.
 
 ---
@@ -1706,7 +1706,7 @@ test("refusing to play an invalid scale", async (t) => {
 
     assert.equal(h.app.isScalePlaying(), false, "nothing may play");
     assert.equal(h.audioContexts.length, 0, "not even an AudioContext");
-    assert.equal(messageText(h), "Cannot save: interval 2 is not a valid ratio.");
+    assert.equal(messageText(h), "Cannot play: interval 2 is not a valid ratio."); // reworded in review; see note 1
   });
 
   await t.test("the complaint takes itself down when the box is fixed", () => {
@@ -1729,7 +1729,7 @@ test("refusing to play an invalid scale", async (t) => {
 });
 ```
 
-Note the shared wording: the guard's message says *"Cannot save"* even on Play, because design §8 asks for the same guard and the same message. See "Notes carried over from the design" above.
+Note the wording: this said *"Cannot save"* even on Play while design §8 asked for the same guard *and* the same message. Review corrected it — the guard is still shared, but the verb is now a parameter. See note 1 in "Notes carried over from the design" above.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -2458,7 +2458,7 @@ test("saving the audio", async (t) => {
 
     assert.equal(h.downloads.length, 0, "nothing may be handed out");
     assert.equal(h.offlineContexts.length, 0, "and nothing is even rendered");
-    assert.equal(messageText(h), "Cannot save: interval 2 is not a valid ratio.");
+    assert.equal(messageText(h), "Cannot play: interval 2 is not a valid ratio."); // reworded in review; see note 1
   });
 });
 ```
