@@ -515,15 +515,13 @@ function pickColor(harness, intervalRow, hex) {
 }
 
 /**
- * The scale document the app last handed to `<a download>`, read back out of
- * the data: URL — the same mechanism savePNG() uses, so no URL.createObjectURL
- * shim is needed and the existing anchor recorder does the work.
+ * The scale document the app last handed to `<a download>`, decoded out of the
+ * Blob its object URL points at. Async, because reading a Blob is: jsdom's has
+ * neither `text()` nor `arrayBuffer()`, so it goes through `FileReader`.
  */
-function savedScaleFile(harness) {
-  const download = harness.downloads[harness.downloads.length - 1];
-  if (!download) throw new Error("Nothing was downloaded");
-  const comma = download.href.indexOf(",");
-  return { name: download.download, text: decodeURIComponent(download.href.slice(comma + 1)) };
+async function savedScaleFile(harness) {
+  const file = await savedFile(harness);
+  return { name: file.name, text: file.text };
 }
 
 /** Reads a jsdom Blob's bytes; jsdom's Blob has no arrayBuffer(), FileReader does. */
@@ -537,21 +535,39 @@ function blobBytes(harness, blob) {
 }
 
 /**
- * The audio file the app last handed to `<a download>`, with its bytes read
- * back out of the Blob the object URL points at — the real Blob the app built.
+ * The file the app last handed to `<a download>`: the download name, the URL
+ * itself, the Blob's MIME type, whether that object URL has since been
+ * revoked, and the bytes, read back out of the real Blob the app built.
+ *
+ * Every save goes out this way — a Blob behind an object URL, never a data:
+ * URL. See `downloadBlob()` in `persistence-ui.js` for why that is not a
+ * matter of taste.
  */
-async function savedAudioFile(harness) {
+async function savedFile(harness) {
   const download = harness.downloads[harness.downloads.length - 1];
   if (!download) throw new Error("Nothing was downloaded");
   const entry = harness.objectUrls.find((o) => o.url === download.href);
   if (!entry) throw new Error(`No object URL matches ${download.href}`);
+  const bytes = await blobBytes(harness, entry.blob);
   return {
     name: download.download,
+    href: download.href,
     type: entry.blob.type,
     revoked: entry.revoked,
-    bytes: await blobBytes(harness, entry.blob),
+    bytes,
+    // Lazily: a chart's PNG runs to megabytes, and only the text files want it.
+    get text() {
+      return new TextDecoder().decode(bytes);
+    },
   };
 }
+
+/**
+ * `savedFile()` under the name the **Save Audio As WAV** tests read it by.
+ * Every save builds its download the same way now, so there is nothing left
+ * for an audio-specific reader to do.
+ */
+const savedAudioFile = savedFile;
 
 /**
  * Hands the hidden file input a file and fires `change`, the way a browser does
@@ -690,6 +706,7 @@ module.exports = {
   buildRelativeScale,
   buildAbsoluteScale,
   pickColor,
+  savedFile,
   savedScaleFile,
   savedAudioFile,
   blobBytes,

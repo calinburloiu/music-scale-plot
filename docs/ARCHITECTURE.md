@@ -645,13 +645,10 @@ little-endian PCM. Samples are clamped to [−1, 1] and scaled asymmetrically �
 practice (one voice at a time, peak gain 0.3, no overlap); the clamp is there
 because an encoder that trusts its input produces a file that clicks.
 
-The download uses a `Blob` and `URL.createObjectURL`, **not** the `data:` URL the
-scale-file and PNG saves use: an eight-degree scale is 882 KB, which base64
-inflates to about 1.18 MB, and a sixteen-degree one reaches 2.43 MB — past the
-point where `data:` downloads are reliable. The object URL is revoked on the next
-macrotask, after the click has been dispatched; revoking synchronously can cancel
-the download. The file is named after the scale through `suggestedFileName()`, so
-it shares its slug rule and diacritic folding with the `.musp.json` save.
+The download goes out through `downloadBlob()`, the one mechanism every save in
+the app shares — see [Handing the browser a file](#handing-the-browser-a-file).
+The file is named after the scale through `suggestedFileName()`, so it shares its
+slug rule and diacritic folding with the `.musp.json` save.
 
 ### Why WAV, and not a compressed format
 
@@ -768,7 +765,14 @@ binds only on charts spanning several octaves.
 
 ## PNG Export
 
-A **Save as PNG** button calls `canvas.toDataURL("image/png")`, creates a temporary `<a>` element with the `download` attribute set to `scale.png`, and programmatically clicks it. This triggers a file download with no server involvement.
+A **Save as PNG** button calls `canvas.toDataURL("image/png")` — the only encoder
+a canvas has synchronously — decodes the base64 back to bytes, splices in the two
+print chunks, and hands the result to `downloadBlob()` as an `image/png` Blob. No
+server is involved. The `data:` URL `toDataURL` returns is never used as the
+download's `href`; see
+[Handing the browser a file](#handing-the-browser-a-file) for why that matters.
+`withPrintMetadata()` takes and returns bytes rather than a `data:` URL, so the
+bitmap is never re-encoded to base64 on its way out.
 
 The export is **independent of the display**: `savePNG()` re-renders at
 `EXPORT_SCALE` (4), takes the bitmap, then re-renders at `DPR` to put the screen
@@ -861,9 +865,37 @@ collectDocumentState()  ──►  serializeScaleDocument()  ──►  JSON tex
                                  │                    │
                                  ▼                    ▼
                       picker → createWritable   downloadScaleFile()
-                      → write → close           (<a download> + data: URL,
-                                                 the same mechanism savePNG() uses)
+                      → write → close           (downloadBlob(): <a download>
+                                                 + a Blob object URL)
 ```
+
+### Handing the browser a file
+
+All three saves — the `.musp.json` document, the PNG and the WAV — end at
+`downloadBlob()` in `persistence-ui.js`. It wraps the bytes in a `Blob`, takes an
+object URL, sets `download` and `href` on a detached `<a>`, clicks it, and revokes
+the URL on the next macrotask.
+
+Each of those three details is load-bearing:
+
+- **A `Blob`, never a `data:` URL.** On an iPhone a `data:` URL is not a slower
+  path, it is no path at all. Safari's download manager will not fetch one: the
+  anchor's `download` attribute is enough to raise its "Do you want to
+  download…?" sheet, so the page looks like it is working, and then tapping
+  Download writes nothing and reports nothing. A `blob:` URL it fetches. Size is
+  beside the point — a 451-byte scale document failed exactly as the megabyte PNG
+  did, while the WAV, which used a `Blob` from the start, always worked.
+- **Revoked on the next macrotask, not synchronously.** Revoking inside the same
+  turn as the click can cancel the download outright. Not revoking at all would
+  pin the Blob — megabytes, for a chart — for the lifetime of the document.
+- **A detached anchor.** It never needs a place in the document to dispatch its
+  click, and so leaves nothing to clean up.
+
+This is only the fallback half. Where `window.showSaveFilePicker` exists —
+Chromium, and not on a `file://` page — the scale and audio saves write through
+the File System Access API instead and never build an anchor at all. Firefox,
+Safari, every iPhone and every `file://` page reach `downloadBlob()`, which makes
+it the path most users are actually on.
 
 ## Styling
 
@@ -897,7 +929,7 @@ collectDocumentState()  ──►  serializeScaleDocument()  ──►  JSON tex
 | State management | DOM is the source of truth; read inputs on each change |
 | Rendering | HTML5 Canvas 2D API |
 | Reactivity | Single `input` event listener on the editor container (event delegation) |
-| Export | `canvas.toDataURL()` + programmatic download for the chart; `OfflineAudioContext` + a hand-written WAV encoder for the audio |
+| Export | `canvas.toDataURL()` for the chart, `OfflineAudioContext` + a hand-written WAV encoder for the audio; every save then goes out as a `Blob` object URL through `downloadBlob()` |
 | Dependencies | None |
 | Build step | None — open `index.html` in a browser |
 | Code organisation | Separate `index.html`, `style.css` files and nine classic scripts (`byzantine.js`, `smufl.js`, `persistence.js`, `audio.js`, `symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `audio-ui.js`, `app.js`) — no modules |
