@@ -192,6 +192,21 @@ function loadApp(options = {}) {
     downloads.push({ download: this.download, href: this.href });
   };
 
+  // --- object URLs --------------------------------------------------------
+  // jsdom implements neither createObjectURL nor revokeObjectURL. The shim
+  // keeps the real Blob, so a test reads the actual WAV back rather than
+  // decoding base64 out of a data: URL.
+  const objectUrls = [];
+  window.URL.createObjectURL = function createObjectURL(blob) {
+    const url = `blob:http://localhost/${objectUrls.length + 1}`;
+    objectUrls.push({ url, blob, revoked: false });
+    return url;
+  };
+  window.URL.revokeObjectURL = function revokeObjectURL(url) {
+    const entry = objectUrls.find((o) => o.url === url);
+    if (entry) entry.revoked = true;
+  };
+
   // --- File System Access -------------------------------------------------
   // Absent unless a test asks for it: Firefox, Safari and every file:// page
   // reach the fallback, so that is the path most tests should be on.
@@ -211,7 +226,13 @@ function loadApp(options = {}) {
         createWritable: () =>
           Promise.resolve({
             write: (data) => {
-              writtenFiles.push({ name: pickerOptions.suggestedName, text: String(data) });
+              writtenFiles.push({
+                name: pickerOptions.suggestedName,
+                // A scale document arrives as a string; a WAV arrives as bytes,
+                // and stringifying 900 KB of samples would help nobody.
+                text: typeof data === "string" ? data : "",
+                data: data,
+              });
               return Promise.resolve();
             },
             close: () => Promise.resolve(),
@@ -266,6 +287,8 @@ function loadApp(options = {}) {
     ctx: context,
     /** `{ download, href }` for every anchor click (i.e. every PNG export). */
     downloads,
+    /** `{ url, blob, revoked }` for every object URL the app created. */
+    objectUrls,
     /** `{ name, text }` for every file written through showSaveFilePicker. */
     writtenFiles,
     /** `{ picker, options }` for every File System Access picker call. */
@@ -455,6 +478,33 @@ function savedScaleFile(harness) {
   return { name: download.download, text: decodeURIComponent(download.href.slice(comma + 1)) };
 }
 
+/** Reads a jsdom Blob's bytes; jsdom's Blob has no arrayBuffer(), FileReader does. */
+function blobBytes(harness, blob) {
+  return new Promise(function (resolve, reject) {
+    const reader = new harness.window.FileReader();
+    reader.onload = () => resolve(new Uint8Array(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
+/**
+ * The audio file the app last handed to `<a download>`, with its bytes read
+ * back out of the Blob the object URL points at — the real Blob the app built.
+ */
+async function savedAudioFile(harness) {
+  const download = harness.downloads[harness.downloads.length - 1];
+  if (!download) throw new Error("Nothing was downloaded");
+  const entry = harness.objectUrls.find((o) => o.url === download.href);
+  if (!entry) throw new Error(`No object URL matches ${download.href}`);
+  return {
+    name: download.download,
+    type: entry.blob.type,
+    revoked: entry.revoked,
+    bytes: await blobBytes(harness, entry.blob),
+  };
+}
+
 /**
  * Hands the hidden file input a file and fires `change`, the way a browser does
  * once the user has picked one in the fallback dialog. The handler reads the
@@ -592,6 +642,8 @@ module.exports = {
   buildAbsoluteScale,
   pickColor,
   savedScaleFile,
+  savedAudioFile,
+  blobBytes,
   pickScaleFile,
   openWell,
   pickAlteration,

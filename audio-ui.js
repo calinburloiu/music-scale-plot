@@ -214,3 +214,70 @@ async function renderScaleWav() {
   const buffer = await offline.startRendering();
   return encodeWavMono16(buffer.getChannelData(0), EXPORT_SAMPLE_RATE);
 }
+
+// --- saving the audio -------------------------------------------------------
+
+const AUDIO_FILE_EXTENSION = ".wav";
+
+const AUDIO_FILE_PICKER_TYPES = [
+  { description: "WAV audio", accept: { "audio/wav": [".wav"] } },
+];
+
+/** Always Save-As, like the other two: no dirty tracking, no remembered handle. */
+async function saveAudioFile() {
+  closeSaveMenu();
+  clearToolbarMessage();
+
+  // A scale with a hole in it is not one the app should hand out in any format.
+  const problem = invalidIntervalMessage();
+  if (problem) {
+    showToolbarMessage(problem, INVALID_SCALE_MESSAGE);
+    return;
+  }
+
+  const bytes = await renderScaleWav();
+  const fileName = suggestedFileName(scaleNameInput.value, AUDIO_FILE_EXTENSION);
+
+  if (typeof window.showSaveFilePicker === "function") {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: fileName,
+        types: AUDIO_FILE_PICKER_TYPES,
+      });
+      const writable = await handle.createWritable();
+      await writable.write(bytes);
+      await writable.close();
+    } catch (error) {
+      // A cancelled dialog is not an error to report: the user chose not to save.
+      if (error && error.name === "AbortError") return;
+      showToolbarMessage("Could not save the audio file.");
+    }
+    return;
+  }
+
+  downloadAudioFile(fileName, bytes);
+}
+
+/**
+ * The fallback, for Firefox, Safari and every file:// page.
+ *
+ * A Blob and an object URL, not the data: URL the other two saves use: an
+ * eight-degree scale is 882 KB, which base64 inflates to about 1.18 MB, and a
+ * sixteen-degree one reaches 2.43 MB — past the point where data: downloads
+ * are reliable.
+ */
+function downloadAudioFile(fileName, bytes) {
+  const blob = new Blob([bytes], { type: "audio/wav" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.download = fileName;
+  link.href = url;
+  link.click();
+  // On the next macrotask, after the click has been dispatched: revoking
+  // synchronously can cancel the download.
+  setTimeout(function () {
+    URL.revokeObjectURL(url);
+  }, 0);
+}
+
+document.getElementById("save-audio").addEventListener("click", saveAudioFile);

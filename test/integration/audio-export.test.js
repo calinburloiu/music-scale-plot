@@ -3,7 +3,14 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { loadApp, buildRelativeScale, selectOption } = require("../helpers/harness.js");
+const {
+  loadApp,
+  buildRelativeScale,
+  selectOption,
+  fireClick,
+  typeInto,
+  savedAudioFile,
+} = require("../helpers/harness.js");
 const { closeTo } = require("../helpers/assertions.js");
 const { wavHeader, wavSamples } = require("../helpers/wav.js");
 
@@ -114,5 +121,117 @@ test("rendering the scale offline", async (t) => {
     closeTo(frequencies[0], 220, 1e-9);
     closeTo(frequencies[1], 330, 1e-9);
     closeTo(frequencies[2], 220, 1e-9);
+  });
+});
+
+/** Clicks Save ▸ Save Audio As WAV, the way a user reaches it. */
+async function saveAudio(h) {
+  fireClick(h, h.document.getElementById("save-menu"));
+  fireClick(h, h.document.getElementById("save-audio"));
+  // Two ticks, not one. saveAudioFile() suspends on the offline render, so the
+  // timer below is registered *before* downloadAudioFile() registers its own
+  // setTimeout(revoke, 0) — and timers fire in registration order. One tick
+  // reaches the download; the second reaches the revoke.
+  await new Promise((resolve) => h.window.setTimeout(resolve, 0));
+  await new Promise((resolve) => h.window.setTimeout(resolve, 0));
+}
+
+function messageText(h) {
+  return h.document.getElementById("toolbar-message-text").textContent;
+}
+
+test("saving the audio", async (t) => {
+  await t.test("downloads a WAV named after the scale", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+    typeInto(h, h.document.getElementById("scale-name"), "Hicaz Hümayun");
+
+    await saveAudio(h);
+
+    const file = await savedAudioFile(h);
+    assert.equal(file.name, "hicaz-humayun.wav", "the slug rule the .musp.json save uses");
+    assert.equal(file.type, "audio/wav");
+    assert.equal(wavHeader(file.bytes).chunkId, "RIFF", "the bytes really are a WAV");
+    assert.equal(wavHeader(file.bytes).sampleRate, 44100);
+  });
+
+  await t.test("falls back to scale.wav for an unnamed scale", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    await saveAudio(h);
+    assert.equal((await savedAudioFile(h)).name, "scale.wav");
+  });
+
+  await t.test("closes the menu, the way the other save items do", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    await saveAudio(h);
+    assert.equal(
+      h.document.getElementById("save-menu-panel").classList.contains("open"),
+      false
+    );
+  });
+
+  await t.test("revokes the object URL, but not before the click", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    await saveAudio(h);
+    // Revoking synchronously can cancel the download the click just started,
+    // so it happens on the next macrotask — by which time it has happened.
+    assert.equal(h.objectUrls.length, 1);
+    assert.equal(h.objectUrls[0].revoked, true);
+    assert.equal(h.downloads[0].href, h.objectUrls[0].url, "the click used the live URL");
+  });
+
+  await t.test("writes through the file picker where the browser has one", async () => {
+    const h = loadApp({ fileSystemAccess: true });
+    t.after(() => h.close());
+    typeInto(h, h.document.getElementById("scale-name"), "Rast");
+
+    await saveAudio(h);
+
+    assert.equal(h.filePickerCalls.length, 1);
+    assert.equal(h.filePickerCalls[0].picker, "save");
+    assert.equal(h.filePickerCalls[0].options.suggestedName, "rast.wav");
+    // JSON round-trip strips the jsdom realm's Array/Object prototypes, which
+    // assert/strict's deepEqual otherwise rejects as "not reference-equal"
+    // (docs/TESTING.md §5, "Cross-realm gotcha").
+    assert.deepEqual(JSON.parse(JSON.stringify(h.filePickerCalls[0].options.types)), [
+      { description: "WAV audio", accept: { "audio/wav": [".wav"] } },
+    ]);
+    assert.equal(h.downloads.length, 0, "no anchor fallback when a picker exists");
+    assert.equal(wavHeader(h.writtenFiles[0].data).chunkId, "RIFF");
+  });
+
+  await t.test("says nothing when the dialog is cancelled", async () => {
+    const h = loadApp({ fileSystemAccess: { saveAborts: true } });
+    t.after(() => h.close());
+
+    await saveAudio(h);
+    assert.equal(messageText(h), "", "the user chose not to save");
+  });
+
+  await t.test("reports a dialog that genuinely failed", async () => {
+    const h = loadApp({ fileSystemAccess: { saveFails: true } });
+    t.after(() => h.close());
+
+    await saveAudio(h);
+    assert.equal(messageText(h), "Could not save the audio file.");
+  });
+
+  await t.test("refuses a scale with an unreadable interval", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "oops"]);
+
+    await saveAudio(h);
+
+    assert.equal(h.downloads.length, 0, "nothing may be handed out");
+    assert.equal(h.offlineContexts.length, 0, "and nothing is even rendered");
+    assert.equal(messageText(h), "Cannot save: interval 2 is not a valid ratio.");
   });
 });

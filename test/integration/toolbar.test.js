@@ -214,16 +214,17 @@ test("the Save menu", async (t) => {
     assert.equal(h.document.getElementById("save-menu-panel").classList.contains("open"), false);
   });
 
-  await t.test("holds the two save items, the PNG one moved from the Chart panel", () => {
+  await t.test("holds the three save items: the scale file, the chart and the audio", () => {
     const h = loadApp();
     t.after(() => h.close());
 
     const panel = h.document.getElementById("save-menu-panel");
     assert.deepEqual(
       [...panel.querySelectorAll("button")].map((b) => b.textContent.trim()),
-      ["Save As Music Scale Plot file", "Save Chart As PNG"]
+      ["Save As Music Scale Plot file", "Save Chart As PNG", "Save Audio As WAV"]
     );
     assert.equal(h.document.getElementById("save-png").closest("#save-menu-panel"), panel);
+    assert.equal(h.document.getElementById("save-audio").closest("#save-menu-panel"), panel);
     assert.equal(h.el(".chart-toolbar #save-png"), null, "it no longer sits in the Chart panel");
   });
 
