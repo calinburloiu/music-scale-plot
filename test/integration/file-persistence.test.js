@@ -237,9 +237,11 @@ test("escaping interval values that came from a file", async (t) => {
 
   const TRICKY = '9"8<b>weird</b>';
 
-  // Save refuses a value it cannot read, so a document carrying one can only be
-  // hand-edited or crafted — which was always the threat these two guard
-  // against. They plant it in the file directly rather than by saving it.
+  // A value carrying markup is not a number in any interval type, so the reader
+  // now turns such a document away by name and it never reaches a row. These
+  // guard the boundary that makes that true: if validation is ever loosened,
+  // the payload reaches makeIntervalRowHTML() again and the injection
+  // assertions below are what catch it.
   function docWithIntervals(intervals, mode) {
     return JSON.stringify({
       formatVersion: 1,
@@ -255,30 +257,29 @@ test("escaping interval values that came from a file", async (t) => {
     });
   }
 
-  await t.test("restores a relative interval containing quote and angle-bracket characters", async () => {
+  await t.test("refuses a relative interval containing quote and angle-bracket characters", async () => {
     const h = loadApp();
     t.after(() => h.close());
 
+    buildRelativeScale(h, ["10/9"]);
     await pickScaleFile(h, docWithIntervals([TRICKY], "relativeIntervals"));
 
+    assert.match(messageText(h), /must be a valid ratio/);
     assert.equal(
       intervalRows(h)[0].querySelector(".interval").value,
-      TRICKY,
-      "the box must hold exactly what the file said"
+      "10/9",
+      "the editor must keep the scale it had"
     );
   });
 
-  await t.test("restores an absolute interval containing quote and angle-bracket characters", async () => {
+  await t.test("refuses an absolute interval containing quote and angle-bracket characters", async () => {
     const h = loadApp();
     t.after(() => h.close());
 
     await pickScaleFile(h, docWithIntervals(["1/1", TRICKY], "absoluteIntervals"));
 
-    assert.equal(
-      noteRows(h)[1].querySelector(".absolute-interval").value,
-      TRICKY,
-      "the box must hold exactly what the file said"
-    );
+    assert.match(messageText(h), /must be a valid ratio/);
+    assert.equal(noteRows(h).length, 2, "the default scale must still be there");
   });
 
   await t.test("opening a crafted document with markup in an interval injects no element into #editor", async () => {
@@ -301,12 +302,19 @@ test("escaping interval values that came from a file", async (t) => {
 
     await pickScaleFile(h, fileText);
 
+    // Two layers, asserted together. The outer one is validation: the payload
+    // is not a ratio, so the document never reaches a row at all. The inner one
+    // is escapeAttribute() in makeIntervalRowHTML(), which is what would have
+    // to hold if validation were ever loosened — so these two assertions stay
+    // even though nothing can currently get past the first.
+    assert.match(messageText(h), /must be a valid ratio/, "the document must be refused by name");
     assert.equal(h.document.querySelectorAll("#editor img").length, 0, "no <img> was injected");
     assert.equal(h.document.querySelectorAll("#editor b").length, 0, "no <b> was injected");
+    assert.equal(h.window.__pwned, undefined, "no script ran");
     assert.equal(
       intervalRows(h)[0].querySelector(".interval").value,
-      payload,
-      "the raw text lands in the input's value instead"
+      "9/8",
+      "the editor keeps the default scale it had"
     );
   });
 });

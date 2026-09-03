@@ -250,22 +250,20 @@ test("reading a .musp.json document", async (t) => {
     });
   });
 
-  await t.test("accepts a number or an unparseable string in an interval slot", () => {
+  await t.test("accepts a cents or edo interval written as a string", () => {
     const h = loadApp();
     t.after(() => h.close());
 
-    // Save refuses a scale holding a box the app cannot read, so such a slot
-    // can only come from a hand-edited file. The reader still accepts one and
-    // puts it straight back, exactly as it was written, so that file opens —
-    // the editor is where the value is then marked.
+    // A number is canonical for these two types, but a string spelling the
+    // same number is unambiguous, so it opens and is read as that number.
     const result = h.app.parseScaleDocument(
       docText((base) => {
         base.scaleEditor.intervalType = { type: "cents" };
-        base.scaleEditor.intervals = ["not a number"];
+        base.scaleEditor.intervals = ["203.91"];
       })
     );
     assert.equal(result.ok, true, result.error);
-    assert.deepEqual(Array.from(result.doc.scaleEditor.intervals), ["not a number"]);
+    assert.deepEqual(Array.from(result.doc.scaleEditor.intervals), ["203.91"]);
   });
 
   await t.test("counts absolute-mode intervals as one per note", () => {
@@ -413,6 +411,51 @@ test("rejecting a bad .musp.json document", async (t) => {
         b.scaleEditor.intervals = [100, 200];
       }),
       "scaleEditor.intervals[0] must be the unison Note 1 carries, got 100.",
+    ],
+    [
+      "an interval the app could not read back",
+      docText((b) => { b.scaleEditor.intervals = ["9.5/8"]; }),
+      'scaleEditor.intervals[0] must be a valid ratio, got "9.5/8".',
+    ],
+    [
+      "an empty interval, which names no interval at all",
+      docText((b) => { b.scaleEditor.intervals = [""]; }),
+      'scaleEditor.intervals[0] must be a valid ratio, got "".',
+    ],
+    [
+      "a ratio with a negative term",
+      docText((b) => { b.scaleEditor.intervals = ["-9/8"]; }),
+      'scaleEditor.intervals[0] must be a valid ratio, got "-9/8".',
+    ],
+    [
+      "an EDO step count that is not whole",
+      docText((b) => {
+        b.scaleEditor.intervalType = { type: "edo", divisionCount: 72 };
+        b.scaleEditor.intervals = [7.5];
+      }),
+      "scaleEditor.intervals[0] must be a valid EDO step count, got 7.5.",
+    ],
+    [
+      "a cents value with trailing junk",
+      docText((b) => {
+        b.scaleEditor.intervalType = { type: "cents" };
+        b.scaleEditor.intervals = ["203.91c"];
+      }),
+      'scaleEditor.intervals[0] must be a valid cents value, got "203.91c".',
+    ],
+    [
+      "an interval carrying markup, which is not a number either",
+      docText((b) => { b.scaleEditor.intervals = ['9"8<b>weird</b>']; }),
+      'scaleEditor.intervals[0] must be a valid ratio, got "9\\"8<b>weird</b>".',
+    ],
+    [
+      "the second interval, named by its own index",
+      docText((b) => {
+        b.scaleEditor.intervals = ["9/8", "nope"];
+        b.scaleEditor.noteProperties = [{}, {}, {}];
+        b.scaleEditor.intervalProperties = [{ color: "#FFFFFF" }, { color: "#FFFFFF" }];
+      }),
+      'scaleEditor.intervals[1] must be a valid ratio, got "nope".',
     ],
     [
       "a note that is not an object",

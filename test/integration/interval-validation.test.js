@@ -143,13 +143,15 @@ test("marking an interval the app cannot read", async (t) => {
     assert.equal(isMarked(intervalBox(h, 1)), false, "the seeded default must not flash red");
   });
 
-  await t.test("marks a value that arrived from a file", async () => {
+  await t.test("cannot be introduced by a file, which is refused instead", async () => {
     const h = loadApp();
     t.after(() => h.close());
 
-    // The reader stays tolerant of an interval string it cannot parse — a
-    // hand-edited file still opens — so the editor is where that value is
-    // reported, the same way one the user typed is.
+    // Save refuses to write one, so a file carrying one was hand-edited or
+    // crafted. Opening it would put a value in the editor the app cannot plot,
+    // cannot play, and would refuse to save again — so the reader turns it away
+    // at the boundary and the editor keeps the scale it had.
+    buildRelativeScale(h, ["10/9"]);
     await pickScaleFile(
       h,
       JSON.stringify({
@@ -166,8 +168,12 @@ test("marking an interval the app cannot read", async (t) => {
       })
     );
 
-    assert.equal(intervalBox(h, 0).value, "9.5/8", "the file's value should have loaded");
-    assert.equal(isMarked(intervalBox(h, 0)), true, "and been marked on arrival");
+    assert.equal(
+      h.document.getElementById("toolbar-message-text").textContent,
+      'scaleEditor.intervals[0] must be a valid ratio, got "9.5/8".'
+    );
+    assert.equal(intervalBox(h, 0).value, "10/9", "the editor must keep the scale it had");
+    assert.equal(h.el(".interval.is-invalid"), null, "and nothing should be marked");
   });
 });
 

@@ -203,16 +203,20 @@ baseline at all.
 
 ### Invalid intervals
 
-An interval box holds something the app can read, or it is marked. `parseRatioPair()`
-matches a ratio whole — two whole numbers above zero — rather than parsing term by term,
-and `intervalToCents()` is as strict for the other two types: a whole step count for
-`edo`, a complete finite number for `cents`. So "9.5/8" no longer reads as 9/8, "7x" no
-longer reads as 7 steps, and "203.91c" no longer reads as 203.91 cents. A descending
-interval is still legal, written `8/9` or as a negative step or cents count.
+An interval box holds something the app can read, or it is marked. `isValidIntervalItem()`
+in `persistence.js` is the rule, and it reads the whole value rather than as much of it as
+parses: a ratio is two whole numbers above zero (`RATIO_PATTERN`), an `edo` value is a
+whole number of steps judged by value rather than spelling (so `0.0` counts), and a
+`cents` value is any finite number. An empty box names no interval and is invalid too. So
+"9.5/8" no longer reads as 9/8, "7x" no longer reads as 7 steps, and "203.91c" no longer
+reads as 203.91 cents. A descending interval is still legal, written `8/9` or as a
+negative step or cents count.
 
 That strictness makes **"parses" and "is a usable interval" the same question**, which is
 what `isValidIntervalValue()` asks and what the chart already answered by drawing nothing
-for a `NaN`. The editor can therefore never paint a box red that the chart has drawn.
+for a `NaN`. The editor can therefore never paint a box red that the chart has drawn — and
+because the file format asks the same `isValidIntervalItem()`, it can never open one into
+a box it would paint red either.
 
 `markInvalidIntervals()` toggles `.is-invalid` on every interval box, and is called from
 `updateAllLabels()` — already the funnel for every editor input, add and remove note, mode
@@ -221,7 +225,8 @@ box counts as invalid: it names no interval. Note 1's absolute box is skipped, b
 disabled and pinned to `getUnisonValue()`.
 
 Neither **Save As Music Scale Plot file** nor **Save As PNG** will run while a box is
-marked; see [File Persistence](#file-persistence).
+marked, and no file carrying such a value will open; see
+[File Persistence](#file-persistence).
 
 ### Initial state
 
@@ -358,15 +363,23 @@ written out explicitly at the default — so these describe the same note:
 `martyria.note` is the one martyria field that is *not* optional — no note is no
 martyria, the same rule `writeMartyria()` keeps. An interval item is typed by
 `intervalType.type` (a string for `ratio`, a number for `edo` or `cents`), except for one
-deliberate loosening: an interval slot may carry a raw string even where a number is
-canonical, and the reader accepts one, so a hand-edited file still opens.
+deliberate loosening: an interval slot may carry the number as a string, so `"203.91"`
+opens the same as `203.91`. What it may **not** carry is a value that is not an interval
+at all.
 
-That loosening is **no longer reachable through Save**. The save guard refuses a scale
-holding a box the app cannot read (see [Invalid intervals](#invalid-intervals)), so the
-app never builds a document with a hole in it, and every file it writes is canonically
-typed. The tolerance stays on the reader's side, where a file the app did not write
-arrives; such a value lands in its box and is marked there, the same way one the user
-typed is.
+**Both ends refuse one.** Save will not write a scale holding a box the app cannot read
+(see [Invalid intervals](#invalid-intervals)), and `validateScaleDocument` will not read
+one back: `isValidIntervalItem()` checks every entry in `intervals` and names the first
+that fails. A file carrying such a value was therefore hand-edited or crafted, and
+opening it would put a value in the editor the app cannot plot, cannot play, and would
+refuse to save again — so it is turned away at the boundary and the editor keeps the
+scale it had.
+
+`isValidIntervalItem(value, type)` is the **single** rule. `intervalToCents()` defers to
+it rather than restating it, and the editor's invalid marking asks it through
+`isValidIntervalValue()`. So "the chart can plot it", "the editor leaves it unmarked" and
+"a file may carry it" are one question with one answer, and a file can never be accepted
+into a box the editor would then paint red.
 
 ### Validation
 

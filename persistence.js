@@ -51,6 +51,46 @@ function isUnisonInterval(value, type) {
   return text !== "" && Number.isFinite(Number(text)) && Number(text) === 0;
 }
 
+// --- what counts as an interval --------------------------------------------
+//
+// The single rule, shared by the format and the editor. app.js loads after this
+// file, so intervalToCents() and the editor's invalid marking both defer to
+// isValidIntervalItem() rather than restating it — one rule, so a file can
+// never be accepted into a box the editor would then paint red, nor refused
+// for a value the editor would have been happy with.
+
+/** A ratio: two whole numbers above zero. Neither sign, no fractional term. */
+const RATIO_PATTERN = /^\s*(\d+)\s*\/\s*(\d+)\s*$/;
+
+/** What each interval type is called when a message has to name one. */
+const INTERVAL_TYPE_NOUNS = {
+  ratio: ["ratio", "ratios"],
+  edo: ["EDO step count", "EDO step counts"],
+  cents: ["cents value", "cents values"],
+};
+
+/**
+ * Whether a value names an interval this app can read, under `type`.
+ *
+ * Whole-string throughout: parseInt and parseFloat stop where the number does,
+ * which is how "9.5/8" once read as 9/8 and "203.91c" as 203.91. An empty value
+ * is not an interval either — it names nothing.
+ */
+function isValidIntervalItem(value, type) {
+  const text = String(value == null ? "" : value).trim();
+  if (text === "") return false;
+  if (type === "ratio") {
+    const terms = RATIO_PATTERN.exec(text);
+    return Boolean(terms) && Number(terms[1]) !== 0 && Number(terms[2]) !== 0;
+  }
+  // A whole number of steps, judged by value rather than spelling — the same
+  // reading isUnisonInterval() takes just below, and the reason "0.0" opens as
+  // the unison. Number() reads the whole string or gives NaN, so "7.5" and
+  // "7x" are both out; negative is a descending interval and stays in.
+  if (type === "edo") return Number.isInteger(Number(text));
+  return Number.isFinite(Number(text));
+}
+
 function hasEnumWord(map, word) {
   return typeof word === "string" && Object.prototype.hasOwnProperty.call(map, word);
 }
@@ -290,6 +330,20 @@ function validateScaleDocument(raw) {
     return scaleFileError(
       `scaleEditor.intervals[0] must be the unison Note 1 carries, got ${JSON.stringify(intervals[0])}.`
     );
+  }
+
+  // Every interval has to be one the app can read back. Save already refuses a
+  // scale holding a box it cannot read, so a file carrying one was hand-edited
+  // or crafted; opening it would put a value in the editor that the app cannot
+  // plot, cannot play and would refuse to save again. §6's principle applies:
+  // name it rather than take it in.
+  for (let i = 0; i < intervals.length; i++) {
+    if (!isValidIntervalItem(intervals[i], intervalType.type)) {
+      return scaleFileError(
+        `scaleEditor.intervals[${i}] must be a valid ${INTERVAL_TYPE_NOUNS[intervalType.type][0]}, ` +
+          `got ${JSON.stringify(intervals[i])}.`
+      );
+    }
   }
 
   const noteProperties = [];

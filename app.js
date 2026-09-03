@@ -224,14 +224,12 @@ function gcd(a, b) {
  *
  * Matched whole rather than parsed term by term: parseInt stops where the
  * digits do, so "9.5/8" used to read as 9/8 and "9x/8" as 9/8 — the chart drew
- * a value nobody typed. Neither sign is accepted either. A negative term makes
- * a ratio with no cents value, which intervalToCents used to reject one layer
- * later; refusing it here makes "parses" and "is a usable interval" the same
- * question, which is the question the editor's invalid marking and the save
- * guard both ask. Nothing is lost: a descending interval is 8/9, not -9/8.
+ * a value nobody typed. Neither sign is accepted either; a descending interval
+ * is 8/9, not -9/8.
+ *
+ * RATIO_PATTERN is persistence.js's, so the arithmetic here and the file
+ * format's own check are reading a ratio by one definition.
  */
-const RATIO_PATTERN = /^\s*(\d+)\s*\/\s*(\d+)\s*$/;
-
 function parseRatioPair(str) {
   const terms = RATIO_PATTERN.exec(String(str));
   if (!terms) return null;
@@ -525,35 +523,31 @@ function getCentsPerEdoDivision() {
   return 1200 / getEdoDivisions();
 }
 
-/** A whole number of steps, optionally signed: a descending interval is negative. */
-const EDO_STEPS_PATTERN = /^[+-]?\d+$/;
-
 function ratioToCents(r) {
   return 1200 * Math.log2(r);
 }
 
+/**
+ * The cents a box is worth, or NaN when it holds nothing readable.
+ *
+ * Validity is persistence.js's isValidIntervalItem() rather than a second rule
+ * restated here, so "the chart can plot it", "the editor leaves it unmarked"
+ * and "a file may carry it" are one question with one answer.
+ */
 function intervalToCents(str) {
   const type = getIntervalType();
-  const trimmed = str.trim();
+  const trimmed = String(str).trim();
+  if (!isValidIntervalItem(trimmed, type)) return NaN;
   if (type === "ratio") {
     const r = parseRatioPair(trimmed);
-    if (!r) return NaN;
-    const v = r[0] / r[1];
-    return (v <= 0) ? NaN : ratioToCents(v);
+    return ratioToCents(r[0] / r[1]);
   } else if (type === "edo") {
-    // A division of the octave is counted in whole steps, and the whole box has
-    // to be that count: parseInt would read "7.5" as 7 and "7x" as 7. Negative
-    // is fine — that is a descending interval.
-    if (!EDO_STEPS_PATTERN.test(trimmed)) return NaN;
-    return parseInt(trimmed, 10) * getCentsPerEdoDivision();
-  } else {
-    // Likewise parseFloat would read "203.91c" as 203.91. Number() reads the
-    // whole string or nothing, and rules out the infinities Number("") would
-    // otherwise let through as 0 — hence the empty check.
-    if (trimmed === "") return NaN;
-    const c = Number(trimmed);
-    return Number.isFinite(c) ? c : NaN;
+    // Number(), not parseInt(): the validity rule reads the whole string, so
+    // parseInt would disagree with it on a spelling like "1e3" — validated as
+    // 1000 steps, drawn as 1.
+    return Number(trimmed) * getCentsPerEdoDivision();
   }
+  return Number(trimmed);
 }
 
 function intervalToDisplayString(str) {
@@ -1217,7 +1211,7 @@ function updateAllLabels() {
  * too — saving a scale with a hole in it would lose the hole.
  */
 function isValidIntervalValue(value) {
-  return !Number.isNaN(intervalToCents(String(value == null ? "" : value)));
+  return isValidIntervalItem(value, getIntervalType());
 }
 
 /**
@@ -1245,13 +1239,6 @@ function markInvalidIntervals() {
   // says nothing about it.
   if (!anyInvalid) clearToolbarMessageOfKind(INVALID_SCALE_MESSAGE);
 }
-
-/** What each interval type is called when the save guard has to name one. */
-const INTERVAL_TYPE_NOUNS = {
-  ratio: ["ratio", "ratios"],
-  edo: ["EDO step count", "EDO step counts"],
-  cents: ["cents value", "cents values"],
-};
 
 function joinWithAnd(items) {
   if (items.length < 2) return items.join("");
