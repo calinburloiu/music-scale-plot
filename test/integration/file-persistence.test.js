@@ -89,7 +89,7 @@ test("saving a scale document", async (t) => {
 
     typeInto(h, h.document.getElementById("scale-name"), "Hicaz Hümayun");
     await saveScale(h);
-    assert.equal(savedScaleFile(h).name, "hicaz-h-mayun.musp.json");
+    assert.equal(savedScaleFile(h).name, "hicaz-humayun.musp.json");
 
     typeInto(h, h.document.getElementById("scale-name"), "");
     await saveScale(h);

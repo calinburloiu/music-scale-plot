@@ -138,6 +138,18 @@ function intervalDocumentFrom(interval) {
 function suggestedFileName(name) {
   const slug = String(name == null ? "" : name)
     .toLowerCase()
+    // Fold the diacritics before the slug rule below punches them out as
+    // separators: the letter underneath a mark is the one the user typed, so
+    // "Hicaz Hümayun" is hicaz-humayun and not hicaz-h-mayun. Decomposing and
+    // dropping the combining marks is the same move normalizeForSearch() makes
+    // in symbols-ui.js, written out again rather than called: that file loads
+    // after this one and is the UI layer, and this module stays free of it.
+    //
+    // Decomposition only reaches marks, so it uncovers ASCII only where ASCII
+    // is underneath. A Greek or Cyrillic name keeps its own letters, none of
+    // which survive the slug rule, and falls back to "scale" as before.
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return (slug || "scale") + SCALE_FILE_EXTENSION;

@@ -147,11 +147,28 @@ test("writing a .musp.json document", async (t) => {
 test("the suggested file name", async (t) => {
   const CASES = [
     ["Hicaz", "hicaz.musp.json"],
-    ["Hicaz Hümayun", "hicaz-h-mayun.musp.json"],
     ["  Rast  ", "rast.musp.json"],
     ["12-EDO / chromatic", "12-edo-chromatic.musp.json"],
     ["", "scale.musp.json"],
     ["???", "scale.musp.json"],
+
+    // A diacritic is dropped rather than punched out as a separator: the
+    // letter underneath it is the one the reader typed, and "hicaz-h-mayun"
+    // hides it. Ottoman, Romanian and Turkish scale names all carry them.
+    ["Hicaz Hümayun", "hicaz-humayun.musp.json"],
+    ["Diatonic Rău", "diatonic-rau.musp.json"],
+    ["Sabâün Bûselik", "sabaun-buselik.musp.json"],
+    ["Nişabur", "nisabur.musp.json"],
+
+    // Folding is by decomposition, so it does not care whether the mark
+    // arrived precomposed (U+0103) or as a base letter plus a combining
+    // breve (U+0061 U+0306) — the same two names must slug the same way.
+    ["R\u0103u", "rau.musp.json"],
+    ["Ra\u0306u", "rau.musp.json"],
+
+    // Decomposition only reaches marks. A Greek name has no ASCII underneath
+    // to uncover, so it still falls back rather than being transliterated.
+    ["ἦχος πρῶτος", "scale.musp.json"],
   ];
 
   for (const [name, expected] of CASES) {
