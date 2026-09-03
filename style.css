@@ -1243,6 +1243,15 @@ body {
    give it, so it appears in the same place it always did. No top margin:
    #toolbar's own bottom padding is already the gap above it. The bottom margin
    is what holds it off #toolbar-bar's rule when it shows. */
+/* `display: flex` below is an id selector, which outranks the UA stylesheet's
+   `[hidden] { display: none }` — so without this rule the bar ignores its own
+   hidden attribute and sits on the page as an empty strip from load onwards,
+   with the × setting an attribute that changes nothing. Anything that gives
+   #toolbar-message a display value has to restate this. */
+#toolbar-message[hidden] {
+  display: none;
+}
+
 #toolbar-message {
   display: flex;
   align-items: flex-start;
