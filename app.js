@@ -1794,6 +1794,36 @@ editor.addEventListener("input", function (e) {
   render();
 });
 
+/**
+ * The row text boxes where Enter means "give me another note".
+ *
+ * Not #scale-name or #edo-divisions: those describe the whole scale rather than
+ * one note, and they sit outside #editor anyway, so this delegated listener
+ * never sees them.
+ */
+const NOTE_ENTRY_SELECTOR = ".interval, .absolute-interval, .note-name, .interval-label";
+
+/**
+ * Puts the cursor where the next value goes — the interval box of the row the
+ * user is now building, so a scale can be typed value, Enter, value, Enter
+ * without reaching for the mouse. In relative mode that box is on the new
+ * interval row; in absolute mode the value lives on the note row itself.
+ */
+function focusNewestIntervalInput() {
+  const selector = getScaleMode() === "absolute" ? ".absolute-interval" : ".interval";
+  const inputs = editor.querySelectorAll(selector);
+  const last = inputs[inputs.length - 1];
+  if (last) last.focus();
+}
+
+function handleEditorEnter(e) {
+  if (e.key !== "Enter" || !e.target || typeof e.target.matches !== "function") return;
+  if (!e.target.matches(NOTE_ENTRY_SELECTOR)) return;
+  e.preventDefault();
+  addNote();
+  focusNewestIntervalInput();
+}
+
 function handlePlayStart(e) {
   const btn = e.target.closest(".play-note");
   if (!btn) return;
@@ -1804,6 +1834,7 @@ function handlePlayStart(e) {
   startTone(getFrequencyForDegree(degree));
 }
 
+editor.addEventListener("keydown", handleEditorEnter);
 editor.addEventListener("mousedown", handlePlayStart);
 editor.addEventListener("touchstart", handlePlayStart);
 document.addEventListener("mouseup", stopTone);

@@ -12,7 +12,9 @@ const {
   intervalRows,
   setNoteCount,
   buildRelativeScale,
+  buildAbsoluteScale,
   pickColor,
+  pressKey,
 } = require("../helpers/harness.js");
 
 function addBtn(h) {
@@ -111,6 +113,111 @@ test("adding notes", async (t) => {
     h.ctx.reset();
     fireClick(h, addBtn(h));
     assert.equal(h.ctx.callsOf("fillRect").length, 2, "both intervals are drawn");
+  });
+});
+
+test("Enter in the scale editor", async (t) => {
+  await t.test("adds a note from the interval box", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    buildRelativeScale(h, ["9/8"]);
+    assert.equal(noteRows(h).length, 2, "the default scale should start at two notes");
+
+    pressKey(h, intervalRows(h)[0].querySelector(".interval"), "Enter");
+
+    assert.equal(noteRows(h).length, 3, "Enter should have appended a note");
+  });
+
+  await t.test("adds a note from the note name box", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    pressKey(h, noteRows(h)[0].querySelector(".note-name"), "Enter");
+
+    assert.equal(noteRows(h).length, 3);
+  });
+
+  await t.test("adds a note from the interval label box", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    pressKey(h, intervalRows(h)[0].querySelector(".interval-label"), "Enter");
+
+    assert.equal(noteRows(h).length, 3);
+  });
+
+  await t.test("adds a note from the absolute interval box", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    selectOption(h, "scale-mode", "absolute");
+    buildAbsoluteScale(h, ["1/1", "9/8"]);
+    pressKey(h, noteRows(h)[1].querySelector(".absolute-interval"), "Enter");
+
+    assert.equal(noteRows(h).length, 3);
+  });
+
+  await t.test("moves the cursor to the new note's interval box, ready to type", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // The point of the shortcut: type a value, press Enter, type the next one.
+    // Leaving focus behind would mean reaching for the mouse between every
+    // note, which is the thing the shortcut exists to avoid.
+    pressKey(h, intervalRows(h)[0].querySelector(".interval"), "Enter");
+
+    const fresh = intervalRows(h)[1].querySelector(".interval");
+    assert.equal(h.document.activeElement, fresh, "focus should sit in the new interval box");
+  });
+
+  await t.test("in absolute mode the cursor lands in the new note's own box", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // Absolute mode has no value on the interval row: the number a user types
+    // for the new note sits on the note row itself, so that is where the
+    // cursor belongs.
+    selectOption(h, "scale-mode", "absolute");
+    buildAbsoluteScale(h, ["1/1", "9/8"]);
+    pressKey(h, noteRows(h)[1].querySelector(".absolute-interval"), "Enter");
+
+    const fresh = noteRows(h)[2].querySelector(".absolute-interval");
+    assert.equal(h.document.activeElement, fresh, "focus should sit in the new absolute box");
+  });
+
+  await t.test("takes the keypress off the page, so no browser default follows it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const prevented = pressKey(h, intervalRows(h)[0].querySelector(".interval"), "Enter");
+
+    assert.equal(prevented, true, "Enter must be consumed once it has added a note");
+  });
+
+  await t.test("ignores every other key", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    for (const key of ["a", "Escape", "Tab", "ArrowDown"]) {
+      pressKey(h, intervalRows(h)[0].querySelector(".interval"), key);
+    }
+
+    assert.equal(noteRows(h).length, 2, "only Enter adds a note");
+  });
+
+  await t.test("leaves the settings boxes above the editor alone", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // #scale-name and #edo-divisions are in the Scale Editor panel but not in
+    // #editor: they describe the whole scale rather than one note, so Enter
+    // there is not "give me another note".
+    selectOption(h, "interval-type", "edo");
+    pressKey(h, h.document.getElementById("scale-name"), "Enter");
+    pressKey(h, h.document.getElementById("edo-divisions"), "Enter");
+
+    assert.equal(noteRows(h).length, 2, "neither box should have added a note");
   });
 });
 

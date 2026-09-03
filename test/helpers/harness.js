@@ -330,6 +330,24 @@ function typeInto(harness, element, value) {
   fireInput(harness, element);
 }
 
+/**
+ * Presses a key on `element`, the way a user with focus there does.
+ *
+ * Bubbling and cancelable, because both matter: the app's key handlers are
+ * delegated to #editor or to document, and they call preventDefault() to keep
+ * the browser's own behaviour off the page. Returns whether the default was
+ * prevented, so a test can assert that too.
+ */
+function pressKey(harness, element, key) {
+  const event = new harness.window.KeyboardEvent("keydown", {
+    key: key,
+    bubbles: true,
+    cancelable: true,
+  });
+  element.dispatchEvent(event);
+  return event.defaultPrevented;
+}
+
 /** Picks `value` in a `<select>` and dispatches the `change` event. */
 function selectOption(harness, selectId, value) {
   const select = harness.document.getElementById(selectId);
@@ -555,6 +573,7 @@ module.exports = {
   fireChange,
   fireClick,
   typeInto,
+  pressKey,
   selectOption,
   setNotation,
   noteRows,

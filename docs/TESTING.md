@@ -351,6 +351,7 @@ number.
 | `buildAbsoluteScale(h, absolutes, extra)` | Same for absolute mode. |
 | `setNoteCount(h, n)` | Click add/remove until the editor holds `n` notes. |
 | `typeInto(h, el, value)` | Set a value and dispatch `input`, like a user typing. |
+| `pressKey(h, el, key)` | Press a key on an element, bubbling and cancelable, the way a user with focus there does; returns whether the default was prevented. |
 | `selectOption(h, id, value)` | Change a `<select>` and dispatch `change`. |
 | `pickColor(h, row, hex)` | Open a row's dropdown and click a swatch. |
 | `noteRows(h)` / `intervalRows(h)` | The editor's rows, in order. |

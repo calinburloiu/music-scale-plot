@@ -517,6 +517,15 @@ User types in editor  ──►  `input` event on container
 
 Add/Remove note buttons modify the DOM (insert or remove rows) and then trigger the same render path.
 
+**Enter** does the same thing as the Add note button, from wherever the user already
+is. `handleEditorEnter()` is delegated on `#editor` and fires for the four text boxes a
+row carries — the interval value, the absolute value, the note name and the interval
+label — so a scale is typed value, Enter, value, Enter without reaching for the mouse.
+It then calls `focusNewestIntervalInput()`, which puts the cursor in the box the next
+value goes in: the new interval row's in relative mode, the new note row's own in
+absolute. `#scale-name` and `#edo-divisions` describe the whole scale rather than one
+note, and they sit outside `#editor`, so the delegated listener never sees them.
+
 At load time, and again on `pageshow`, `initUI()` resets the settings and the editor to their defaults and renders — see [Initial state](#initial-state).
 
 **Open**:
