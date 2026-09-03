@@ -6,11 +6,11 @@ Supports scales from various traditions including Byzantine/psaltic music, Ottom
 
 ## Usage
 
-Open `index.html` in a browser. No build step or server required. The page loads `style.css` and, in order, `byzantine.js`, `smufl.js`, `persistence.js`, `symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js` and `app.js` (all `defer`), from the same directory. It also needs the `icons/` and `fonts/` directories beside it — the toolbar's five buttons are `<img>`-loaded SVGs, and the Byzantine and Generic symbols are drawn in the vendored fonts.
+Open `index.html` in a browser. No build step or server required. The page loads `style.css` and, in order, `byzantine.js`, `smufl.js`, `persistence.js`, `audio.js`, `symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `audio-ui.js` and `app.js` (all `defer`), from the same directory. It also needs the `icons/` and `fonts/` directories beside it — the toolbar's seven buttons are `<img>`-loaded SVGs, and the Byzantine and Generic symbols are drawn in the vendored fonts.
 
 1. Use the scale editor to define notes and intervals.
 2. The chart updates in real-time as you type.
-3. Use the toolbar's **New**, **Open** and **Save** to work with `.musp.json` scale files, or its **Save** menu's **Save As PNG** to export the chart.
+3. Use the toolbar's **New**, **Open** and **Save** to work with `.musp.json` scale files, its **Play** and **Stop** buttons to hear the scale, or its **Save** menu's **Save Chart As PNG** and **Save Audio As WAV** to export.
 
 ## Development
 
@@ -48,7 +48,7 @@ vendored file is upstream's own woff2 build, byte for byte; see
 
 See [fonts/README.md](fonts/README.md) for both fonts' provenance and terms.
 
-The five toolbar glyphs in `icons/` are **not** third-party: they were drawn for this
+The seven toolbar glyphs in `icons/` are **not** third-party: they were drawn for this
 project and are covered by the Apache-2.0 licence above. They read like Feather or Lucide
 because they share that idiom — a 24×24 box, a rounded 2-unit stroke — and not because
 they were taken from either; no icon set's notice applies here.

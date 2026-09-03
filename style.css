@@ -921,6 +921,17 @@ body {
   box-shadow: 0 1px 3px -1px rgba(138, 46, 26, 0.35);
 }
 
+/* The sounding note during scale playback, reproducing what a real press looks
+   like — the hover fill *and* the active geometry, since a mouse press on a
+   desktop is also a hover. Last, so it wins the specificity tie with :hover. */
+.play-note.sounding {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--paper);
+  transform: scale(0.95);
+  box-shadow: 0 1px 3px -1px rgba(138, 46, 26, 0.35);
+}
+
 /* --- Interval row --- */
 
 .interval-row {
@@ -1145,7 +1156,7 @@ body {
 /* An SVG loaded through <img> renders in an isolated document that no page CSS
    reaches, so `currentColor` never resolves and each file's ink is baked at
    --ink. Every state is therefore opacity plus the button's own background —
-   which is also why all five buttons share one treatment rather than Add note
+   which is also why all seven buttons share one treatment rather than Add note
    keeping its old filled-primary emphasis. */
 .toolbar-btn {
   display: inline-flex;

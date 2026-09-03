@@ -72,7 +72,6 @@ const TICK_WIDTH = 2;
 const NOTE_TEXT_HEIGHT = 28;
 
 let displayZoom = 1;
-let audioCtx = null;
 // Which vendored faces have resolved, by name.
 //
 // A readiness observable with **no production consumer, by design**: nothing in
@@ -86,11 +85,6 @@ let audioCtx = null;
 // Per face, because the faces fail independently — a missing Bravura Text says
 // nothing about whether Neanes arrived.
 const symbolFontsReady = { Neanes: false, "Bravura Text": false };
-
-function getAudioContext() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  return audioCtx;
-}
 
 function getBaseFrequency() {
   // Semitones above C. The wrap keeps the audible range at A220 … G#415, which
@@ -137,48 +131,13 @@ function applyNotationClasses() {
 }
 
 function getFrequencyForDegree(degree) {
-  const data = readScaleData();
-  let cents = 0;
-  let notesSeen = 0;
-  for (const item of data) {
-    if (item.type === "note") {
-      notesSeen++;
-      if (notesSeen === degree) return getBaseFrequency() * Math.pow(2, cents / 1200);
-    } else if (item.type === "interval" && !isNaN(item.cents)) {
-      cents += item.cents;
-    }
-  }
-  return getBaseFrequency();
-}
-
-let activeOsc = null;
-let activeGain = null;
-
-function startTone(frequency) {
-  stopTone();
-  const ctx = getAudioContext();
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = "triangle";
-  osc.frequency.value = frequency;
-  gain.gain.setValueAtTime(0, ctx.currentTime);
-  gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.02);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(ctx.currentTime);
-  activeOsc = osc;
-  activeGain = gain;
-}
-
-function stopTone() {
-  if (!activeOsc) return;
-  const ctx = getAudioContext();
-  activeGain.gain.cancelScheduledValues(ctx.currentTime);
-  activeGain.gain.setValueAtTime(activeGain.gain.value, ctx.currentTime);
-  activeGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.05);
-  activeOsc.stop(ctx.currentTime + 0.05);
-  activeOsc = null;
-  activeGain = null;
+  // Re-expressed on audio.js's scaleFrequencies() so the transport and the
+  // per-note button compute pitch the same way, once per press instead of once
+  // per degree. The signature and the fallback are unchanged: a degree that
+  // does not exist still sounds the base frequency.
+  const frequencies = scaleFrequencies(readScaleData(), getBaseFrequency());
+  const frequency = frequencies[degree - 1];
+  return frequency === undefined ? getBaseFrequency() : frequency;
 }
 
 function updateZoom() {
@@ -310,8 +269,26 @@ function escapeAttribute(value) {
   return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
+/**
+ * A note row's play button, naming the number key that also sounds the degree.
+ *
+ * Only degrees 1…9 have one, so only they claim one: `aria-keyshortcuts` on a
+ * degree no key reaches would announce a shortcut that does nothing. The ▶ is
+ * the button's whole text content and is no accessible name — a screen reader
+ * reads out the character, not what pressing it does — so the name comes from
+ * `aria-label` and the tooltip carries the hint on top of it.
+ */
+function makePlayButtonHTML(degree) {
+  const name = "Play note " + degree;
+  const reachable = degree <= NUMBER_KEY_DEGREE_LIMIT;
+  const hint = reachable ? " (key " + degree + ")" : "";
+  const keys = reachable ? ' aria-keyshortcuts="' + degree + '"' : "";
+  return '<button class="play-note" aria-label="' + name + '" title="' + name + hint + '"' +
+    keys + ">&#9654;</button>";
+}
+
 function makeNoteRowHTML(degree, mode, absoluteValue) {
-  const playBtn = '<button class="play-note" title="Play note">&#9654;</button>';
+  const playBtn = makePlayButtonHTML(degree);
   const labelHtml = "<label>Note " + degree + "</label>";
   // Every row carries both notations' controls always, in the order the chart
   // draws them; CSS decides which half shows, so a switch discards nothing.
@@ -1246,7 +1223,12 @@ function joinWithAnd(items) {
 }
 
 /**
- * Why the scale cannot be saved, or null when it can.
+ * Why the scale cannot be handed to `verb`, or null when it can.
+ *
+ * The verb is a parameter because the same guard now refuses more than one
+ * action: Play reaches it too, and a reader who pressed Play is not saving
+ * anything. Every future action that refuses a broken scale names itself here
+ * rather than growing a second message.
  *
  * Positions are counted in the units the user is looking at: interval rows in
  * relative mode, note rows in absolute, where the value lives on the note
@@ -1254,7 +1236,7 @@ function joinWithAnd(items) {
  * boxes show which, but a long scale scrolls past the fold and the bar is what
  * stays on screen.
  */
-function invalidIntervalMessage() {
+function invalidIntervalMessage(verb = "save") {
   const absolute = getScaleMode() === "absolute";
   const rows = [...editor.querySelectorAll(absolute ? ".note-row" : ".interval-row")];
   const positions = [];
@@ -1268,9 +1250,9 @@ function invalidIntervalMessage() {
   const nouns = INTERVAL_TYPE_NOUNS[getIntervalType()];
   const thing = absolute ? "note" : "interval";
   if (positions.length === 1) {
-    return `Cannot save: ${thing} ${positions[0]} is not a valid ${nouns[0]}.`;
+    return `Cannot ${verb}: ${thing} ${positions[0]} is not a valid ${nouns[0]}.`;
   }
-  return `Cannot save: ${thing}s ${joinWithAnd(positions)} are not valid ${nouns[1]}.`;
+  return `Cannot ${verb}: ${thing}s ${joinWithAnd(positions)} are not valid ${nouns[1]}.`;
 }
 
 function updateCumulativeCents() {
@@ -1904,12 +1886,19 @@ const NOTE_ENTRY_SELECTOR = ".interval, .absolute-interval, .note-name, .interva
  * user is now building, so a scale can be typed value, Enter, value, Enter
  * without reaching for the mouse. In relative mode that box is on the new
  * interval row; in absolute mode the value lives on the note row itself.
+ *
+ * Selected, not merely focused: the new box arrives carrying the default
+ * value, so a cursor parked at one end would make the reader clear it by hand
+ * before typing. Selecting it means the next keystroke replaces it, which is
+ * what makes the value/Enter/value rhythm actually flow.
  */
 function focusNewestIntervalInput() {
   const selector = getScaleMode() === "absolute" ? ".absolute-interval" : ".interval";
   const inputs = editor.querySelectorAll(selector);
   const last = inputs[inputs.length - 1];
-  if (last) last.focus();
+  if (!last) return;
+  last.focus();
+  last.select();
 }
 
 function handleEditorEnter(e) {
@@ -1920,21 +1909,7 @@ function handleEditorEnter(e) {
   focusNewestIntervalInput();
 }
 
-function handlePlayStart(e) {
-  const btn = e.target.closest(".play-note");
-  if (!btn) return;
-  e.preventDefault();
-  const noteRow = btn.closest(".note-row");
-  if (!noteRow) return;
-  const degree = parseInt(noteRow.dataset.degree, 10);
-  startTone(getFrequencyForDegree(degree));
-}
-
 editor.addEventListener("keydown", handleEditorEnter);
-editor.addEventListener("mousedown", handlePlayStart);
-editor.addEventListener("touchstart", handlePlayStart);
-document.addEventListener("mouseup", stopTone);
-document.addEventListener("touchend", stopTone);
 addBtn.addEventListener("click", addNote);
 removeBtn.addEventListener("click", removeLastNote);
 saveBtn.addEventListener("click", savePNG);

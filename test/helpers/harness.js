@@ -24,7 +24,7 @@ const vm = require("node:vm");
 const { JSDOM, VirtualConsole } = require("jsdom");
 
 const { RecordingContext2D, measureTextWidth, measureTextInk, pngFixture } = require("./canvas-stub.js");
-const { FakeAudioContext } = require("./audio-stub.js");
+const { FakeAudioContext, FakeOfflineAudioContext } = require("./audio-stub.js");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const HTML_PATH = path.join(ROOT, "index.html");
@@ -70,6 +70,13 @@ function buildExportEpilogue(names) {
  *   would, to `{ reject: ["Bravura Text"] }` to fail only the faces named — one
  *   file can go missing without the other — or to `"ready-reject"` to have the
  *   faces load but the set never become ready
+ * @param {string} [options.platform] what `navigator.platform` reports, for the
+ *   shortcut hints — `"MacIntel"` to reach the ⌘ notation. jsdom's own default
+ *   is `""`, the Ctrl fallback
+ * @param {string} [options.uaDataPlatform] what `navigator.userAgentData.platform`
+ *   reports (`"macOS"`, `"Windows"`, …). jsdom has no `userAgentData` at all,
+ *   as Firefox and Safari do not; where it exists it is the non-deprecated
+ *   answer and the hints prefer it
  * @param {Object<string,string>} [options.restored] CSS selector to value, written
  *   into every matching control *before* the scripts run — the way a browser
  *   restores form state across a soft reload
@@ -141,6 +148,31 @@ function loadApp(options = {}) {
       audioContexts.push(this);
     }
   };
+  const offlineContexts = [];
+  window.OfflineAudioContext = class TrackedOfflineAudioContext extends FakeOfflineAudioContext {
+    constructor(numberOfChannels, length, sampleRate) {
+      super(numberOfChannels, length, sampleRate);
+      offlineContexts.push(this);
+    }
+  };
+
+  // --- the platform --------------------------------------------------------
+  // Only the shortcut hints read it, to write a chord in the notation of the
+  // machine the reader is on. jsdom reports `""`, which is what a browser that
+  // will not say also reports — so the default exercises the Ctrl fallback and
+  // a test opts in to the Apple branch.
+  if (options.platform !== undefined) {
+    Object.defineProperty(window.navigator, "platform", {
+      value: options.platform,
+      configurable: true,
+    });
+  }
+  if (options.uaDataPlatform !== undefined) {
+    Object.defineProperty(window.navigator, "userAgentData", {
+      value: { platform: options.uaDataPlatform },
+      configurable: true,
+    });
+  }
 
   // --- fonts ---------------------------------------------------------------
   // jsdom implements no FontFaceSet. app.js waits on one before its first real
@@ -185,6 +217,21 @@ function loadApp(options = {}) {
     downloads.push({ download: this.download, href: this.href });
   };
 
+  // --- object URLs --------------------------------------------------------
+  // jsdom implements neither createObjectURL nor revokeObjectURL. The shim
+  // keeps the real Blob, so a test reads the actual WAV back rather than
+  // decoding base64 out of a data: URL.
+  const objectUrls = [];
+  window.URL.createObjectURL = function createObjectURL(blob) {
+    const url = `blob:http://localhost/${objectUrls.length + 1}`;
+    objectUrls.push({ url, blob, revoked: false });
+    return url;
+  };
+  window.URL.revokeObjectURL = function revokeObjectURL(url) {
+    const entry = objectUrls.find((o) => o.url === url);
+    if (entry) entry.revoked = true;
+  };
+
   // --- File System Access -------------------------------------------------
   // Absent unless a test asks for it: Firefox, Safari and every file:// page
   // reach the fallback, so that is the path most tests should be on.
@@ -204,7 +251,13 @@ function loadApp(options = {}) {
         createWritable: () =>
           Promise.resolve({
             write: (data) => {
-              writtenFiles.push({ name: pickerOptions.suggestedName, text: String(data) });
+              writtenFiles.push({
+                name: pickerOptions.suggestedName,
+                // A scale document arrives as a string; a WAV arrives as bytes,
+                // and stringifying 900 KB of samples would help nobody.
+                text: typeof data === "string" ? data : "",
+                data: data,
+              });
               return Promise.resolve();
             },
             close: () => Promise.resolve(),
@@ -259,6 +312,8 @@ function loadApp(options = {}) {
     ctx: context,
     /** `{ download, href }` for every anchor click (i.e. every PNG export). */
     downloads,
+    /** `{ url, blob, revoked }` for every object URL the app created. */
+    objectUrls,
     /** `{ name, text }` for every file written through showSaveFilePicker. */
     writtenFiles,
     /** `{ picker, options }` for every File System Access picker call. */
@@ -269,6 +324,8 @@ function loadApp(options = {}) {
     fontLoads,
     /** Every AudioContext the app constructed (it should only ever be one). */
     audioContexts,
+    /** Every OfflineAudioContext the app constructed, one per audio export. */
+    offlineContexts,
     /** Errors jsdom itself reported (unimplemented APIs, uncaught throws). */
     jsdomErrors,
     /** Every `console.warn()` the app made, as text. */
@@ -337,12 +394,35 @@ function typeInto(harness, element, value) {
  * delegated to #editor or to document, and they call preventDefault() to keep
  * the browser's own behaviour off the page. Returns whether the default was
  * prevented, so a test can assert that too.
+ *
+ * `init` reaches the event unchanged, for the fields a plain press does not
+ * set: `{ repeat: true }` for the second and later keydowns a held key sends,
+ * and the modifier flags for a chord.
  */
-function pressKey(harness, element, key) {
+function pressKey(harness, element, key, init = {}) {
   const event = new harness.window.KeyboardEvent("keydown", {
     key: key,
     bubbles: true,
     cancelable: true,
+    ...init,
+  });
+  element.dispatchEvent(event);
+  return event.defaultPrevented;
+}
+
+/**
+ * Releases a key on `element` — the other half of a press-and-hold.
+ *
+ * Separate from pressKey() rather than an option on it, because the two halves
+ * are what a hold *is*: a test that holds a key and never lets go is testing a
+ * different thing from one that presses and releases.
+ */
+function releaseKey(harness, element, key, init = {}) {
+  const event = new harness.window.KeyboardEvent("keyup", {
+    key: key,
+    bubbles: true,
+    cancelable: true,
+    ...init,
   });
   element.dispatchEvent(event);
   return event.defaultPrevented;
@@ -444,6 +524,33 @@ function savedScaleFile(harness) {
   if (!download) throw new Error("Nothing was downloaded");
   const comma = download.href.indexOf(",");
   return { name: download.download, text: decodeURIComponent(download.href.slice(comma + 1)) };
+}
+
+/** Reads a jsdom Blob's bytes; jsdom's Blob has no arrayBuffer(), FileReader does. */
+function blobBytes(harness, blob) {
+  return new Promise(function (resolve, reject) {
+    const reader = new harness.window.FileReader();
+    reader.onload = () => resolve(new Uint8Array(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
+/**
+ * The audio file the app last handed to `<a download>`, with its bytes read
+ * back out of the Blob the object URL points at — the real Blob the app built.
+ */
+async function savedAudioFile(harness) {
+  const download = harness.downloads[harness.downloads.length - 1];
+  if (!download) throw new Error("Nothing was downloaded");
+  const entry = harness.objectUrls.find((o) => o.url === download.href);
+  if (!entry) throw new Error(`No object URL matches ${download.href}`);
+  return {
+    name: download.download,
+    type: entry.blob.type,
+    revoked: entry.revoked,
+    bytes: await blobBytes(harness, entry.blob),
+  };
 }
 
 /**
@@ -574,6 +681,7 @@ module.exports = {
   fireClick,
   typeInto,
   pressKey,
+  releaseKey,
   selectOption,
   setNotation,
   noteRows,
@@ -583,6 +691,8 @@ module.exports = {
   buildAbsoluteScale,
   pickColor,
   savedScaleFile,
+  savedAudioFile,
+  blobBytes,
   pickScaleFile,
   openWell,
   pickAlteration,

@@ -55,11 +55,99 @@ test("the toolbar", async (t) => {
     // The buttons are icons only, so aria-label is their whole accessible
     // name — function, not appearance.
     const labels = h.all("#toolbar .toolbar-btn").map((b) => b.getAttribute("aria-label"));
-    assert.deepEqual(labels, ["New", "Open", "Save", "Add note", "Remove last note"]);
+    assert.deepEqual(labels, [
+      "New", "Open", "Save", "Add note", "Remove last note", "Play scale", "Stop playing",
+    ]);
     for (const button of h.all("#toolbar .toolbar-btn")) {
       assert.ok(button.querySelector("img"), `${button.id} has no icon`);
       assert.equal(button.querySelector("img").alt, "", "the label is on the button, not the image");
     }
+  });
+
+  await t.test("declares each shortcut on the control it works, and nowhere else", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // aria-keyshortcuts is the machine-readable half; the title is the half a
+    // sighted reader sees. A control with no shortcut must claim none — the
+    // browser owns Ctrl+N, so New has nothing to say.
+    const declared = {};
+    for (const button of h.all("#toolbar button, .save-menu-panel button")) {
+      const keys = button.getAttribute("aria-keyshortcuts");
+      if (keys) declared[button.id] = keys;
+    }
+    // Stop is absent because it starts disabled, not because it has no
+    // shortcut: Space is a toggle, so the declaration follows it to whichever
+    // button is live. playback.test.js pins both halves of that swap.
+    assert.deepEqual(declared, {
+      "open-file": "Control+O Meta+O",
+      "save-scale": "Control+S Meta+S",
+      "play-scale": "Space",
+    });
+  });
+
+  await t.test("spells the shortcut out in the tooltip too", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const title = (id) => h.document.getElementById(id).getAttribute("title");
+    assert.equal(title("play-scale"), "Play scale (Space)");
+    assert.equal(title("stop-scale"), "Stop playing (Space)");
+    assert.equal(title("open-file"), "Open (Ctrl+O)");
+    assert.equal(title("save-scale"), "Save As Music Scale Plot file (Ctrl+S)");
+    assert.equal(title("new-file"), "New", "a control with no shortcut says nothing");
+  });
+
+  await t.test("writes the chord in the notation of the machine it is running on", () => {
+    const h = loadApp({ platform: "MacIntel" });
+    t.after(() => h.close());
+
+    // The handler takes either modifier, so the tooltip has to pick the one
+    // the reader's own keyboard has. aria-keyshortcuts keeps naming both.
+    const title = (id) => h.document.getElementById(id).getAttribute("title");
+    assert.equal(title("open-file"), "Open (⌘O)");
+    assert.equal(title("save-scale"), "Save As Music Scale Plot file (⌘S)");
+    assert.equal(
+      h.document.getElementById("open-file").getAttribute("aria-keyshortcuts"),
+      "Control+O Meta+O",
+      "both chords stay declared whatever the platform"
+    );
+    assert.equal(title("play-scale"), "Play scale (Space)", "Space is Space everywhere");
+  });
+
+  await t.test("believes userAgentData over the deprecated navigator.platform", () => {
+    const h = loadApp({ platform: "MacIntel", uaDataPlatform: "Windows" });
+    t.after(() => h.close());
+
+    // Chromium reports both, and navigator.platform is the deprecated one —
+    // it is the field a browser may eventually freeze or lie about, so where
+    // the modern answer exists it wins.
+    assert.equal(h.document.getElementById("open-file").getAttribute("title"), "Open (Ctrl+O)");
+  });
+
+  await t.test("leaves the accessible name alone while adding the hint", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // The hint belongs in the tooltip, not in the name a screen reader reads
+    // out — aria-keyshortcuts is how the shortcut reaches assistive tech.
+    const labels = h.all("#toolbar .toolbar-btn").map((b) => b.getAttribute("aria-label"));
+    assert.deepEqual(labels, [
+      "New", "Open", "Save", "Add note", "Remove last note", "Play scale", "Stop playing",
+    ]);
+  });
+
+  await t.test("puts the transport in its own group after the note buttons", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // File actions, then editing, then playback — each pair behind its own
+    // separator.
+    const ids = h.all("#toolbar > *").map((el) => el.id || el.className);
+    assert.deepEqual(ids.slice(-4), [
+      "toolbar-separator", "play-scale", "stop-scale", "open-file-input",
+    ]);
+    assert.equal(h.document.getElementById("stop-scale").disabled, true, "Stop is idle at rest");
   });
 
   await t.test("holds the note buttons, which the Scale Editor no longer does", () => {
@@ -199,16 +287,17 @@ test("the Save menu", async (t) => {
     assert.equal(h.document.getElementById("save-menu-panel").classList.contains("open"), false);
   });
 
-  await t.test("holds the two save items, the PNG one moved from the Chart panel", () => {
+  await t.test("holds the three save items: the scale file, the chart and the audio", () => {
     const h = loadApp();
     t.after(() => h.close());
 
     const panel = h.document.getElementById("save-menu-panel");
     assert.deepEqual(
       [...panel.querySelectorAll("button")].map((b) => b.textContent.trim()),
-      ["Save As Music Scale Plot file", "Save As PNG"]
+      ["Save As Music Scale Plot file", "Save Chart As PNG", "Save Audio As WAV"]
     );
     assert.equal(h.document.getElementById("save-png").closest("#save-menu-panel"), panel);
+    assert.equal(h.document.getElementById("save-audio").closest("#save-menu-panel"), panel);
     assert.equal(h.el(".chart-toolbar #save-png"), null, "it no longer sits in the Chart panel");
   });
 
