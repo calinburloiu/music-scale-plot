@@ -137,18 +137,13 @@ function applyNotationClasses() {
 }
 
 function getFrequencyForDegree(degree) {
-  const data = readScaleData();
-  let cents = 0;
-  let notesSeen = 0;
-  for (const item of data) {
-    if (item.type === "note") {
-      notesSeen++;
-      if (notesSeen === degree) return getBaseFrequency() * Math.pow(2, cents / 1200);
-    } else if (item.type === "interval" && !isNaN(item.cents)) {
-      cents += item.cents;
-    }
-  }
-  return getBaseFrequency();
+  // Re-expressed on audio.js's scaleFrequencies() so the transport and the
+  // per-note button compute pitch the same way, once per press instead of once
+  // per degree. The signature and the fallback are unchanged: a degree that
+  // does not exist still sounds the base frequency.
+  const frequencies = scaleFrequencies(readScaleData(), getBaseFrequency());
+  const frequency = frequencies[degree - 1];
+  return frequency === undefined ? getBaseFrequency() : frequency;
 }
 
 let activeOsc = null;

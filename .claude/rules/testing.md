@@ -4,6 +4,7 @@ paths:
   - "byzantine.js"
   - "smufl.js"
   - "persistence.js"
+  - "audio.js"
   - "symbols-ui.js"
   - "byzantine-ui.js"
   - "persistence-ui.js"
