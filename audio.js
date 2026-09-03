@@ -29,6 +29,11 @@ const PLAYBACK_LEAD_SECONDS = 0.05;
 // 48 kHz and from a machine at 44.1 kHz must produce the same file.
 const EXPORT_SAMPLE_RATE = 44100;
 
+// Beside the format it names, the way persistence.js holds
+// SCALE_FILE_EXTENSION. The picker's file-type list stays in audio-ui.js,
+// where the dialog that uses it lives.
+const AUDIO_FILE_EXTENSION = ".wav";
+
 /**
  * One frequency per note row, in degree order.
  *

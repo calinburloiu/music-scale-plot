@@ -384,8 +384,6 @@ async function renderScaleWav() {
 
 // --- saving the audio -------------------------------------------------------
 
-const AUDIO_FILE_EXTENSION = ".wav";
-
 const AUDIO_FILE_PICKER_TYPES = [
   { description: "WAV audio", accept: { "audio/wav": [".wav"] } },
 ];

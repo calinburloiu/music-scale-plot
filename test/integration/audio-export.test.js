@@ -192,11 +192,17 @@ test("saving the audio", async (t) => {
     const h = loadApp();
     t.after(() => h.close());
 
-    await saveAudio(h);
-    assert.equal(
-      h.document.getElementById("save-menu-panel").classList.contains("open"),
-      false
-    );
+    fireClick(h, h.document.getElementById("save-menu"));
+    const panel = h.document.getElementById("save-menu-panel");
+    assert.equal(panel.classList.contains("open"), true, "sanity: the menu is open");
+
+    // Called rather than clicked, on purpose. A click on the item bubbles to
+    // app.js's document-level closeAllDropdowns(), which shuts the panel on its
+    // own — so driving this through the UI would pass with saveAudioFile()'s
+    // own closeSaveMenu() deleted, and prove nothing about this function.
+    await h.app.saveAudioFile();
+    assert.equal(panel.classList.contains("open"), false, "and it closed it itself");
+    await tick(h);
   });
 
   await t.test("revokes the object URL, but not before the click", async () => {
