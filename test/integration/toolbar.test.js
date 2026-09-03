@@ -206,7 +206,7 @@ test("the Save menu", async (t) => {
     const panel = h.document.getElementById("save-menu-panel");
     assert.deepEqual(
       [...panel.querySelectorAll("button")].map((b) => b.textContent.trim()),
-      ["Save As Music Scale Plot file", "Save As PNG"]
+      ["Save As Music Scale Plot file", "Save Chart As PNG"]
     );
     assert.equal(h.document.getElementById("save-png").closest("#save-menu-panel"), panel);
     assert.equal(h.el(".chart-toolbar #save-png"), null, "it no longer sits in the Chart panel");
