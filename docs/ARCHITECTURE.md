@@ -14,13 +14,17 @@ music-scale-plot/
 │                             # primitives (font-agnostic), no DOM
 ├── smufl.js                 # SMuFL accidental catalogue + resolvers, no DOM
 ├── persistence.js           # The .musp.json format: serialise/parse/validate, no DOM
+├── audio.js                 # The audio model: frequencies, the playback plan,
+│                             # the node graph and the WAV encoder, no DOM
 ├── symbols-ui.js            # Wells and pickers shared by both notations
 ├── byzantine-ui.js          # Only what is Byzantine: the three picker builders,
 │                             # the martyria draft, the ladder
 ├── persistence-ui.js        # The toolbar and the file flows: New/Open/Save,
 │                             # collectDocumentState/applyDocumentState
+├── audio-ui.js              # The transport, the sounding-note highlight and the
+│                             # WAV export; also the per-note play buttons
 ├── app.js                   # Everything else: editor DOM management, chart rendering,
-│                             # audio, PNG export — runs at load time, so it loads last
+│                             # PNG export — runs at load time, so it loads last
 ├── docs/
 │   ├── ARCHITECTURE.md        # This document
 │   ├── BYZANTINE-SYMBOLS.md   # The Byzantine notation layer, for maintainers
@@ -32,17 +36,18 @@ music-scale-plot/
 └── README.md
 ```
 
-- `index.html` — contains the page skeleton, links to `style.css`, and loads the seven
+- `index.html` — contains the page skeleton, links to `style.css`, and loads the nine
   scripts in that order (deferred).
 - `style.css` — all visual styling.
-- `byzantine.js`, `smufl.js`, `persistence.js`, `symbols-ui.js`, `byzantine-ui.js`,
-  `persistence-ui.js`, `app.js` — all JavaScript, split into seven classic `<script>`
-  files loaded in load order, not modules: `<script type="module">` is fetched under
-  CORS, and a page opened with `file://` has an opaque origin, so a module script would
-  be blocked — breaking "open `index.html` directly in a browser". Classic scripts share
-  one global scope, so `byzantine.js`'s tables, resolvers and measuring primitives are
-  visible to `smufl.js`, `persistence.js`, `symbols-ui.js`, `byzantine-ui.js`,
-  `persistence-ui.js` and `app.js` without any import.
+- `byzantine.js`, `smufl.js`, `persistence.js`, `audio.js`, `symbols-ui.js`,
+  `byzantine-ui.js`, `persistence-ui.js`, `audio-ui.js`, `app.js` — all JavaScript, split
+  into nine classic `<script>` files loaded in load order, not modules:
+  `<script type="module">` is fetched under CORS, and a page opened with `file://` has an
+  opaque origin, so a module script would be blocked — breaking "open `index.html`
+  directly in a browser". Classic scripts share one global scope, so `byzantine.js`'s
+  tables, resolvers and measuring primitives are visible to `smufl.js`, `persistence.js`,
+  `audio.js`, `symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `audio-ui.js` and
+  `app.js` without any import.
 
 Tests live under `test/` and are described in [TESTING.md](TESTING.md), which also
 defines the mandatory TDD workflow for changes to this design.
@@ -53,10 +58,12 @@ A sticky `#toolbar` sits before `.container`, `position: sticky; top: 0; z-index
 200 clears the symbol pickers' own `z-index: 100`, both living in the root stacking
 context a picker escapes the editor panel into, so 200 is the number "always on top"
 actually has to beat. It holds, in order: **New**, **Open**, **Save** (a button that opens
-a menu with "Save As Music Scale Plot file" and, below a separator, "Save As PNG"), a
-`.toolbar-separator`, then **Add note** and **Remove last note**; a `role="alert"` message
-bar (`#toolbar-message`, hidden until a file operation has something to say) and the
-hidden `<input type="file" id="open-file-input">` used by the Open fallback complete it.
+a menu with "Save As Music Scale Plot file" and, below a separator, "Save Chart As PNG"
+and "Save Audio As WAV"), a `.toolbar-separator`, then **Add note** and **Remove last
+note**, a second `.toolbar-separator`, then **Play** and **Stop**; a `role="alert"`
+message bar (`#toolbar-message`, hidden until a file operation has something to say) and
+the hidden `<input type="file" id="open-file-input">` used by the Open fallback complete
+it.
 
 The message bar holds two children: `#toolbar-message-text`, which is what
 `showToolbarMessage()`/`clearToolbarMessage()` write, and `#toolbar-message-dismiss`, the
@@ -424,6 +431,124 @@ file's martyrias are authoritative per degree and the ladder would overwrite the
 whichever row happened to be last, and `syncIntervalColors()`, likewise, because the file
 says what each interval looks like rather than deriving it from matching values.
 
+## Audio
+
+One `AudioContext`, one sounding voice, and two ways to reach it: a note row's
+play button, which sounds that degree for as long as it is held, and the
+toolbar's **Play**, which sounds the whole scale. Both live in `audio-ui.js` so
+that one file owns the oscillator; the numbers behind them live in `audio.js`,
+which touches no DOM.
+
+### The sequence and the envelope
+
+For a scale of N degrees the melody is degrees `1, 2, … N, N−1, … 1` — **2N−1
+notes**, the top note sounding once, the way a scale is practised. Every note is
+a quarter at 90 BPM (`QUARTER_SECONDS = 60 / 90`), so an eight-degree scale runs
+ten seconds.
+
+`scalePlaybackPlan()` produces that schedule **as data**: one entry per sounded
+note, each with a start time relative to zero and the degree it belongs to — so
+the sounding-note highlight needs no second mapping from time back to a row.
+
+Each note reuses the timbre the per-note button already produces, so a played
+scale sounds like the notes the reader has been auditioning by hand: a triangle
+oscillator, a 20 ms attack to gain 0.3, a sustain, and a 50 ms release landing
+exactly on the note boundary. The automation has **four** events, and the third
+is load-bearing:
+
+```js
+gain.setValueAtTime(0, start)
+gain.linearRampToValueAtTime(0.3, start + 0.02)
+gain.setValueAtTime(0.3, end - 0.05)   // anchors the sustain
+gain.linearRampToValueAtTime(0, end)
+```
+
+Without that third event the automation would ramp from the end of the attack
+all the way to the end of the note — a slow decay, not a sustain with a release.
+The release is also what articulates the melody: each note reaches silence
+exactly where the next one's attack begins, so the scale is detached rather than
+smeared.
+
+### Nothing is driven by a timer
+
+**Every note is scheduled up front against the audio clock**, in a single
+synchronous pass. No `setTimeout` or `setInterval` takes any part in producing
+sound, so playback cannot drift, cannot be delayed by a busy main thread and
+cannot block the UI. `playScale()` schedules from `currentTime + 0.05` rather
+than from `currentTime`: the lead absorbs the cost of building the graph, so the
+first note is not clipped by its own scheduling.
+
+`requestAnimationFrame` only *paints*. `updateSoundingNote()` reads the audio
+clock and moves a `.sounding` class to the play button of whichever degree is
+currently sounding — the pressed look, reusing an affordance the reader already
+knows rather than inventing a second highlight. If the frame loop were throttled
+to a stop the audio would still be correct.
+
+The authoritative end of a scale is **`onended` on the last oscillator**, not the
+frame loop, because `requestAnimationFrame` is throttled in a background tab and
+the buttons must return to idle whether or not anyone is looking. `stopScale()`
+clears that handler *before* stopping the nodes, so a deliberate stop does not
+also run the natural-end path.
+
+Two interaction rules follow from there being one voice: pressing a per-note
+button stops a playing scale first, and **Stop** stops whichever of the two is
+sounding. Editing the scale during playback deliberately does *not* interrupt
+it — the plan was scheduled in full when Play was pressed, stopping on every
+keystroke would make the editor unusable while listening, and re-scheduling
+mid-melody has no musical meaning.
+
+### WAV export
+
+**Save Audio As WAV** renders the same melody through an `OfflineAudioContext`
+and writes a mono, 16-bit, 44.1 kHz WAV. `scheduleScale()` is shared by live
+playback and the render, the only difference being which context and destination
+it is handed — so the exported file is what the reader heard by construction,
+not because two implementations happen to agree. There is no scheduling lead
+offline: nothing can be late in a render that is not realtime.
+
+**The sample rate is fixed at 44100, not taken from the device's
+`AudioContext`** — the same principle `savePNG()` follows in re-rendering at
+`EXPORT_SCALE` rather than at `devicePixelRatio`. The same scale exported from a
+Mac running its output at 48 kHz and from a machine at 44.1 kHz must produce the
+same file, with nothing in it to tell the two apart.
+
+`encodeWavMono16()` writes a canonical 44-byte RIFF/WAVE header and
+little-endian PCM. Samples are clamped to [−1, 1] and scaled asymmetrically —
+`s < 0 ? s * 0x8000 : s * 0x7fff` — which is the conversion that maps −1.0 and
++1.0 onto the full signed range without wrapping. Clipping should never occur in
+practice (one voice at a time, peak gain 0.3, no overlap); the clamp is there
+because an encoder that trusts its input produces a file that clicks.
+
+The download uses a `Blob` and `URL.createObjectURL`, **not** the `data:` URL the
+scale-file and PNG saves use: an eight-degree scale is 882 KB, which base64
+inflates to about 1.18 MB, and a sixteen-degree one reaches 2.43 MB — past the
+point where `data:` downloads are reliable. The object URL is revoked on the next
+macrotask, after the click has been dispatched; revoking synchronously can cancel
+the download. The file is named after the scale through `suggestedFileName()`, so
+it shares its slug rule and diacritic folding with the `.musp.json` save.
+
+### Why WAV, and not a compressed format
+
+The project's own rule — no libraries, no build step — leaves only what a browser
+can encode natively, and there the two requirements pull apart. Every current
+browser can record WebM/Opus through `MediaRecorder`, but a `.webm` audio file
+opens in neither QuickTime nor iOS; `.m4a` opens everywhere, but AAC encoding is
+absent from Firefox on every platform, so the app would hand different browsers
+different formats and the menu label would have to change per browser.
+
+Compression also costs the non-blocking property. `MediaRecorder` has no offline
+mode: it captures a stream in wall-clock time, so an eight-degree scale would
+take the full ten seconds to export and would need progress and cancel UI.
+`OfflineAudioContext` renders the same scale in milliseconds.
+
+Against that, a mono 16-bit 44.1 kHz WAV of an eight-degree scale is 882 KB, and
+705 kbps clears the ">128 kbps" the issue asked for by a wide margin. FLAC is the
+one option that satisfies every stated requirement at once — compressed,
+lossless, offline-renderable, natively playable everywhere — but it costs roughly
+200 lines of fixed-predictor and Rice-coding bit packing that this app would then
+own and test forever. Recorded here so a future reader knows the ground was
+covered, not missed.
+
 ## Chart Rendering (Canvas)
 
 ### Geometry
@@ -629,12 +754,13 @@ collectDocumentState()  ──►  serializeScaleDocument()  ──►  JSON tex
   `overflow-x: auto` so a wide canvas scrolls inside its own panel rather than widening the
   container, and the interval row's label cluster is `flex: 0 1 auto` so that it can give way
   on a narrow phone, as the note-name box above it already does.
-- **`#1a1814` is written in five `.svg` files as well as in `--ink`.** An SVG loaded
-  through `<img>` (the toolbar's five icons) renders in an isolated document that no page
+- **`#1a1814` is written in seven `.svg` files as well as in `--ink`.** An SVG loaded
+  through `<img>` (the toolbar's seven icons) renders in an isolated document that no page
   CSS reaches, so `currentColor` never resolves — each icon's ink is baked at author time
   instead. A change to the `--ink` custom property must change `icons/new.svg`,
-  `icons/open.svg`, `icons/save.svg`, `icons/add-note.svg` and `icons/remove-note.svg`
-  with it, or the toolbar and the rest of the page drift apart.
+  `icons/open.svg`, `icons/save.svg`, `icons/add-note.svg`, `icons/remove-note.svg`,
+  `icons/play.svg` and `icons/stop.svg` with it, or the toolbar and the rest of the page
+  drift apart.
 
 ## Summary
 
@@ -643,7 +769,7 @@ collectDocumentState()  ──►  serializeScaleDocument()  ──►  JSON tex
 | State management | DOM is the source of truth; read inputs on each change |
 | Rendering | HTML5 Canvas 2D API |
 | Reactivity | Single `input` event listener on the editor container (event delegation) |
-| Export | `canvas.toDataURL()` + programmatic download |
+| Export | `canvas.toDataURL()` + programmatic download for the chart; `OfflineAudioContext` + a hand-written WAV encoder for the audio |
 | Dependencies | None |
 | Build step | None — open `index.html` in a browser |
-| Code organisation | Separate `index.html`, `style.css` files and seven classic scripts (`byzantine.js`, `smufl.js`, `persistence.js`, `symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `app.js`) — no modules |
+| Code organisation | Separate `index.html`, `style.css` files and nine classic scripts (`byzantine.js`, `smufl.js`, `persistence.js`, `audio.js`, `symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `audio-ui.js`, `app.js`) — no modules |

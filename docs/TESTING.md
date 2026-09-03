@@ -1,7 +1,7 @@
 # Testing Guide
 
 This project was built without tests. That is now the main risk to its
-maintenance: the app is seven classic scripts, over five thousand lines in all,
+maintenance: the app is nine classic scripts, over five thousand lines in all,
 whose behaviour lives in DOM side effects, and nothing catches a regression
 except a human clicking around. This document defines how the project is tested
 and how new work must be done.
@@ -34,9 +34,9 @@ step.
 
 `CLAUDE.md` says the app has no dependencies and no build step. That still
 holds: `index.html` opens in a browser and loads nothing but `style.css` and
-its own seven scripts (`byzantine.js`, `smufl.js`, `persistence.js`,
-`symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `app.js`). `jsdom` is
-a **dev**-only dependency used by the
+its own nine scripts (`byzantine.js`, `smufl.js`, `persistence.js`, `audio.js`,
+`symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `audio-ui.js`,
+`app.js`). `jsdom` is a **dev**-only dependency used by the
 test runner, and the test runner itself is the one built into Node
 (`node --test`). Nothing under `node_modules/` is ever shipped or referenced
 by the app.
@@ -49,9 +49,10 @@ without a concrete reason that cannot be met by the standard library.
 ## 2. Test-driven development is mandatory
 
 Every change to `app.js`, `byzantine.js`, `smufl.js`, `persistence.js`,
-`symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `index.html` or
-`style.css` that affects behaviour follows the red/green/refactor loop. No
-exceptions for "small" changes; small changes are where regressions hide.
+`audio.js`, `symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`,
+`audio-ui.js`, `index.html` or `style.css` that affects behaviour follows the
+red/green/refactor loop. No exceptions for "small" changes; small changes are
+where regressions hide.
 
 ### RED — write a failing test first
 
@@ -112,8 +113,8 @@ willingness to follow it.
 `.claude/rules/testing.md` closes that gap. It is a
 [path-scoped rule](https://code.claude.com/docs/en/memory): its `paths:`
 frontmatter lists `app.js`, `byzantine.js`, `smufl.js`, `persistence.js`,
-`symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `index.html`,
-`style.css` and `test/**/*.js`, and it
+`audio.js`, `symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`,
+`audio-ui.js`, `index.html`, `style.css` and `test/**/*.js`, and it
 `@`-imports this guide. The moment Claude reads any guarded file, the rule loads
 and pulls this document into context with it — no separate step that could be
 skipped. Rules without `paths:` load every session; this one costs nothing until
@@ -225,6 +226,7 @@ test/
 │   ├── harness.js       loads index.html's scripts into jsdom; interaction helpers
 │   ├── canvas-stub.js   recording 2D context + the text/ink-measurement model
 │   ├── audio-stub.js    recording Web Audio stubs
+│   ├── wav.js           reads a mono 16-bit RIFF/WAVE file back out of its bytes
 │   └── assertions.js    closeTo, isNaNValue, equalArray
 ├── unit/                logic that can be checked without driving the editor
 │   ├── ratio-math.test.js
@@ -237,9 +239,11 @@ test/
 │   ├── byzantine-symbols.test.js   the tables, the resolvers, the ladder
 │   ├── smufl-accidentals.test.js   the 28-category catalogue and its resolvers
 │   ├── symbol-search.test.js       normalizeForSearch, matchesQuery
-│   └── scale-file-format.test.js   the .musp.json format: serialize/parse/
-│                                    validate, with no page — enum maps, default
-│                                    omission, cardinality, every validation rule
+│   ├── scale-file-format.test.js   the .musp.json format: serialize/parse/
+│   │                                validate, with no page — enum maps, default
+│   │                                omission, cardinality, every validation rule
+│   ├── playback-plan.test.js       the degree sequence and the note schedule
+│   └── wav-encoding.test.js        every RIFF header field, the sample scaling
 └── integration/         behaviour that spans the editor, the model and the chart
     ├── harness.test.js
     ├── editor.test.js
@@ -267,9 +271,14 @@ test/
     │                               on both saves: what counts as unreadable in
     │                               each interval type, which box gets marked,
     │                               and what the message bar says
-    └── file-persistence.test.js    round trips through the real editor —
-                                     both notations' hidden state, both I/O
-                                     branches, a bad file, a cancelled picker
+    ├── file-persistence.test.js    round trips through the real editor —
+    │                               both notations' hidden state, both I/O
+    │                               branches, a bad file, a cancelled picker
+    ├── playback.test.js            the transport: scheduling, envelopes, button
+    │                               state, the sounding-note highlight, the two
+    │                               interaction rules and the Play guard
+    └── audio-export.test.js        the offline render, the WAV bytes, both save
+                                     paths, the filename and the guard
 ```
 
 Put a test where a maintainer would look for it: by the *feature* it covers,
@@ -280,10 +289,11 @@ a new file named after the feature.
 
 ## 5. How the harness works
 
-The app's scripts (`byzantine.js`, `smufl.js`, `persistence.js`, `symbols-ui.js`,
-`byzantine-ui.js`, `persistence-ui.js`, `app.js`) are classic scripts with no exports: they read elements at the top level and wire up
-listeners as a side effect of loading. Rather than restructure the app to
-suit the tests, `test/helpers/harness.js` loads it the way a browser does.
+The app's scripts (`byzantine.js`, `smufl.js`, `persistence.js`, `audio.js`,
+`symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `audio-ui.js`, `app.js`)
+are classic scripts with no exports: they read elements at the top level and
+wire up listeners as a side effect of loading. Rather than restructure the app
+to suit the tests, `test/helpers/harness.js` loads it the way a browser does.
 
 ```js
 const { loadApp, buildRelativeScale, intervalRows } = require("../helpers/harness.js");
@@ -336,6 +346,9 @@ Two consequences worth knowing:
 | `ctx.getImageData` | a bitmap synthesised from the same ink model, honouring `clearRect` | The app finds a sign's ink in the pixels on engines whose `measureText` will not report it (`docs/BYZANTINE-SYMBOLS.md` §8b). There is no rasteriser here, so the ink model paints its own boxes opaque — no anti-aliased fringe, so a test can assert exactly. |
 | `canvas.toDataURL` | records the call and returns a real minimal PNG (`pngFixture`) | Lets export tests check the exported size, and gives `savePNG()` genuine bytes to splice its `pHYs`/`sRGB` chunks into. `pngChunkTypes`/`pngChunkData`/`bytesFromDataUrl` read them back. The fixture computes its own CRCs so a bug in the app's `crc32` cannot hide behind the same bug in the stub. |
 | `AudioContext` | `FakeAudioContext` | Records oscillators, gains and every scheduled parameter change. |
+| `OfflineAudioContext` | `FakeOfflineAudioContext`, tracked on `h.offlineContexts` | `startRendering()` **interprets the automation; it does not synthesise audio** — each gain envelope as the piecewise-linear curve its events describe, the oscillator a constant `1.0`. The buffer therefore carries the envelope *schedule*, which is real app logic, and no fake DSP. |
+| `URL.createObjectURL` / `revokeObjectURL` | records the real Blob and hands back a fake URL | jsdom implements neither. `savedAudioFile()` reads the Blob back through `FileReader` (jsdom's Blob has no `arrayBuffer()`), so a test asserts the bytes a browser would have written. |
+| `AudioContext#state` / `#resume()` / `#advanceTo()` | on `FakeAudioContext` | A context may be suspended when Play is pressed, and `advanceTo(time)` fires `onended` for every oscillator whose stop time has passed — the transport's authoritative end of a scale, reachable without waiting ten real seconds. |
 | `HTMLAnchorElement.click` | records `{download, href}` | jsdom cannot navigate or download. |
 | `window.devicePixelRatio` | `2` by default | `loadApp({ devicePixelRatio: 3 })` to vary it. |
 | `document.fonts` | `load()` and `ready` both resolve immediately | jsdom implements no `FontFaceSet`, and `app.js` waits on one before its first real paint. `loadApp({ fonts: false })` removes `document.fonts` entirely, to exercise the codepath that guards against browsers (and jsdom's own default state) with no `FontFaceSet` at all; `loadApp({ fonts: "reject" })` makes every face fail to load, as a missing or corrupt font file would; `loadApp({ fonts: { reject: ["Bravura Text"] } })` fails only the faces named, because one file can go missing without the other; `loadApp({ fonts: "ready-reject" })` lets the faces load but never lets the set become ready, which is the plainest way to the tail of the chain. |
@@ -370,6 +383,8 @@ number.
 | `dismissPicker(h, row, how, kind)` | Leave a picker without picking: `"outside"` and `"well"` are the two gestures that discard, `"none"` leaves the panel open to inspect. There is no `"apply"` and no `"cancel"` — clicking a row *is* the commit, so the only way not to commit is not to click one. |
 | `pickScaleFile(h, text, fileName)` | Hands the hidden `#open-file-input` a file (`text`, defaulting `fileName` to `"scale.musp.json"`) and fires `change`, the way the fallback Open dialog does; returns a promise to `await` since the handler reads the file asynchronously. Pass an `Error` as `text` to make the file's own `.text()` reject, as a real read failure would. (Named `pickScaleFile`, not `openScaleFile`, to avoid colliding with `persistence-ui.js`'s own `openScaleFile` function.) |
 | `savedScaleFile(h)` | The scale document the app last handed to `<a download>`, decoded back out of the `data:` URL — `{ name, text }`. Reads the same recorded anchor click `downloads` already exposes, so no separate stub was needed for Save's fallback path. |
+| `savedAudioFile(h)` | The WAV file the app last handed to `<a download>` for **Save Audio As WAV** — `{ name, bytes }`, read back through the `Blob`/`URL.createObjectURL` stub above. |
+| `blobBytes(h, blob)` | Reads a `Blob` back to a `Uint8Array` via `FileReader`, since jsdom's `Blob` has no `arrayBuffer()`. |
 
 Everything goes through real DOM events. Do not call the app's internal
 functions to *set up* state when a helper can drive the UI — a test that
@@ -436,7 +451,7 @@ Conventions:
    model, or the chart's geometry. That tells you which test file to open.
 3. **Write the failing test.** Run it. Watch it fail for the right reason.
 4. Implement the minimum that makes it pass, as a **named top-level function**
-   in whichever of the seven scripts it belongs to (top-level functions are
+   in whichever of the nine scripts it belongs to (top-level functions are
    auto-exported to tests; logic buried inside an event listener is not).
 5. Run `npm test`. Fix anything you broke.
 6. Refactor under a green suite.
@@ -457,3 +472,7 @@ Conventions:
 - **Coverage percentages are a signal, not a target.** A green suite with
   meaningful assertions beats 100% coverage of lines nobody asserted anything
   about.
+- **The exported file's waveform is not asserted**, only its envelope and its
+  container. There is no oscillator model in the harness, and adding one would
+  mean tests asserting the stub's own arithmetic. Same line §8's text-measurement
+  note already draws.
