@@ -543,8 +543,17 @@ be swept for exhaustively.
   reader knows the ground already covered.
 - **Tempo, note-duration or waveform controls.** The issue fixes a quarter at 90 BPM,
   and the constants are named in `audio.js` for whoever adds settings later.
-- **A keyboard shortcut for Play/Stop.** Space and Enter both already mean something on
-  a focused control and in the editor's note-entry flow.
+- ~~**A keyboard shortcut for Play/Stop.**~~ **Amended after the design was written**
+  — the shortcuts were asked for later and are shipped: Space toggles Play/Stop, and
+  `1`…`9` hold their degree. The original objection was real and stands as the reason
+  the guards exist: Space and Enter both already mean something on a focused control
+  and in the editor's note-entry flow. What resolved it is a **focus guard** with two
+  different answers, because the two keys are stolen by different things — a digit is
+  blocked only by something you can type into (so typing `3/2` never plays degrees 3
+  and 2), while Space is *also* blocked by a focused enabled button, whose click the
+  browser already makes from it. See `docs/ARCHITECTURE.md`'s Audio section for the
+  guard table, and §5 there for why the button must be *enabled* for Space to defer to
+  it.
 - **Highlighting the sounding degree in the chart.** The pressed play button is the
   agreed feedback; a canvas re-render on every note boundary is not.
 - **Renaming `scale.png`** to follow the scale's name (§7.3).

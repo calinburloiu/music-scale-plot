@@ -2889,4 +2889,4 @@ EOF
   - Pressing a per-note button mid-melody takes over cleanly.
   - Save ▸ Save Audio As WAV downloads a file that opens in QuickTime / Windows Media Player and sounds like what was just played.
   - The two new icons sit level with the other five and dim when disabled.
-- [ ] Confirm nothing that was not asked for came along: `scale.png` is still `scale.png` (design §7.3), there is no keyboard shortcut for Play/Stop, no tempo or waveform control, and the chart is unchanged.
+- [ ] Confirm nothing that was not asked for came along: `scale.png` is still `scale.png` (design §7.3), no tempo or waveform control, and the chart is unchanged. (The keyboard shortcuts this line once also forbade were asked for after the plan was written and **are** shipped — see the amendment in design §11.)
