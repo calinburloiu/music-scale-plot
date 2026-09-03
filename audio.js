@@ -68,3 +68,45 @@ function scalePlaybackPlan(frequencies) {
     };
   });
 }
+
+// --- the WAV encoder -------------------------------------------------------
+//
+// A canonical 44-byte RIFF/WAVE header followed by little-endian 16-bit PCM.
+// Hand-written because the alternatives all cost something this app will not
+// pay: MediaRecorder has no offline mode and encodes in wall-clock time, and
+// every compressed format a browser can produce natively is either unplayable
+// on some platform or absent from some browser. See the design's §2.1.
+
+function writeWavAscii(view, offset, text) {
+  for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
+}
+
+function encodeWavMono16(samples, sampleRate) {
+  const dataSize = samples.length * 2;
+  const bytes = new Uint8Array(44 + dataSize);
+  const view = new DataView(bytes.buffer);
+
+  writeWavAscii(view, 0, "RIFF");
+  view.setUint32(4, 36 + dataSize, true);
+  writeWavAscii(view, 8, "WAVE");
+  writeWavAscii(view, 12, "fmt ");
+  view.setUint32(16, 16, true);   // Subchunk1Size, for PCM
+  view.setUint16(20, 1, true);    // AudioFormat: PCM
+  view.setUint16(22, 1, true);    // NumChannels: mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true); // ByteRate
+  view.setUint16(32, 2, true);    // BlockAlign
+  view.setUint16(34, 16, true);   // BitsPerSample
+  writeWavAscii(view, 36, "data");
+  view.setUint32(40, dataSize, true);
+
+  for (let i = 0; i < samples.length; i++) {
+    const sample = Math.max(-1, Math.min(1, samples[i]));
+    // Asymmetric on purpose: signed 16-bit runs -32768…32767, so -1.0 and +1.0
+    // only reach both ends without wrapping if they are scaled by different
+    // numbers. setInt16 truncates towards zero, which is fine for audio.
+    view.setInt16(44 + i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+  }
+
+  return bytes;
+}
