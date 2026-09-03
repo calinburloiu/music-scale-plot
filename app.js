@@ -72,7 +72,6 @@ const TICK_WIDTH = 2;
 const NOTE_TEXT_HEIGHT = 28;
 
 let displayZoom = 1;
-let audioCtx = null;
 // Which vendored faces have resolved, by name.
 //
 // A readiness observable with **no production consumer, by design**: nothing in
@@ -86,11 +85,6 @@ let audioCtx = null;
 // Per face, because the faces fail independently — a missing Bravura Text says
 // nothing about whether Neanes arrived.
 const symbolFontsReady = { Neanes: false, "Bravura Text": false };
-
-function getAudioContext() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  return audioCtx;
-}
 
 function getBaseFrequency() {
   // Semitones above C. The wrap keeps the audible range at A220 … G#415, which
@@ -144,36 +138,6 @@ function getFrequencyForDegree(degree) {
   const frequencies = scaleFrequencies(readScaleData(), getBaseFrequency());
   const frequency = frequencies[degree - 1];
   return frequency === undefined ? getBaseFrequency() : frequency;
-}
-
-let activeOsc = null;
-let activeGain = null;
-
-function startTone(frequency) {
-  stopTone();
-  const ctx = getAudioContext();
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = "triangle";
-  osc.frequency.value = frequency;
-  gain.gain.setValueAtTime(0, ctx.currentTime);
-  gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + 0.02);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(ctx.currentTime);
-  activeOsc = osc;
-  activeGain = gain;
-}
-
-function stopTone() {
-  if (!activeOsc) return;
-  const ctx = getAudioContext();
-  activeGain.gain.cancelScheduledValues(ctx.currentTime);
-  activeGain.gain.setValueAtTime(activeGain.gain.value, ctx.currentTime);
-  activeGain.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.05);
-  activeOsc.stop(ctx.currentTime + 0.05);
-  activeOsc = null;
-  activeGain = null;
 }
 
 function updateZoom() {
@@ -1915,21 +1879,7 @@ function handleEditorEnter(e) {
   focusNewestIntervalInput();
 }
 
-function handlePlayStart(e) {
-  const btn = e.target.closest(".play-note");
-  if (!btn) return;
-  e.preventDefault();
-  const noteRow = btn.closest(".note-row");
-  if (!noteRow) return;
-  const degree = parseInt(noteRow.dataset.degree, 10);
-  startTone(getFrequencyForDegree(degree));
-}
-
 editor.addEventListener("keydown", handleEditorEnter);
-editor.addEventListener("mousedown", handlePlayStart);
-editor.addEventListener("touchstart", handlePlayStart);
-document.addEventListener("mouseup", stopTone);
-document.addEventListener("touchend", stopTone);
 addBtn.addEventListener("click", addNote);
 removeBtn.addEventListener("click", removeLastNote);
 saveBtn.addEventListener("click", savePNG);

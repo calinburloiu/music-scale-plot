@@ -8,6 +8,7 @@ paths:
   - "symbols-ui.js"
   - "byzantine-ui.js"
   - "persistence-ui.js"
+  - "audio-ui.js"
   - "index.html"
   - "style.css"
   - "test/**/*.js"
