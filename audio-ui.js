@@ -28,7 +28,10 @@ let activeOsc = null;
 let activeGain = null;
 
 function startTone(frequency) {
-  stopTone();
+  // One transport and one voice: a held note taking over from a playing scale
+  // is the only reading that does not produce two melodies at once.
+  // stopScale() stops the held note too, so stopTone() is not called twice.
+  stopScale();
   const ctx = getAudioContext();
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
@@ -91,6 +94,15 @@ function updateTransportButtons() {
 function playScale() {
   if (isScalePlaying()) return;
 
+  // A scale with a hole in it is not one the app should play, any more than it
+  // is one it should hand out — the same guard, message and self-clearing
+  // behaviour the two saves use.
+  const problem = invalidIntervalMessage();
+  if (problem) {
+    showToolbarMessage(problem, INVALID_SCALE_MESSAGE);
+    return;
+  }
+
   const plan = scalePlaybackPlan(scaleFrequencies(readScaleData(), getBaseFrequency()));
   if (plan.length === 0) return;
 
@@ -120,6 +132,9 @@ function handleScaleEnded() {
 }
 
 function stopScale() {
+  // Stop is one control over one voice: a held note is the other thing that
+  // could be sounding, and it stops too.
+  stopTone();
   if (!playback) return;
   const ctx = getAudioContext();
   const now = ctx.currentTime;

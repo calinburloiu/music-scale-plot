@@ -8,6 +8,8 @@ const {
   fireClick,
   buildRelativeScale,
   selectOption,
+  typeInto,
+  intervalRows,
 } = require("../helpers/harness.js");
 const { closeTo, equalArray } = require("../helpers/assertions.js");
 
@@ -302,5 +304,96 @@ test("the sounding note", async (t) => {
     h.app.updateSoundingNote();
     assert.equal(h.audioContexts.length, 0);
     assert.deepEqual(h.jsdomErrors, []);
+  });
+});
+
+function messageText(h) {
+  return h.document.getElementById("toolbar-message-text").textContent;
+}
+
+function pressNote(h, index) {
+  h.all("#editor .note-row")[index]
+    .querySelector(".play-note")
+    .dispatchEvent(new h.window.MouseEvent("mousedown", { bubbles: true }));
+}
+
+test("one transport, one voice", async (t) => {
+  await t.test("a per-note press stops a playing scale", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+
+    pressPlay(h);
+    const ctx = h.audioContexts[0];
+    const scheduled = ctx.oscillators.length;
+    ctx.currentTime = 0.5;
+    pressNote(h, 0);
+
+    assert.equal(h.app.isScalePlaying(), false, "the scale gives way to the held note");
+    assert.equal(soundingDegree(h), null, "and its highlight goes with it");
+    for (const osc of ctx.oscillators.slice(0, scheduled)) {
+      closeTo(osc.stopped, 0.5 + h.app.RELEASE_SECONDS, 1e-12);
+    }
+    assert.equal(ctx.oscillators.length, scheduled + 1, "the held note is sounding");
+    assert.equal(ctx.oscillators.at(-1).stopped, null, "and is still held");
+  });
+
+  await t.test("Stop silences a held note too", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    pressNote(h, 0);
+    const ctx = h.audioContexts[0];
+    assert.equal(ctx.oscillators[0].stopped, null, "the note is held to start with");
+
+    pressStop(h);
+    closeTo(ctx.oscillators[0].stopped, h.app.RELEASE_SECONDS, 1e-12);
+  });
+
+  await t.test("editing the scale mid-melody does not interrupt it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+
+    pressPlay(h);
+    const scheduled = h.audioContexts[0].oscillators.length;
+    // Re-scheduling mid-melody has no musical meaning, and stopping on every
+    // keystroke would make the editor unusable while listening.
+    typeInto(h, intervalRows(h)[0].querySelector(".interval"), "3/2");
+
+    assert.equal(h.app.isScalePlaying(), true, "the scale plays out as scheduled");
+    assert.equal(h.audioContexts[0].oscillators.length, scheduled, "and nothing is re-scheduled");
+  });
+});
+
+test("refusing to play an invalid scale", async (t) => {
+  await t.test("will not play while a box is unreadable, and says which", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "oops"]);
+
+    pressPlay(h);
+
+    assert.equal(h.app.isScalePlaying(), false, "nothing may play");
+    assert.equal(h.audioContexts.length, 0, "not even an AudioContext");
+    assert.equal(messageText(h), "Cannot save: interval 2 is not a valid ratio.");
+  });
+
+  await t.test("the complaint takes itself down when the box is fixed", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["oops"]);
+
+    pressPlay(h);
+    assert.notEqual(messageText(h), "", "the bar should be saying something");
+
+    // The same self-clearing INVALID_SCALE_MESSAGE kind the save guards use:
+    // the complaint describes a state the editor is in, so it stops being true
+    // the moment that state does.
+    typeInto(h, intervalRows(h)[0].querySelector(".interval"), "9/8");
+    assert.equal(messageText(h), "");
+
+    pressPlay(h);
+    assert.equal(h.app.isScalePlaying(), true);
   });
 });
