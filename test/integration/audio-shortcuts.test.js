@@ -274,6 +274,17 @@ test("the number keys sound their degree", async (t) => {
     closeTo(voices(h)[0].frequency.value, 330, 1e-9);
   });
 
+  await t.test("reaches the ninth degree, the highest key there is", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    setNoteCount(h, 9);
+
+    pressLoose(h, "9");
+
+    assert.equal(soundingDegree(h), 9, "the last degree a key can reach still sounds");
+    assert.equal(voices(h).length, 1, "and it is a real voice, not just a class");
+  });
+
   await t.test("does nothing for a degree the scale does not have", () => {
     const h = loadApp();
     t.after(() => h.close());
@@ -428,6 +439,12 @@ test("the number keys are discoverable", async (t) => {
     const h = loadApp();
     t.after(() => h.close());
     setNoteCount(h, 10);
+
+    // Both sides of the boundary, or nothing pins where it falls: a limit one
+    // degree short would still leave the tenth unclaimed.
+    const ninth = noteRows(h)[8].querySelector(".play-note");
+    assert.equal(ninth.getAttribute("aria-keyshortcuts"), "9", "the ninth degree is reachable");
+    assert.equal(ninth.getAttribute("title"), "Play note 9 (key 9)");
 
     const tenth = noteRows(h)[9].querySelector(".play-note");
     assert.equal(tenth.getAttribute("title"), "Play note 10");
