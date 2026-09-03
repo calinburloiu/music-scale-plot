@@ -254,8 +254,10 @@ test("reading a .musp.json document", async (t) => {
     const h = loadApp();
     t.after(() => h.close());
 
-    // A box may hold text that does not parse — a scale saved mid-thought. The
-    // reader puts it straight back, exactly as it was written.
+    // Save refuses a scale holding a box the app cannot read, so such a slot
+    // can only come from a hand-edited file. The reader still accepts one and
+    // puts it straight back, exactly as it was written, so that file opens —
+    // the editor is where the value is then marked.
     const result = h.app.parseScaleDocument(
       docText((base) => {
         base.scaleEditor.intervalType = { type: "cents" };

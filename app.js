@@ -1232,10 +1232,58 @@ function isValidIntervalValue(value) {
  * getUnisonValue(), so there is nothing there the user could have got wrong.
  */
 function markInvalidIntervals() {
+  let anyInvalid = false;
   for (const input of editor.querySelectorAll(".interval, .absolute-interval")) {
     const invalid = !input.disabled && !isValidIntervalValue(input.value);
     input.classList.toggle("is-invalid", invalid);
+    anyInvalid = anyInvalid || invalid;
   }
+  // The save guard's complaint describes a state the editor is in, so it stops
+  // being true the moment that state does; leaving it up would have the bar
+  // contradicting the boxes it is describing. Scoped by kind, because a file
+  // that failed to open is still a thing that happened and fixing an interval
+  // says nothing about it.
+  if (!anyInvalid) clearToolbarMessageOfKind(INVALID_SCALE_MESSAGE);
+}
+
+/** What each interval type is called when the save guard has to name one. */
+const INTERVAL_TYPE_NOUNS = {
+  ratio: ["ratio", "ratios"],
+  edo: ["EDO step count", "EDO step counts"],
+  cents: ["cents value", "cents values"],
+};
+
+function joinWithAnd(items) {
+  if (items.length < 2) return items.join("");
+  return items.slice(0, -1).join(", ") + " and " + items[items.length - 1];
+}
+
+/**
+ * Why the scale cannot be saved, or null when it can.
+ *
+ * Positions are counted in the units the user is looking at: interval rows in
+ * relative mode, note rows in absolute, where the value lives on the note
+ * itself. Every offending row is named rather than just the first — the red
+ * boxes show which, but a long scale scrolls past the fold and the bar is what
+ * stays on screen.
+ */
+function invalidIntervalMessage() {
+  const absolute = getScaleMode() === "absolute";
+  const rows = [...editor.querySelectorAll(absolute ? ".note-row" : ".interval-row")];
+  const positions = [];
+  rows.forEach(function (row, i) {
+    const input = row.querySelector(absolute ? ".absolute-interval" : ".interval");
+    if (!input || input.disabled) return;
+    if (!isValidIntervalValue(input.value)) positions.push(i + 1);
+  });
+  if (positions.length === 0) return null;
+
+  const nouns = INTERVAL_TYPE_NOUNS[getIntervalType()];
+  const thing = absolute ? "note" : "interval";
+  if (positions.length === 1) {
+    return `Cannot save: ${thing} ${positions[0]} is not a valid ${nouns[0]}.`;
+  }
+  return `Cannot save: ${thing}s ${joinWithAnd(positions)} are not valid ${nouns[1]}.`;
 }
 
 function updateCumulativeCents() {
@@ -1628,6 +1676,13 @@ function base64FromBytes(bytes) {
 }
 
 function savePNG() {
+  // A PNG is a picture of the scale, and a scale with a hole in it is not one
+  // the app should hand out in any format.
+  const problem = invalidIntervalMessage();
+  if (problem) {
+    showToolbarMessage(problem, INVALID_SCALE_MESSAGE);
+    return;
+  }
   const link = document.createElement("a");
   link.download = "scale.png";
   // Redraw at the export scale for the bitmap, then put the screen back: the

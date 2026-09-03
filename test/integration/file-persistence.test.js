@@ -73,19 +73,20 @@ test("saving a scale document", async (t) => {
     assert.equal(doc.scaleEditor.intervalProperties.length, 2, "always between successive notes");
   });
 
-  await t.test("writes the raw text of an interval that does not parse", async () => {
+  await t.test("writes nothing at all when a box does not parse", async () => {
     const h = loadApp();
     t.after(() => h.close());
 
+    // The writer still has a raw-string branch for an interval slot, and the
+    // reader still accepts one — a hand-edited file has to open. But that
+    // branch is no longer reachable through Save: the guard refuses first, so
+    // the app never builds a document from a scale with a hole in it. What the
+    // user is told instead is interval-validation.test.js's subject.
     selectOption(h, "interval-type", "cents");
     buildRelativeScale(h, ["mid-thought"]);
     await saveScale(h);
 
-    assert.deepEqual(
-      JSON.parse(savedScaleFile(h).text).scaleEditor.intervals,
-      ["mid-thought"],
-      "nothing is lost and nothing is invented"
-    );
+    assert.equal(h.downloads.length, 0, "no document should have been written");
   });
 
   await t.test("names the file after the scale, and falls back when it has none", async () => {
@@ -236,40 +237,47 @@ test("escaping interval values that came from a file", async (t) => {
 
   const TRICKY = '9"8<b>weird</b>';
 
-  await t.test("round-trips a relative interval containing quote and angle-bracket characters", async () => {
+  // Save refuses a value it cannot read, so a document carrying one can only be
+  // hand-edited or crafted — which was always the threat these two guard
+  // against. They plant it in the file directly rather than by saving it.
+  function docWithIntervals(intervals, mode) {
+    return JSON.stringify({
+      formatVersion: 1,
+      settings: { notation: "generic", baseNote: 0 },
+      scaleEditor: {
+        mode: mode,
+        intervalType: { type: "ratio" },
+        intervals: intervals,
+        noteProperties: [{}, {}],
+        intervalProperties: [{ color: "#CCFFCC", label: "" }],
+      },
+      chart: { style: "boxes", orientation: "vertical", zoom: 100 },
+    });
+  }
+
+  await t.test("restores a relative interval containing quote and angle-bracket characters", async () => {
     const h = loadApp();
     t.after(() => h.close());
 
-    buildRelativeScale(h, [TRICKY]);
-    await saveScale(h);
-    const saved = savedScaleFile(h).text;
-
-    fireClick(h, h.document.getElementById("new-file"));
-    await pickScaleFile(h, saved);
+    await pickScaleFile(h, docWithIntervals([TRICKY], "relativeIntervals"));
 
     assert.equal(
       intervalRows(h)[0].querySelector(".interval").value,
       TRICKY,
-      "the box must come back holding exactly what was typed"
+      "the box must hold exactly what the file said"
     );
   });
 
-  await t.test("round-trips an absolute interval containing quote and angle-bracket characters", async () => {
+  await t.test("restores an absolute interval containing quote and angle-bracket characters", async () => {
     const h = loadApp();
     t.after(() => h.close());
 
-    selectOption(h, "scale-mode", "absolute");
-    buildAbsoluteScale(h, ["1/1", TRICKY]);
-    await saveScale(h);
-    const saved = savedScaleFile(h).text;
-
-    fireClick(h, h.document.getElementById("new-file"));
-    await pickScaleFile(h, saved);
+    await pickScaleFile(h, docWithIntervals(["1/1", TRICKY], "absoluteIntervals"));
 
     assert.equal(
       noteRows(h)[1].querySelector(".absolute-interval").value,
       TRICKY,
-      "the box must come back holding exactly what was typed"
+      "the box must hold exactly what the file said"
     );
   });
 

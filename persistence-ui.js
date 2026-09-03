@@ -69,14 +69,30 @@ saveMenuBtn.addEventListener("click", function (event) {
 // its × is a CSS ::before and its name an aria-label — so the bar's textContent
 // stays exactly the message, which is what the live region announces.
 
-function showToolbarMessage(text) {
+/**
+ * The one message kind that takes itself down: the save guard's complaint about
+ * an unreadable interval describes a state the editor is in, and stops being
+ * true when that state does. Every other message — a file that would not open,
+ * a dialog that failed — is a thing that happened, and only the user dismisses
+ * it. showToolbarMessage() stamps the kind so markInvalidIntervals() can clear
+ * this one without touching the others.
+ */
+const INVALID_SCALE_MESSAGE = "invalid-scale";
+
+function showToolbarMessage(text, kind) {
   toolbarMessageText.textContent = text;
+  toolbarMessage.dataset.kind = kind || "";
   toolbarMessage.hidden = false;
 }
 
 function clearToolbarMessage() {
   toolbarMessageText.textContent = "";
+  toolbarMessage.dataset.kind = "";
   toolbarMessage.hidden = true;
+}
+
+function clearToolbarMessageOfKind(kind) {
+  if (toolbarMessage.dataset.kind === kind) clearToolbarMessage();
 }
 
 toolbarMessageDismiss.addEventListener("click", clearToolbarMessage);
@@ -197,6 +213,16 @@ const SCALE_FILE_PICKER_TYPES = [
 async function saveScaleFile() {
   closeSaveMenu();
   clearToolbarMessage();
+
+  // A box the app cannot read would go to the file as the raw text it holds,
+  // and the scale would come back with the same hole in it. Refuse instead,
+  // and say which rows to look at.
+  const problem = invalidIntervalMessage();
+  if (problem) {
+    showToolbarMessage(problem, INVALID_SCALE_MESSAGE);
+    return;
+  }
+
   const text = serializeScaleDocument(collectDocumentState());
   const fileName = suggestedFileName(scaleNameInput.value);
 

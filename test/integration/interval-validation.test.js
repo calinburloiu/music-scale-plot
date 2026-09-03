@@ -13,6 +13,7 @@ const {
   buildRelativeScale,
   buildAbsoluteScale,
   pickScaleFile,
+  savedScaleFile,
 } = require("../helpers/harness.js");
 
 function intervalBox(h, index) {
@@ -167,5 +168,143 @@ test("marking an interval the app cannot read", async (t) => {
 
     assert.equal(intervalBox(h, 0).value, "9.5/8", "the file's value should have loaded");
     assert.equal(isMarked(intervalBox(h, 0)), true, "and been marked on arrival");
+  });
+});
+
+/** Clicks Save ▸ Save As Music Scale Plot file, the way a user reaches it. */
+async function saveScale(h) {
+  fireClick(h, h.document.getElementById("save-menu"));
+  fireClick(h, h.document.getElementById("save-scale"));
+  await new Promise((resolve) => h.window.setTimeout(resolve, 0));
+}
+
+/** Clicks Save ▸ Save As PNG. */
+function savePNG(h) {
+  fireClick(h, h.document.getElementById("save-menu"));
+  fireClick(h, h.document.getElementById("save-png"));
+}
+
+function messageText(h) {
+  return h.document.getElementById("toolbar-message-text").textContent;
+}
+
+test("refusing to save an invalid scale", async (t) => {
+  await t.test("will not write a scale file while a box is unreadable", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    buildRelativeScale(h, ["9/8", "9.5/8"]);
+    await saveScale(h);
+
+    assert.equal(h.downloads.length, 0, "nothing should have been written");
+    assert.equal(messageText(h), "Cannot save: interval 2 is not a valid ratio.");
+  });
+
+  await t.test("will not export a PNG either", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // The PNG is a picture of the scale, and a scale with a hole in it is not
+    // one the app should be handing out in any format.
+    buildRelativeScale(h, ["9/8", "9.5/8"]);
+    savePNG(h);
+
+    assert.equal(h.downloads.length, 0, "no PNG should have been exported");
+    assert.equal(messageText(h), "Cannot save: interval 2 is not a valid ratio.");
+  });
+
+  await t.test("refuses the Ctrl+S chord for the same reason", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    buildRelativeScale(h, ["9/8", "9.5/8"]);
+    h.document.dispatchEvent(
+      new h.window.KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true, cancelable: true })
+    );
+    await new Promise((resolve) => h.window.setTimeout(resolve, 0));
+
+    assert.equal(h.downloads.length, 0);
+    assert.equal(messageText(h), "Cannot save: interval 2 is not a valid ratio.");
+  });
+
+  await t.test("saves once the value is fixed", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    buildRelativeScale(h, ["9/8", "9.5/8"]);
+    await saveScale(h);
+    assert.equal(h.downloads.length, 0, "should be refused to start");
+
+    typeInto(h, intervalBox(h, 1), "10/9");
+    await saveScale(h);
+
+    assert.equal(h.downloads.length, 1, "the fixed scale must save");
+    assert.match(savedScaleFile(h).text, /10\/9/);
+  });
+
+  await t.test("names the note rather than the interval in absolute mode", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    selectOption(h, "scale-mode", "absolute");
+    buildAbsoluteScale(h, ["1/1", "9/8", "5/4"]);
+    typeInto(h, absoluteBox(h, 3), "nonsense");
+    await saveScale(h);
+
+    assert.equal(messageText(h), "Cannot save: note 3 is not a valid ratio.");
+  });
+
+  await t.test("lists every offending row when there is more than one", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    buildRelativeScale(h, ["nonsense", "9/8", "", "16/15", "9.5/8"]);
+    await saveScale(h);
+
+    // Three of them, so the list needs both the comma and the "and".
+    assert.equal(messageText(h), "Cannot save: intervals 1, 3 and 5 are not valid ratios.");
+  });
+
+  await t.test("names the interval type the user is actually working in", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    selectOption(h, "interval-type", "edo");
+    typeInto(h, intervalBox(h, 0), "7.5");
+    await saveScale(h);
+
+    assert.equal(messageText(h), "Cannot save: interval 1 is not a valid EDO step count.");
+  });
+
+  await t.test("takes its own message down once the last box is fixed", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // The message is about a state the editor is in, so it stops being true the
+    // moment that state does. Leaving it up would have the bar contradicting
+    // the boxes it is describing.
+    buildRelativeScale(h, ["9.5/8"]);
+    savePNG(h);
+    assert.notEqual(messageText(h), "", "should be complaining to start");
+
+    typeInto(h, intervalBox(h, 0), "9/8");
+
+    assert.equal(messageText(h), "", "fixing the scale must clear the complaint");
+    assert.equal(h.document.getElementById("toolbar-message").hidden, true);
+  });
+
+  await t.test("leaves a message about something else alone", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // Only the invalid-scale complaint clears itself. A file that failed to
+    // open is still a thing that happened, and fixing an interval says nothing
+    // about it.
+    buildRelativeScale(h, ["9.5/8"]);
+    h.app.showToolbarMessage("Not a valid JSON file.");
+
+    typeInto(h, intervalBox(h, 0), "9/8");
+
+    assert.equal(messageText(h), "Not a valid JSON file.");
   });
 });

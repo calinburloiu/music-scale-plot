@@ -358,9 +358,15 @@ written out explicitly at the default — so these describe the same note:
 `martyria.note` is the one martyria field that is *not* optional — no note is no
 martyria, the same rule `writeMartyria()` keeps. An interval item is typed by
 `intervalType.type` (a string for `ratio`, a number for `edo` or `cents`), except for one
-deliberate loosening: a box may hold text that does not parse (a scale saved mid-thought),
-and the writer then emits the raw string even where a number is canonical — nothing is
-lost and nothing invented, since the editor already tolerates unparseable input.
+deliberate loosening: an interval slot may carry a raw string even where a number is
+canonical, and the reader accepts one, so a hand-edited file still opens.
+
+That loosening is **no longer reachable through Save**. The save guard refuses a scale
+holding a box the app cannot read (see [Invalid intervals](#invalid-intervals)), so the
+app never builds a document with a hole in it, and every file it writes is canonically
+typed. The tolerance stays on the reader's side, where a file the app did not write
+arrives; such a value lands in its box and is marked there, the same way one the user
+typed is.
 
 ### Validation
 
