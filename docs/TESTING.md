@@ -258,10 +258,15 @@ test/
     ├── accidental-picker.test.js   the accidental well and its picker, including
     │                               search
     ├── toolbar.test.js             the toolbar itself: New/Open/Save wiring, the
-    │                               Save menu, the message bar, the keyboard
-    │                               shortcuts, and that the relocated buttons
-    │                               (Add note, Remove last note, Save as PNG)
-    │                               still work from their new home
+    │                               Save menu, the message bar and its dismiss,
+    │                               the keyboard shortcuts, and that the
+    │                               relocated buttons (Add note, Remove last
+    │                               note, Save as PNG) still work from their
+    │                               new home
+    ├── interval-validation.test.js the editor's invalid marking and the guard
+    │                               on both saves: what counts as unreadable in
+    │                               each interval type, which box gets marked,
+    │                               and what the message bar says
     └── file-persistence.test.js    round trips through the real editor —
                                      both notations' hidden state, both I/O
                                      branches, a bad file, a cancelled picker
