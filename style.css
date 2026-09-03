@@ -921,6 +921,17 @@ body {
   box-shadow: 0 1px 3px -1px rgba(138, 46, 26, 0.35);
 }
 
+/* The sounding note during scale playback, reproducing what a real press looks
+   like — the hover fill *and* the active geometry, since a mouse press on a
+   desktop is also a hover. Last, so it wins the specificity tie with :hover. */
+.play-note.sounding {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--paper);
+  transform: scale(0.95);
+  box-shadow: 0 1px 3px -1px rgba(138, 46, 26, 0.35);
+}
+
 /* --- Interval row --- */
 
 .interval-row {

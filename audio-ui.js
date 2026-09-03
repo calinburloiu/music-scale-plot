@@ -107,12 +107,15 @@ function playScale() {
   // or not anyone is looking.
   nodes[nodes.length - 1].oscillator.onended = handleScaleEnded;
   updateTransportButtons();
+  playback.frameId = requestAnimationFrame(tickSoundingNote);
 }
 
 /** The natural end: the nodes have finished, so there is nothing to silence. */
 function handleScaleEnded() {
   if (!playback) return;
+  cancelAnimationFrame(playback.frameId);
   playback = null;
+  setSoundingDegree(null);
   updateTransportButtons();
 }
 
@@ -130,9 +133,45 @@ function stopScale() {
     node.gain.gain.linearRampToValueAtTime(0, end);
     node.oscillator.stop(end);
   }
+  cancelAnimationFrame(playback.frameId);
   playback = null;
+  setSoundingDegree(null);
   updateTransportButtons();
 }
 
 playScaleBtn.addEventListener("click", playScale);
 stopScaleBtn.addEventListener("click", stopScale);
+
+// --- the sounding note -----------------------------------------------------
+
+/** Moves the pressed look to `degree`'s play button; null clears it. */
+function setSoundingDegree(degree) {
+  for (const button of audioEditor.querySelectorAll(".play-note.sounding")) {
+    button.classList.remove("sounding");
+  }
+  if (degree === null || degree === undefined) return;
+  const row = audioEditor.querySelector('.note-row[data-degree="' + degree + '"]');
+  const button = row && row.querySelector(".play-note");
+  if (button) button.classList.add("sounding");
+}
+
+/**
+ * One frame of the highlight, read off the audio clock rather than counted in
+ * frames — a dropped frame then costs nothing, and a test can advance the
+ * clock instead of racing a real 16ms callback.
+ */
+function updateSoundingNote() {
+  if (!playback) return;
+  const elapsed = getAudioContext().currentTime - playback.t0;
+  const entry = elapsed < 0 ? null : playback.plan[Math.floor(elapsed / QUARTER_SECONDS)];
+  const degree = entry ? entry.degree : null;
+  if (degree === playback.degree) return; // only touch the DOM on a boundary
+  setSoundingDegree(degree);
+  playback.degree = degree;
+}
+
+function tickSoundingNote() {
+  if (!playback) return;
+  updateSoundingNote();
+  if (playback) playback.frameId = requestAnimationFrame(tickSoundingNote);
+}

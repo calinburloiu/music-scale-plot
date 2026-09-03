@@ -201,3 +201,106 @@ test("playing the scale", async (t) => {
     assert.deepEqual(h.jsdomErrors, []);
   });
 });
+
+/** The degree whose play button currently wears the pressed look, or null. */
+function soundingDegree(h) {
+  const button = h.el("#editor .play-note.sounding");
+  return button ? Number(button.closest(".note-row").dataset.degree) : null;
+}
+
+test("the sounding note", async (t) => {
+  await t.test("follows the audio clock across the note boundaries", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+
+    pressPlay(h);
+    const ctx = h.audioContexts[0];
+    const quarter = h.app.QUARTER_SECONDS;
+    const t0 = h.app.PLAYBACK_LEAD_SECONDS;
+
+    // Driven through updateSoundingNote() rather than by racing a real 16ms
+    // animation frame: the function reads the clock, so the clock is the input.
+    const seen = [];
+    for (const step of [0, 1, 2, 3, 4]) {
+      ctx.currentTime = t0 + step * quarter + quarter / 2;
+      h.app.updateSoundingNote();
+      seen.push(soundingDegree(h));
+    }
+    assert.deepEqual(seen, [1, 2, 3, 2, 1], "up and back down");
+  });
+
+  await t.test("shows nothing before the first note and after the last", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+
+    pressPlay(h);
+    const ctx = h.audioContexts[0];
+
+    ctx.currentTime = 0; // still inside the scheduling lead
+    h.app.updateSoundingNote();
+    assert.equal(soundingDegree(h), null, "nothing sounds during the lead");
+
+    ctx.currentTime = h.app.PLAYBACK_LEAD_SECONDS + h.app.QUARTER_SECONDS / 2;
+    h.app.updateSoundingNote();
+    assert.equal(soundingDegree(h), 1);
+
+    ctx.currentTime = h.app.PLAYBACK_LEAD_SECONDS + 99;
+    h.app.updateSoundingNote();
+    assert.equal(soundingDegree(h), null, "past the end of the plan");
+  });
+
+  await t.test("marks exactly one button at a time", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+
+    pressPlay(h);
+    const ctx = h.audioContexts[0];
+    ctx.currentTime = h.app.PLAYBACK_LEAD_SECONDS + h.app.QUARTER_SECONDS * 1.5;
+    h.app.updateSoundingNote();
+
+    assert.equal(h.all("#editor .play-note.sounding").length, 1);
+  });
+
+  await t.test("clears when the scale is stopped", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+
+    pressPlay(h);
+    h.audioContexts[0].currentTime = h.app.PLAYBACK_LEAD_SECONDS + 0.1;
+    h.app.updateSoundingNote();
+    assert.equal(soundingDegree(h), 1, "something must be lit before clearing means anything");
+
+    pressStop(h);
+    assert.equal(soundingDegree(h), null);
+  });
+
+  await t.test("clears when the scale ends on its own", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+
+    pressPlay(h);
+    const ctx = h.audioContexts[0];
+    ctx.currentTime = h.app.PLAYBACK_LEAD_SECONDS + 0.1;
+    h.app.updateSoundingNote();
+    assert.equal(soundingDegree(h), 1);
+
+    ctx.advanceTo(h.app.PLAYBACK_LEAD_SECONDS + 3 * h.app.QUARTER_SECONDS);
+    assert.equal(soundingDegree(h), null);
+  });
+
+  await t.test("does nothing at all once playback is over", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // No context, no playback: the frame callback must be a no-op rather than
+    // reaching for a clock that does not exist.
+    h.app.updateSoundingNote();
+    assert.equal(h.audioContexts.length, 0);
+    assert.deepEqual(h.jsdomErrors, []);
+  });
+});
