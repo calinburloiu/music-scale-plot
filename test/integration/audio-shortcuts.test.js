@@ -585,3 +585,110 @@ test("one voice, from the keyboard too", async (t) => {
     assert.equal(ctx.oscillators[1].stopped, null, "the mouse still holds its note");
   });
 });
+
+test("Escape lets go of a control, so the next key reaches the transport", async (t) => {
+  // The point of the key. Without it, a reader who has just typed an interval
+  // has to reach for the mouse and click somewhere neutral before Space or a
+  // digit will do anything, because both defer to whatever has focus.
+  await t.test("frees Space after typing an interval", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+    const box = intervalRows(h)[0].querySelector(".interval");
+
+    box.focus();
+    assert.equal(pressLoose(h, " "), false, "sanity: Space is blocked while the box has focus");
+    assert.equal(h.app.isScalePlaying(), false);
+
+    pressKey(h, box, "Escape");
+    assert.ok(h.document.activeElement !== box, "Escape lets the box go");
+
+    pressLoose(h, " ");
+    assert.equal(h.app.isScalePlaying(), true, "and now Space plays");
+  });
+
+  await t.test("frees the number keys too", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8", "10/9"]);
+    const box = intervalRows(h)[0].querySelector(".interval");
+
+    box.focus();
+    pressLoose(h, "2");
+    assert.equal(soundingDegree(h), null, "sanity: a digit is typing, not playing");
+
+    pressKey(h, box, "Escape");
+    pressLoose(h, "2");
+    assert.equal(soundingDegree(h), 2, "after Escape the same digit sounds its degree");
+  });
+
+  await t.test("keeps what was typed — Escape means 'done here', not 'undo'", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+    const box = intervalRows(h)[0].querySelector(".interval");
+
+    box.focus();
+    pressKey(h, box, "Escape");
+
+    assert.equal(box.value, "9/8", "the interval the reader typed must survive");
+  });
+
+  await t.test("lets go of a <select>, which blocks both keys as well", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const select = h.document.getElementById("base-note");
+
+    select.focus();
+    pressKey(h, select, "Escape");
+
+    assert.ok(h.document.activeElement !== select, "a select is option typeahead too");
+  });
+
+  await t.test("leaves a focused button alone, because Space is already its click", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const add = h.document.getElementById("add-note");
+
+    add.focus();
+    pressKey(h, add, "Escape");
+
+    assert.ok(h.document.activeElement === add, "a button keeps focus");
+  });
+
+  await t.test("does not steal the Save menu's Escape, which restores focus itself", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const saveBtn = h.document.getElementById("save-menu");
+    fireClick(h, saveBtn);
+    assert.equal(
+      h.document.getElementById("save-menu-panel").classList.contains("open"),
+      true,
+      "sanity: the menu is open"
+    );
+
+    pressKey(h, h.document.body, "Escape");
+
+    // persistence-ui.js closes the menu and puts focus back on the button that
+    // opened it, deliberately. This handler runs after that one, so it must not
+    // undo it — which is the whole reason it leaves buttons focused.
+    assert.equal(
+      h.document.getElementById("save-menu-panel").classList.contains("open"),
+      false,
+      "the menu still closes"
+    );
+    assert.ok(h.document.activeElement === saveBtn, "and focus stays where it put it");
+  });
+
+  await t.test("ignores a chord, like the other two keys", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    buildRelativeScale(h, ["9/8"]);
+    const box = intervalRows(h)[0].querySelector(".interval");
+
+    box.focus();
+    pressKey(h, box, "Escape", { ctrlKey: true });
+
+    assert.ok(h.document.activeElement === box, "Ctrl+Escape is the OS's, not ours");
+  });
+});

@@ -539,6 +539,18 @@ Shift+Space is "scroll up" in every browser, and swallowing it would cost the
 reader a scroll gesture to buy nothing. Shift costs the digits nothing either:
 Shift+1 arrives as `!`, which `numberKeyDegree()` already reads as no degree.
 
+**Escape lets go of the control that has focus**, which is what makes the two keys
+above reachable without the mouse: a reader who has just typed an interval would
+otherwise have to click somewhere neutral before Space or a digit did anything. It
+blurs only what actually swallows those keys — the same `isTextEntryElement()` set, so
+an `<input>`, `<textarea>`, `<select>` or contenteditable — and is checked *before* the
+guard it exists to undo. A focused **button** keeps focus, for two reasons: Space there
+is already its own click, and `persistence-ui.js`'s own Escape deliberately closes the
+Save menu and puts focus back on the button that opened it. That handler is registered
+first, on the same `document`, so this one runs second and must not undo it. Escape
+does not disturb the value: no engine reverts a field on Escape, and nothing here
+prevents the default.
+
 Space is taken off the page on every keydown, repeats included, or a held Space
 scrolls it — but only the first acts, since toggling on every repeat would make
 the transport unusable. A repeated digit is likewise one press, not a tremolo.

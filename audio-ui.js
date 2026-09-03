@@ -170,6 +170,19 @@ function handleAudioKeyDown(event) {
   // which numberKeyDegree() already reads as no degree.
   if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
   const focused = document.activeElement;
+
+  // Escape comes before the guard below, because the thing it undoes *is* that
+  // guard: a reader who has just typed an interval would otherwise have to
+  // reach for the mouse and click somewhere neutral before Space or a digit
+  // did anything. Only the elements that actually swallow those keys are let
+  // go of — a focused button keeps focus, both because Space there is already
+  // its own click and because persistence-ui.js's Escape deliberately puts
+  // focus back on the Save button, and this handler runs after that one.
+  if (event.key === "Escape") {
+    if (isTextEntryElement(focused)) focused.blur();
+    return;
+  }
+
   if (isTextEntryElement(focused)) return;
 
   if (event.key === " ") {
