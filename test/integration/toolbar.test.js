@@ -76,11 +76,13 @@ test("the toolbar", async (t) => {
       const keys = button.getAttribute("aria-keyshortcuts");
       if (keys) declared[button.id] = keys;
     }
+    // Stop is absent because it starts disabled, not because it has no
+    // shortcut: Space is a toggle, so the declaration follows it to whichever
+    // button is live. playback.test.js pins both halves of that swap.
     assert.deepEqual(declared, {
       "open-file": "Control+O Meta+O",
       "save-scale": "Control+S Meta+S",
       "play-scale": "Space",
-      "stop-scale": "Space",
     });
   });
 

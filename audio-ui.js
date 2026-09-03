@@ -235,6 +235,18 @@ function updateTransportButtons() {
   // double-click cannot stack two melodies on top of each other.
   playScaleBtn.disabled = isScalePlaying();
   stopScaleBtn.disabled = !isScalePlaying();
+  // Space is a toggle, so it activates whichever of the two is live. The
+  // disabled one must stop claiming it: aria-keyshortcuts announces a key that
+  // activates *this* control, and on the button Space is currently not
+  // reaching, that is a promise the shortcut does not keep.
+  setKeyshortcutsWhileEnabled(playScaleBtn, "Space");
+  setKeyshortcutsWhileEnabled(stopScaleBtn, "Space");
+}
+
+/** Declares `keys` on `button` while it can be activated, and not while it cannot. */
+function setKeyshortcutsWhileEnabled(button, keys) {
+  if (button.disabled) button.removeAttribute("aria-keyshortcuts");
+  else button.setAttribute("aria-keyshortcuts", keys);
 }
 
 function playScale() {

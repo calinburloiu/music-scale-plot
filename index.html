@@ -40,8 +40,11 @@
               title="Play scale (Space)" aria-keyshortcuts="Space">
         <img src="icons/play.svg" alt="">
       </button>
+      <!-- No aria-keyshortcuts here: Stop starts disabled, and Space starts out
+           reaching Play. updateTransportButtons() moves the declaration to
+           whichever of the two the toggle currently lands on. -->
       <button type="button" id="stop-scale" class="toolbar-btn" aria-label="Stop playing"
-              title="Stop playing (Space)" aria-keyshortcuts="Space" disabled>
+              title="Stop playing (Space)" disabled>
         <img src="icons/stop.svg" alt="">
       </button>
       <input type="file" id="open-file-input" accept=".musp.json,application/json" hidden>

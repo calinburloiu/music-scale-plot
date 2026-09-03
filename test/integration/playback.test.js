@@ -127,6 +127,27 @@ test("playing the scale", async (t) => {
     assert.equal(stop.disabled, true);
   });
 
+  await t.test("only the button Space will actually reach announces it", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    const play = h.document.getElementById("play-scale");
+    const stop = h.document.getElementById("stop-scale");
+
+    // Space toggles, so it lands on exactly one of the two at any moment. A
+    // disabled button that still claims the shortcut promises an activation it
+    // will not perform, which is the one thing aria-keyshortcuts must not do.
+    assert.equal(play.getAttribute("aria-keyshortcuts"), "Space", "idle: Space plays");
+    assert.equal(stop.getAttribute("aria-keyshortcuts"), null, "and reaches nothing else");
+
+    pressPlay(h);
+    assert.equal(play.getAttribute("aria-keyshortcuts"), null, "playing: Play is not it");
+    assert.equal(stop.getAttribute("aria-keyshortcuts"), "Space", "Space stops");
+
+    pressStop(h);
+    assert.equal(play.getAttribute("aria-keyshortcuts"), "Space", "and back again");
+    assert.equal(stop.getAttribute("aria-keyshortcuts"), null);
+  });
+
   await t.test("a second press while playing changes nothing", () => {
     const h = loadApp();
     t.after(() => h.close());

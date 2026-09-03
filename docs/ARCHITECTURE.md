@@ -568,9 +568,17 @@ browser owns Ctrl+N, so **New** has nothing to say.
 |---|---|---|
 | Open | Open (⌘O / Ctrl+O) | `Control+O Meta+O` |
 | Save As Music Scale Plot file | … (⌘S / Ctrl+S) | `Control+S Meta+S` |
-| Play scale | Play scale (Space) | `Space` |
-| Stop playing | Stop playing (Space) | `Space` |
+| Play scale | Play scale (Space) | `Space` *while enabled* |
+| Stop playing | Stop playing (Space) | `Space` *while enabled* |
 | A note row's play button, degrees 1–9 | Play note 3 (key 3) | `3` |
+
+The transport is the one place the declaration **moves**. Space is a toggle, so
+at any instant it activates exactly one of the two buttons, and
+`updateTransportButtons()` puts `aria-keyshortcuts` on that one and takes it off
+the other: a disabled button that still claimed the shortcut would be promising
+an activation it will not perform. The titles do not move with it — a tooltip
+naming the transport's key stays true of a button that is merely waiting its
+turn, and a disabled button rarely shows one anyway.
 
 `aria-keyshortcuts` lives in the markup, because it names **both** chords the
 handler accepts and reads the same on every machine. The tooltip cannot: a
@@ -580,7 +588,8 @@ time in the platform's own notation, preferring `navigator.userAgentData` over
 the deprecated `navigator.platform` where a browser offers it. It composes each
 title from the control's accessible name rather than appending to whatever the
 title already says, so running it twice cannot stack two hints. Only the chords
-need this — Space is Space everywhere, so the transport's hints are static.
+need this — Space is Space everywhere, so the transport's *titles* are static
+markup; only its `aria-keyshortcuts` moves, and for the reason above.
 
 A note row's play button carries all three of `aria-label`, `title` and
 `aria-keyshortcuts`, built by `makePlayButtonHTML()`. The `aria-label` is not
