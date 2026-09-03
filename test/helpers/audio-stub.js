@@ -57,6 +57,10 @@ class FakeOscillatorNode extends FakeAudioNode {
     this.frequency = new FakeAudioParam("frequency", 440);
     this.started = null;
     this.stopped = null;
+    // The natural end of a note. FakeAudioContext#advanceTo() fires it, so a
+    // test can reach the end of a scale without waiting ten real seconds.
+    this.onended = null;
+    this.ended = false;
   }
 
   start(time) {
@@ -81,6 +85,10 @@ class FakeAudioContext {
     this.destination = { name: "destination" };
     this.oscillators = [];
     this.gains = [];
+    // A context created earlier in the page's life may be suspended when Play
+    // is pressed; the app resumes it first.
+    this.state = "running";
+    this.resumeCalls = 0;
   }
 
   createOscillator() {
@@ -93,6 +101,26 @@ class FakeAudioContext {
     const gain = new FakeGainNode(this);
     this.gains.push(gain);
     return gain;
+  }
+
+  resume() {
+    this.resumeCalls++;
+    this.state = "running";
+    return Promise.resolve();
+  }
+
+  /**
+   * Moves the audio clock, firing `onended` for every oscillator whose stop
+   * time has now passed — the one signal the transport treats as the
+   * authoritative end of a scale.
+   */
+  advanceTo(time) {
+    this.currentTime = time;
+    for (const osc of this.oscillators) {
+      if (osc.ended || osc.stopped === null || osc.stopped > time) continue;
+      osc.ended = true;
+      if (typeof osc.onended === "function") osc.onended();
+    }
   }
 }
 

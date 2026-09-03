@@ -69,6 +69,47 @@ function scalePlaybackPlan(frequencies) {
   });
 }
 
+/**
+ * Turns a plan into sounding nodes, one oscillator and one gain per note.
+ *
+ * Used by **both** live playback and the offline export, the only difference
+ * being which context and destination it is handed — so the exported file is
+ * what the reader heard by construction, not because two implementations agree.
+ *
+ * Everything is scheduled up front against the audio clock. No timer takes any
+ * part in producing sound, so playback cannot drift and cannot be delayed by a
+ * busy main thread.
+ */
+function scheduleScale(ctx, plan, destination, t0) {
+  const nodes = [];
+  for (const entry of plan) {
+    const start = t0 + entry.start;
+    const end = start + entry.duration;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "triangle";
+    osc.frequency.value = entry.frequency;
+
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(NOTE_PEAK_GAIN, start + ATTACK_SECONDS);
+    // Anchors the sustain. Without it the automation ramps from the end of the
+    // attack all the way to the end of the note — a slow decay, not a sustain
+    // with a release. The release is also what articulates consecutive notes:
+    // each reaches silence exactly where the next one's attack begins.
+    gain.gain.setValueAtTime(NOTE_PEAK_GAIN, end - RELEASE_SECONDS);
+    gain.gain.linearRampToValueAtTime(0, end);
+
+    osc.connect(gain);
+    gain.connect(destination);
+    osc.start(start);
+    osc.stop(end);
+
+    nodes.push({ oscillator: osc, gain: gain });
+  }
+  return nodes;
+}
+
 // --- the WAV encoder -------------------------------------------------------
 //
 // A canonical 44-byte RIFF/WAVE header followed by little-endian 16-bit PCM.

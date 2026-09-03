@@ -68,3 +68,71 @@ audioEditor.addEventListener("mousedown", handlePlayStart);
 audioEditor.addEventListener("touchstart", handlePlayStart);
 document.addEventListener("mouseup", stopTone);
 document.addEventListener("touchend", stopTone);
+
+// --- the transport ---------------------------------------------------------
+
+const playScaleBtn = document.getElementById("play-scale");
+const stopScaleBtn = document.getElementById("stop-scale");
+
+/** `{plan, t0, nodes, frameId, degree}` while a scale is playing; null otherwise. */
+let playback = null;
+
+function isScalePlaying() {
+  return playback !== null;
+}
+
+function updateTransportButtons() {
+  // Play is disabled while a scale plays rather than restarting it, so a
+  // double-click cannot stack two melodies on top of each other.
+  playScaleBtn.disabled = isScalePlaying();
+  stopScaleBtn.disabled = !isScalePlaying();
+}
+
+function playScale() {
+  if (isScalePlaying()) return;
+
+  const plan = scalePlaybackPlan(scaleFrequencies(readScaleData(), getBaseFrequency()));
+  if (plan.length === 0) return;
+
+  const ctx = getAudioContext();
+  // Play is always reached from a user gesture, so the autoplay policy permits
+  // it — but a context created earlier in the page's life may be suspended.
+  if (ctx.state === "suspended") ctx.resume();
+
+  const t0 = ctx.currentTime + PLAYBACK_LEAD_SECONDS;
+  const nodes = scheduleScale(ctx, plan, ctx.destination, t0);
+  playback = { plan: plan, t0: t0, nodes: nodes, frameId: null, degree: null };
+  // The authoritative end of a scale, because requestAnimationFrame is
+  // throttled in a background tab and the buttons must return to idle whether
+  // or not anyone is looking.
+  nodes[nodes.length - 1].oscillator.onended = handleScaleEnded;
+  updateTransportButtons();
+}
+
+/** The natural end: the nodes have finished, so there is nothing to silence. */
+function handleScaleEnded() {
+  if (!playback) return;
+  playback = null;
+  updateTransportButtons();
+}
+
+function stopScale() {
+  if (!playback) return;
+  const ctx = getAudioContext();
+  const now = ctx.currentTime;
+  const end = now + RELEASE_SECONDS;
+  for (const node of playback.nodes) {
+    // Cleared before the node is stopped, so a deliberate stop does not also
+    // run the natural-end path.
+    node.oscillator.onended = null;
+    node.gain.gain.cancelScheduledValues(now);
+    node.gain.gain.setValueAtTime(node.gain.gain.value, now);
+    node.gain.gain.linearRampToValueAtTime(0, end);
+    node.oscillator.stop(end);
+  }
+  playback = null;
+  updateTransportButtons();
+}
+
+playScaleBtn.addEventListener("click", playScale);
+stopScaleBtn.addEventListener("click", stopScale);

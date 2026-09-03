@@ -55,11 +55,26 @@ test("the toolbar", async (t) => {
     // The buttons are icons only, so aria-label is their whole accessible
     // name — function, not appearance.
     const labels = h.all("#toolbar .toolbar-btn").map((b) => b.getAttribute("aria-label"));
-    assert.deepEqual(labels, ["New", "Open", "Save", "Add note", "Remove last note"]);
+    assert.deepEqual(labels, [
+      "New", "Open", "Save", "Add note", "Remove last note", "Play scale", "Stop playing",
+    ]);
     for (const button of h.all("#toolbar .toolbar-btn")) {
       assert.ok(button.querySelector("img"), `${button.id} has no icon`);
       assert.equal(button.querySelector("img").alt, "", "the label is on the button, not the image");
     }
+  });
+
+  await t.test("puts the transport in its own group after the note buttons", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // File actions, then editing, then playback — each pair behind its own
+    // separator.
+    const ids = h.all("#toolbar > *").map((el) => el.id || el.className);
+    assert.deepEqual(ids.slice(-4), [
+      "toolbar-separator", "play-scale", "stop-scale", "open-file-input",
+    ]);
+    assert.equal(h.document.getElementById("stop-scale").disabled, true, "Stop is idle at rest");
   });
 
   await t.test("holds the note buttons, which the Scale Editor no longer does", () => {
