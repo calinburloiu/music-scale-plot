@@ -171,11 +171,14 @@ function intervalDocumentFrom(interval) {
 }
 
 /**
- * "Hicaz Hümayun" -> "hicaz-h-mayun.musp.json". Lowercased, every run outside
- * a-z0-9 collapsed to one dash, the ends trimmed. A name that slugs away to
- * nothing gives "scale".
+ * "Hicaz Hümayun" -> "hicaz-humayun.musp.json", or "hicaz-humayun.wav" for
+ * another extension. Lowercased, every run outside a-z0-9 collapsed to one
+ * dash, the ends trimmed. A name that slugs away to nothing gives "scale".
+ *
+ * The extension defaults to the scale file's, so the audio export shares one
+ * slug rule with the .musp.json save rather than growing a second.
  */
-function suggestedFileName(name) {
+function suggestedFileName(name, extension = SCALE_FILE_EXTENSION) {
   const slug = String(name == null ? "" : name)
     .toLowerCase()
     // Fold the diacritics before the slug rule below punches them out as
@@ -192,7 +195,7 @@ function suggestedFileName(name) {
     .replace(/\p{Diacritic}/gu, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
-  return (slug || "scale") + SCALE_FILE_EXTENSION;
+  return (slug || "scale") + extension;
 }
 
 // --- reading ---------------------------------------------------------------

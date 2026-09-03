@@ -180,6 +180,29 @@ test("the suggested file name", async (t) => {
   }
 });
 
+test("suggestedFileName's extension", async (t) => {
+  await t.test("defaults to the scale file's, so every existing call is unchanged", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    assert.equal(h.app.suggestedFileName("Hicaz Hümayun"), "hicaz-humayun.musp.json");
+  });
+
+  await t.test("takes another when one is given, sharing the slug rule", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    // The audio export names its file after the scale, with the same slug rule
+    // and the same diacritic folding as the .musp.json save.
+    assert.equal(h.app.suggestedFileName("Hicaz Hümayun", ".wav"), "hicaz-humayun.wav");
+  });
+
+  await t.test("still falls back to \"scale\" for a name that slugs away", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    assert.equal(h.app.suggestedFileName("", ".wav"), "scale.wav");
+    assert.equal(h.app.suggestedFileName("ἦχος πρῶτος", ".wav"), "scale.wav");
+  });
+});
+
 const fs = require("node:fs");
 const path = require("node:path");
 
