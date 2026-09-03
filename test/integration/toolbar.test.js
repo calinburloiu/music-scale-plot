@@ -216,6 +216,28 @@ test("the Save menu", async (t) => {
     assert.equal(h.downloads.length, 1, "no PNG was exported");
     assert.equal(h.downloads[0].download, "scale.png");
   });
+
+  await t.test("closes on Escape and hands focus back to the Save button", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    const button = h.document.getElementById("save-menu");
+    const panel = h.document.getElementById("save-menu-panel");
+    fireClick(h, button);
+    assert.equal(panel.classList.contains("open"), true, "the menu should be open to start");
+
+    h.document.dispatchEvent(
+      new h.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })
+    );
+
+    // aria-haspopup="menu" sets the expectation even though the panel is a
+    // plain group of buttons rather than a role="menu" (022b1a5 dropped the
+    // roles it could not back): a reader who opens it from the keyboard has to
+    // be able to leave it the same way, and land back where they started.
+    assert.equal(panel.classList.contains("open"), false, "Escape must close the menu");
+    assert.equal(button.getAttribute("aria-expanded"), "false");
+    assert.equal(h.document.activeElement, button, "focus must return to the Save button");
+  });
 });
 
 test("the Scale Editor's own settings", async (t) => {
@@ -349,6 +371,22 @@ test("the file keyboard shortcuts", async (t) => {
     press(h, "s", { metaKey: true });
     await new Promise((resolve) => h.window.setTimeout(resolve, 0));
     assert.equal(h.downloads.length, 1);
+  });
+
+  await t.test("acts once when the chord is held, but still keeps the key off the page", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    press(h, "s");
+    const repeat = press(h, "s", { ctrlKey: true, repeat: true });
+    await new Promise((resolve) => h.window.setTimeout(resolve, 0));
+
+    // Holding the chord sends a keydown per repeat. Each one must still be
+    // taken off the page, or a repeat reaches the browser's own Save-page
+    // dialog — but only the first may act, or one held key stacks up a queue
+    // of file dialogs.
+    assert.equal(h.downloads.length, 1, "a held Ctrl+S must not save again");
+    assert.equal(repeat.defaultPrevented, true, "the browser must still not save the page");
   });
 
   await t.test("Ctrl+O opens", () => {

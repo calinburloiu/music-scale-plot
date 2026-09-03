@@ -29,6 +29,22 @@ function closeSaveMenu() {
   toggleSaveMenu(false);
 }
 
+/**
+ * Escape closes the menu and hands focus back to the button that opened it.
+ * aria-haspopup="menu" sets that expectation even though the panel is a plain
+ * group of buttons rather than a role="menu" — 022b1a5 dropped the roles it
+ * could not back with arrow-key handling. A reader who opens the menu from the
+ * keyboard still has to be able to leave it from the keyboard, and land back
+ * where they started rather than at the top of the document.
+ */
+function handleSaveMenuKey(event) {
+  if (event.key !== "Escape" || !saveMenuPanel.classList.contains("open")) return;
+  toggleSaveMenu(false);
+  saveMenuBtn.focus();
+}
+
+document.addEventListener("keydown", handleSaveMenuKey);
+
 saveMenuBtn.addEventListener("click", function (event) {
   // Read the state first: closeAllDropdowns() closes this menu too, so asking
   // afterwards would always say "closed" and the button would never toggle off.
@@ -361,13 +377,14 @@ openFileInput.addEventListener("change", async function () {
 function handleFileShortcut(event) {
   if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return;
   const key = String(event.key).toLowerCase();
-  if (key === "o") {
-    event.preventDefault();
-    openScaleFile();
-  } else if (key === "s") {
-    event.preventDefault();
-    saveScaleFile();
-  }
+  if (key !== "o" && key !== "s") return;
+  // Take the chord off the page on every keydown, repeats included, or a held
+  // key reaches the browser's own Save-page dialog. Act only on the first: the
+  // handler opens a file dialog, and a held key would stack up a queue of them.
+  event.preventDefault();
+  if (event.repeat) return;
+  if (key === "o") openScaleFile();
+  else saveScaleFile();
 }
 
 document.addEventListener("keydown", handleFileShortcut);
