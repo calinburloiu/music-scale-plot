@@ -158,7 +158,7 @@ table. `--write` replaces everything between the two marker comments in
 
 Only the generator's **output** ships, spliced into `smufl.js` alongside the
 hand-written resolvers around it (§2). The app still has no build step:
-nothing runs at page load but the app's own seven scripts, and
+nothing runs at page load but the app's own nine scripts, and
 `build-accidentals.js` is research tooling next to the research document, not
 part of `npm test` — it is not `require`d by anything under `test/`, and it
 adds no dependency of its own (`node:fs` and `node:path` only, `require`d
