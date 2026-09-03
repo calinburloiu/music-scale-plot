@@ -24,19 +24,22 @@ test("the toolbar", async (t) => {
 
     const bar = toolbar(h);
     assert.ok(bar, "there is no #toolbar");
-    assert.equal(bar.parentElement, h.document.body, "it must be a direct child of body");
-    // #toolbar-message sits between the two (Fix 3, issue #15): a role="alert"
-    // live region does not belong inside role="toolbar"'s accessible subtree,
-    // so it moved out to a sibling immediately after #toolbar.
+    // The element that sticks is #toolbar-bar, which wraps the toolbar and the
+    // message bar together; see the sticky-header test below for why the pair
+    // travels as one. #toolbar-message sits between the two (Fix 3, issue #15):
+    // a role="alert" live region does not belong inside role="toolbar"'s
+    // accessible subtree, so it is a sibling immediately after #toolbar.
+    const header = h.document.getElementById("toolbar-bar");
+    assert.equal(header.parentElement, h.document.body, "the header must be a direct child of body");
     assert.equal(
       bar.nextElementSibling,
       h.document.getElementById("toolbar-message"),
-      "the message bar follows it"
+      "the message bar follows the toolbar"
     );
     assert.equal(
-      h.document.getElementById("toolbar-message").nextElementSibling,
+      header.nextElementSibling,
       h.el(".container"),
-      "the container follows that, so both are above the panels"
+      "the container follows the header, so both are above the panels"
     );
   });
 
@@ -103,6 +106,28 @@ test("the toolbar", async (t) => {
     const message = h.document.getElementById("toolbar-message");
     assert.equal(bar.contains(message), false, "#toolbar-message must not be a descendant of #toolbar");
     assert.equal(bar.nextElementSibling, message, "it must sit immediately after #toolbar");
+  });
+
+  await t.test("keeps the alert bar inside the sticky header, so it cannot scroll away", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // The message bar is the only channel the file flows report through: a
+    // rejected file never reaches the editor, so there is nothing else on
+    // screen to say what went wrong. Ctrl/Cmd+O works from anywhere on the
+    // page, and a long scale scrolls well past the fold — so the bar has to
+    // ride in the same sticky header the toolbar does, or a user who opens a
+    // bad file while scrolled down gets no feedback at all. #toolbar-bar is
+    // what carries `position: sticky`; the toolbar and the alert are both its
+    // children, which keeps the alert out of role="toolbar" (the test above)
+    // while keeping it on screen. Whether it *renders* stuck is CSS and stays
+    // out of scope; that both live in the sticky element is the contract.
+    const header = h.document.getElementById("toolbar-bar");
+    const bar = toolbar(h);
+    const message = h.document.getElementById("toolbar-message");
+    assert.ok(header, "there is no #toolbar-bar sticky header");
+    assert.equal(bar.parentElement, header, "#toolbar must be a child of #toolbar-bar");
+    assert.equal(message.parentElement, header, "#toolbar-message must be a child of #toolbar-bar");
   });
 });
 

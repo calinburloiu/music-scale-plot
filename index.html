@@ -7,34 +7,36 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="toolbar" role="toolbar" aria-label="File and scale actions">
-    <button type="button" id="new-file" class="toolbar-btn" aria-label="New" title="New">
-      <img src="icons/new.svg" alt="">
-    </button>
-    <button type="button" id="open-file" class="toolbar-btn" aria-label="Open" title="Open">
-      <img src="icons/open.svg" alt="">
-    </button>
-    <div class="save-menu-wrapper">
-      <button type="button" id="save-menu" class="toolbar-btn has-caret" aria-label="Save" title="Save"
-              aria-haspopup="menu" aria-expanded="false">
-        <img src="icons/save.svg" alt="">
+  <div id="toolbar-bar">
+    <div id="toolbar" role="toolbar" aria-label="File and scale actions">
+      <button type="button" id="new-file" class="toolbar-btn" aria-label="New" title="New">
+        <img src="icons/new.svg" alt="">
       </button>
-      <div class="save-menu-panel" id="save-menu-panel">
-        <button type="button" id="save-scale">Save As Music Scale Plot file</button>
-        <hr>
-        <button type="button" id="save-png">Save As PNG</button>
+      <button type="button" id="open-file" class="toolbar-btn" aria-label="Open" title="Open">
+        <img src="icons/open.svg" alt="">
+      </button>
+      <div class="save-menu-wrapper">
+        <button type="button" id="save-menu" class="toolbar-btn has-caret" aria-label="Save" title="Save"
+                aria-haspopup="menu" aria-expanded="false">
+          <img src="icons/save.svg" alt="">
+        </button>
+        <div class="save-menu-panel" id="save-menu-panel">
+          <button type="button" id="save-scale">Save As Music Scale Plot file</button>
+          <hr>
+          <button type="button" id="save-png">Save As PNG</button>
+        </div>
       </div>
+      <span class="toolbar-separator"></span>
+      <button type="button" id="add-note" class="toolbar-btn" aria-label="Add note" title="Add note">
+        <img src="icons/add-note.svg" alt="">
+      </button>
+      <button type="button" id="remove-note" class="toolbar-btn" aria-label="Remove last note" title="Remove last note">
+        <img src="icons/remove-note.svg" alt="">
+      </button>
+      <input type="file" id="open-file-input" accept=".musp.json,application/json" hidden>
     </div>
-    <span class="toolbar-separator"></span>
-    <button type="button" id="add-note" class="toolbar-btn" aria-label="Add note" title="Add note">
-      <img src="icons/add-note.svg" alt="">
-    </button>
-    <button type="button" id="remove-note" class="toolbar-btn" aria-label="Remove last note" title="Remove last note">
-      <img src="icons/remove-note.svg" alt="">
-    </button>
-    <input type="file" id="open-file-input" accept=".musp.json,application/json" hidden>
+    <div id="toolbar-message" role="alert" hidden></div>
   </div>
-  <div id="toolbar-message" role="alert" hidden></div>
   <div class="container">
     <div class="left-column">
     <div class="panel settings-panel">

@@ -1094,21 +1094,32 @@ body {
 
 /* === Toolbar ================================================= */
 
-/* z-index 200 clears the symbol pickers' 100. Both live in the root stacking
+/* The sticky element is the wrapper, not #toolbar itself. The alert bar has to
+   stay outside role="toolbar"'s accessible subtree — that subtree is for
+   widgets, not a live region — yet it still has to ride on screen, because it
+   is the only channel a rejected file reports through and Ctrl/Cmd+O works
+   however far down the page the user has scrolled. Sticking the pair together
+   also survives the toolbar wrapping onto a second row, which a fixed `top`
+   offset on the bar alone would not.
+
+   z-index 200 clears the symbol pickers' 100. Both live in the root stacking
    context — a picker escapes the editor panel into it (see Motion, below) — so
    200 is the number "always on top" actually has to beat. */
-#toolbar {
+#toolbar-bar {
   position: sticky;
   top: 0;
   z-index: 200;
+  background: var(--paper-warm);
+  border-bottom: 1px solid var(--rule);
+  box-shadow: 0 2px 10px -8px rgba(30, 20, 10, 0.55);
+}
+
+#toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.3rem;
   padding: 0.4rem 2rem;
-  background: var(--paper-warm);
-  border-bottom: 1px solid var(--rule);
-  box-shadow: 0 2px 10px -8px rgba(30, 20, 10, 0.55);
 }
 
 /* An SVG loaded through <img> renders in an isolated document that no page CSS
@@ -1209,9 +1220,11 @@ body {
 /* A sibling of #toolbar, not a flex child of it (a role="toolbar" accessible
    subtree is meant to hold widgets, not a role="alert" live region) — the
    side margins reproduce the inset the toolbar's own 2rem padding used to
-   give it, so it appears in the same place it always did. */
+   give it, so it appears in the same place it always did. No top margin:
+   #toolbar's own bottom padding is already the gap above it. The bottom margin
+   is what holds it off #toolbar-bar's rule when it shows. */
 #toolbar-message {
-  margin: 0.35rem 2rem 0;
+  margin: 0 2rem 0.45rem;
   padding: 0.4rem 0.6rem;
   border-radius: 3px;
   background: rgba(138, 46, 26, 0.1);
