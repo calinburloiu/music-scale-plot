@@ -1886,12 +1886,19 @@ const NOTE_ENTRY_SELECTOR = ".interval, .absolute-interval, .note-name, .interva
  * user is now building, so a scale can be typed value, Enter, value, Enter
  * without reaching for the mouse. In relative mode that box is on the new
  * interval row; in absolute mode the value lives on the note row itself.
+ *
+ * Selected, not merely focused: the new box arrives carrying the default
+ * value, so a cursor parked at one end would make the reader clear it by hand
+ * before typing. Selecting it means the next keystroke replaces it, which is
+ * what makes the value/Enter/value rhythm actually flow.
  */
 function focusNewestIntervalInput() {
   const selector = getScaleMode() === "absolute" ? ".absolute-interval" : ".interval";
   const inputs = editor.querySelectorAll(selector);
   const last = inputs[inputs.length - 1];
-  if (last) last.focus();
+  if (!last) return;
+  last.focus();
+  last.select();
 }
 
 function handleEditorEnter(e) {

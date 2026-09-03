@@ -815,7 +815,9 @@ row carries — the interval value, the absolute value, the note name and the in
 label — so a scale is typed value, Enter, value, Enter without reaching for the mouse.
 It then calls `focusNewestIntervalInput()`, which puts the cursor in the box the next
 value goes in: the new interval row's in relative mode, the new note row's own in
-absolute. `#scale-name` and `#edo-divisions` describe the whole scale rather than one
+absolute. It **selects** that box rather than only focusing it — the new row arrives
+carrying the default value, so a cursor parked at one end would make the reader clear
+it by hand before typing, and the value/Enter/value rhythm would stall on every note. `#scale-name` and `#edo-divisions` describe the whole scale rather than one
 note, and they sit outside `#editor`, so the delegated listener never sees them.
 
 At load time, and again on `pageshow`, `initUI()` resets the settings and the editor to their defaults and renders — see [Initial state](#initial-state).

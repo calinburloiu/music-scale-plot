@@ -169,6 +169,16 @@ test("Enter in the scale editor", async (t) => {
 
     const fresh = intervalRows(h)[1].querySelector(".interval");
     assert.equal(h.document.activeElement, fresh, "focus should sit in the new interval box");
+    // Selected, not just focused. The box arrives carrying the default value,
+    // so a cursor parked in it would make the reader clear it by hand before
+    // typing — Enter, 3/2, Enter, 5/4 only flows if the next value replaces
+    // what is there.
+    assert.equal(fresh.selectionStart, 0, "the selection should start at the beginning");
+    assert.equal(
+      fresh.selectionEnd,
+      fresh.value.length,
+      "and run to the end, so the next thing typed replaces the default"
+    );
   });
 
   await t.test("in absolute mode the cursor lands in the new note's own box", () => {
@@ -184,6 +194,8 @@ test("Enter in the scale editor", async (t) => {
 
     const fresh = noteRows(h)[2].querySelector(".absolute-interval");
     assert.equal(h.document.activeElement, fresh, "focus should sit in the new absolute box");
+    assert.equal(fresh.selectionStart, 0, "selected here too");
+    assert.equal(fresh.selectionEnd, fresh.value.length, "right to the end");
   });
 
   await t.test("takes the keypress off the page, so no browser default follows it", () => {
