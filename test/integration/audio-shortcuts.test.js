@@ -201,6 +201,9 @@ test("Space toggles the transport", async (t) => {
     assert.equal(pressLoose(h, " ", { ctrlKey: true }), false);
     assert.equal(pressLoose(h, " ", { metaKey: true }), false);
     assert.equal(pressLoose(h, " ", { altKey: true }), false);
+    // Shift+Space is "scroll up" in every browser, so it has to reach the page
+    // unprevented — the same reason the other three are let through.
+    assert.equal(pressLoose(h, " ", { shiftKey: true }), false, "Shift+Space still scrolls");
     assert.equal(h.app.isScalePlaying(), false);
   });
 

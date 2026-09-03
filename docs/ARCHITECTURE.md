@@ -534,7 +534,10 @@ typing `3/2` into an interval box must not play degrees 3 and 2. Space is eaten
 by those *and* by a focused button, because the browser is already turning it
 into a click there; handling it as well would run New **and** start the scale
 from one keystroke. A `<select>` blocks both, since a digit is option typeahead
-and Space opens the list. Every chord (Ctrl/Cmd/Alt) is left alone.
+and Space opens the list. Every chord (Ctrl/Cmd/Alt/Shift) is left alone —
+Shift+Space is "scroll up" in every browser, and swallowing it would cost the
+reader a scroll gesture to buy nothing. Shift costs the digits nothing either:
+Shift+1 arrives as `!`, which `numberKeyDegree()` already reads as no degree.
 
 Space is taken off the page on every keydown, repeats included, or a held Space
 scrolls it — but only the first acts, since toggling on every repeat would make

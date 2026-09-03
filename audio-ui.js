@@ -164,7 +164,11 @@ function playKeyboardDegree(degree) {
 }
 
 function handleAudioKeyDown(event) {
-  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  // Shift belongs here with the other three: Shift+Space is "scroll up" in
+  // every browser, and swallowing it would cost the reader a scroll gesture to
+  // buy nothing. It costs the digits nothing either — Shift+1 arrives as "!",
+  // which numberKeyDegree() already reads as no degree.
+  if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
   const focused = document.activeElement;
   if (isTextEntryElement(focused)) return;
 
