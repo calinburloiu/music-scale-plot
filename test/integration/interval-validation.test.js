@@ -245,7 +245,7 @@ test("refusing to save an invalid scale", async (t) => {
     await saveScale(h);
 
     assert.equal(h.downloads.length, 1, "the fixed scale must save");
-    assert.match(savedScaleFile(h).text, /10\/9/);
+    assert.match((await savedScaleFile(h)).text, /10\/9/);
   });
 
   await t.test("names the note rather than the interval in absolute mode", async () => {

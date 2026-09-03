@@ -1593,8 +1593,7 @@ function pngChunk(type, data) {
  *
  * Both chunks are ancillary: a viewer that does not care skips them.
  */
-function withPrintMetadata(dataUrl) {
-  const png = bytesFromBase64(dataUrl.slice(dataUrl.indexOf(",") + 1));
+function withPrintMetadata(png) {
   const view = new DataView(png.buffer, png.byteOffset, png.byteLength);
   // IHDR is always the first chunk. Straight after it satisfies both placement
   // rules at once: pHYs must precede IDAT, and sRGB must precede PLTE as well.
@@ -1606,10 +1605,10 @@ function withPrintMetadata(dataUrl) {
   physicalView.setUint32(4, EXPORT_PIXELS_PER_METRE);
   physical[8] = 1; // the unit is the metre
 
-  return "data:image/png;base64," + base64FromBytes(spliceBytes(png, afterHeader, [
+  return spliceBytes(png, afterHeader, [
     pngChunk("sRGB", [SRGB_RELATIVE_COLORIMETRIC]),
     pngChunk("pHYs", physical),
-  ]));
+  ]);
 }
 
 /** `bytes` with `insertions` spliced in at `at`. */
@@ -1633,17 +1632,6 @@ function bytesFromBase64(base64) {
   return bytes;
 }
 
-function base64FromBytes(bytes) {
-  // In slices: fromCharCode takes its arguments on the stack, and a chart's
-  // bitmap runs to megabytes.
-  let binary = "";
-  const SLICE = 8192;
-  for (let at = 0; at < bytes.length; at += SLICE) {
-    binary += String.fromCharCode.apply(null, bytes.subarray(at, at + SLICE));
-  }
-  return btoa(binary);
-}
-
 function savePNG() {
   // A PNG is a picture of the scale, and a scale with a hole in it is not one
   // the app should hand out in any format.
@@ -1652,19 +1640,22 @@ function savePNG() {
     showToolbarMessage(problem, INVALID_SCALE_MESSAGE);
     return;
   }
-  const link = document.createElement("a");
-  link.download = "scale.png";
   // Redraw at the export scale for the bitmap, then put the screen back: the
   // canvas the user is looking at stays at the display's resolution.
+  let png;
   renderScale = EXPORT_SCALE;
   try {
     render();
-    link.href = withPrintMetadata(canvas.toDataURL("image/png"));
+    // toDataURL is the only encoder a canvas has synchronously, so the bytes
+    // come back through base64 — but they go out as a Blob, never as the
+    // data: URL itself. See downloadBlob() in persistence-ui.js.
+    const dataUrl = canvas.toDataURL("image/png");
+    png = withPrintMetadata(bytesFromBase64(dataUrl.slice(dataUrl.indexOf(",") + 1)));
   } finally {
     renderScale = DPR;
     render();
   }
-  link.click();
+  downloadBlob("scale.png", new Blob([png], { type: "image/png" }));
 }
 
 function getActivePalette() {

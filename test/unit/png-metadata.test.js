@@ -4,19 +4,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const { loadApp } = require("../helpers/harness.js");
-const {
-  pngFixture,
-  pngChunkTypes,
-  pngChunkData,
-  bytesFromDataUrl,
-} = require("../helpers/canvas-stub.js");
+const { pngFixture, pngChunkTypes, pngChunkData } = require("../helpers/canvas-stub.js");
 
 function bytes(text) {
   return Uint8Array.from([...text].map((c) => c.charCodeAt(0)));
-}
-
-function dataUrlOf(png) {
-  return "data:image/png;base64," + Buffer.from(png).toString("base64");
 }
 
 test("PNG print metadata", async (t) => {
@@ -39,7 +30,7 @@ test("PNG print metadata", async (t) => {
     const h = loadApp();
     t.after(() => h.close());
 
-    const png = bytesFromDataUrl(h.app.withPrintMetadata(dataUrlOf(pngFixture(100, 200))));
+    const png = h.app.withPrintMetadata(pngFixture(100, 200));
     const phys = pngChunkData(png, "pHYs");
 
     assert.ok(phys, "no pHYs chunk: the file would place at the 72ppi default");
@@ -54,7 +45,7 @@ test("PNG print metadata", async (t) => {
     const h = loadApp();
     t.after(() => h.close());
 
-    const png = bytesFromDataUrl(h.app.withPrintMetadata(dataUrlOf(pngFixture(100, 200))));
+    const png = h.app.withPrintMetadata(pngFixture(100, 200));
     const srgb = pngChunkData(png, "sRGB");
 
     assert.ok(srgb, "no sRGB chunk: a layout app has to guess what the numbers mean");
@@ -65,7 +56,7 @@ test("PNG print metadata", async (t) => {
     const h = loadApp();
     t.after(() => h.close());
 
-    const png = bytesFromDataUrl(h.app.withPrintMetadata(dataUrlOf(pngFixture(100, 200))));
+    const png = h.app.withPrintMetadata(pngFixture(100, 200));
 
     assert.deepEqual(pngChunkTypes(png), ["IHDR", "sRGB", "pHYs", "IDAT", "IEND"]);
   });
@@ -75,7 +66,7 @@ test("PNG print metadata", async (t) => {
     t.after(() => h.close());
     const original = pngFixture(100, 200);
 
-    const png = bytesFromDataUrl(h.app.withPrintMetadata(dataUrlOf(original)));
+    const png = h.app.withPrintMetadata(original);
 
     assert.deepEqual(
       Array.from(pngChunkData(png, "IHDR")),

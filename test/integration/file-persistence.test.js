@@ -47,7 +47,7 @@ test("saving a scale document", async (t) => {
 
     await saveScale(h);
 
-    const doc = JSON.parse(savedScaleFile(h).text);
+    const doc = JSON.parse((await savedScaleFile(h)).text);
     assert.equal(doc.formatVersion, 1);
     assert.equal(doc.name, "Hicaz");
     assert.equal(doc.settings.baseNote, 0, "C, the default, written as the DOM holds it");
@@ -67,7 +67,7 @@ test("saving a scale document", async (t) => {
     buildAbsoluteScale(h, ["1/1", "9/8", "5/4"]);
     await saveScale(h);
 
-    const doc = JSON.parse(savedScaleFile(h).text);
+    const doc = JSON.parse((await savedScaleFile(h)).text);
     assert.equal(doc.scaleEditor.mode, "absoluteIntervals");
     assert.deepEqual(doc.scaleEditor.intervals, ["1/1", "9/8", "5/4"]);
     assert.equal(doc.scaleEditor.intervalProperties.length, 2, "always between successive notes");
@@ -95,11 +95,11 @@ test("saving a scale document", async (t) => {
 
     typeInto(h, h.document.getElementById("scale-name"), "Hicaz Hümayun");
     await saveScale(h);
-    assert.equal(savedScaleFile(h).name, "hicaz-humayun.musp.json");
+    assert.equal((await savedScaleFile(h)).name, "hicaz-humayun.musp.json");
 
     typeInto(h, h.document.getElementById("scale-name"), "");
     await saveScale(h);
-    assert.equal(savedScaleFile(h).name, "scale.musp.json");
+    assert.equal((await savedScaleFile(h)).name, "scale.musp.json");
   });
 
   await t.test("closes the Save menu behind it", async () => {
@@ -177,7 +177,7 @@ test("what a saved document carries", async (t) => {
 
     await saveScale(h);
 
-    const note = JSON.parse(savedScaleFile(h).text).scaleEditor.noteProperties[0];
+    const note = JSON.parse((await savedScaleFile(h)).text).scaleEditor.noteProperties[0];
     assert.deepEqual(note.generic, { accidental: "accidentalSharp", name: "hicaz" });
     assert.equal(note.byzantine.fthora, "diatonicPa");
     assert.equal(note.byzantine.alteration, "diesisGeniki");
@@ -197,7 +197,7 @@ test("what a saved document carries", async (t) => {
     pickMartyria(h, noteRows(h)[0], { note: "highKe" });
     await saveScale(h);
 
-    const notes = JSON.parse(savedScaleFile(h).text).scaleEditor.noteProperties;
+    const notes = JSON.parse((await savedScaleFile(h)).text).scaleEditor.noteProperties;
     assert.deepEqual(notes[0].byzantine.martyria, { note: "highKe" }, "ticks 0 is omitted");
     assert.deepEqual(notes[1].byzantine.martyria, { note: "highZo", ticks: 1 });
     assert.deepEqual(notes[2].byzantine.martyria, { note: "highNi", ticks: 1 });
@@ -229,7 +229,7 @@ test("escaping interval values that came from a file", async (t) => {
     const before = noteRows(h).map(signature);
 
     await saveScale(h);
-    const saved = savedScaleFile(h).text;
+    const saved = (await savedScaleFile(h)).text;
 
     fireClick(h, h.document.getElementById("new-file"));
     setNotation(h, "byzantine");
@@ -267,7 +267,7 @@ test("escaping interval values that came from a file", async (t) => {
     // rows are visibly not the incoming ones.
     buildRelativeScale(h, ["9/8"]);
     await saveScale(h);
-    const saved = savedScaleFile(h).text;
+    const saved = (await savedScaleFile(h)).text;
 
     buildRelativeScale(h, ["5/4", "5/4", "5/4", "5/4"]);
     h.ctx.reset();
@@ -403,7 +403,7 @@ test("opening a scale document", async (t) => {
     pickFthora(h, noteRows(h)[2], "diatonicPa");
 
     await saveScale(h);
-    const saved = savedScaleFile(h).text;
+    const saved = (await savedScaleFile(h)).text;
 
     fireClick(h, h.document.getElementById("new-file"));
     assert.equal(noteRows(h).length, 2, "New really did reset it");
@@ -460,7 +460,7 @@ test("opening a scale document", async (t) => {
     setNotation(h, "byzantine");
     pickMartyria(h, noteRows(h)[0], { note: "midPa", genus: "alpha" });
     await saveScale(h);
-    const saved = savedScaleFile(h).text;
+    const saved = (await savedScaleFile(h)).text;
 
     fireClick(h, h.document.getElementById("new-file"));
     await pickScaleFile(h, saved);
@@ -545,7 +545,7 @@ test("opening a scale document", async (t) => {
     // Save first: saveScaleFile() clears the bar itself, so saving after the
     // bad open would make this pass for the wrong reason.
     await saveScale(h);
-    const good = savedScaleFile(h).text;
+    const good = (await savedScaleFile(h)).text;
 
     await pickScaleFile(h, "{ not json");
     assert.equal(h.document.getElementById("toolbar-message-text").textContent, "Not a valid JSON file.");

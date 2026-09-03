@@ -250,17 +250,36 @@ async function saveScaleFile() {
 }
 
 /**
- * The fallback, for Firefox, Safari and every file:// page.
+ * Hand the browser a file to save. Every save in the app goes through here.
  *
- * A data: URL, the same mechanism savePNG() already uses — it needs no
- * URL.createObjectURL shim, and a scale document is a few KB, far inside what
- * <a download> accepts.
+ * A Blob behind an object URL, and never a `data:` URL. On an iPhone that is
+ * not a preference: Safari's download manager will not fetch a `data:` URL at
+ * all. The anchor's `download` attribute is enough to raise its "Do you want
+ * to download…?" sheet, so the page looks like it is working — and then
+ * tapping Download writes nothing, with no error anywhere. A `blob:` URL it
+ * fetches. Size is beside the point; a few-KB scale document failed exactly
+ * as the megabyte PNG did.
+ *
+ * The anchor needs no place in the document: a detached one dispatches its
+ * click just as well, and leaves nothing to clean up.
  */
-function downloadScaleFile(fileName, text) {
+function downloadBlob(fileName, blob) {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.download = fileName;
-  link.href = "data:application/json;charset=utf-8," + encodeURIComponent(text);
+  link.href = url;
   link.click();
+  // On the next macrotask, after the click has been dispatched: revoking
+  // synchronously can cancel the download. Not revoking at all would hold the
+  // Blob for the lifetime of the document.
+  setTimeout(function () {
+    URL.revokeObjectURL(url);
+  }, 0);
+}
+
+/** The fallback, for Firefox, Safari and every file:// page. */
+function downloadScaleFile(fileName, text) {
+  downloadBlob(fileName, new Blob([text], { type: "application/json" }));
 }
 
 saveScaleItem.addEventListener("click", saveScaleFile);

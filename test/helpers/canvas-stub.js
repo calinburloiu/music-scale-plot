@@ -486,12 +486,6 @@ function readPngChunks(bytes) {
   return chunks;
 }
 
-/** Decodes a `data:` URL's base64 payload back to bytes. */
-function bytesFromDataUrl(dataUrl) {
-  const binary = Buffer.from(dataUrl.slice(dataUrl.indexOf(",") + 1), "base64");
-  return new Uint8Array(binary);
-}
-
 module.exports = {
   RecordingContext2D,
   measureTextWidth,
@@ -522,5 +516,4 @@ module.exports = {
   pngFixture,
   pngChunkTypes,
   pngChunkData,
-  bytesFromDataUrl,
 };

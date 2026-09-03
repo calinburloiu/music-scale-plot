@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { pngChunkData, bytesFromDataUrl } = require("../helpers/canvas-stub.js");
+const { pngChunkData } = require("../helpers/canvas-stub.js");
 const { closeTo } = require("../helpers/assertions.js");
 const {
   loadApp,
@@ -12,6 +12,7 @@ const {
   buildRelativeScale,
   noteRows,
   intervalRows,
+  savedFile,
 } = require("../helpers/harness.js");
 
 function edoRow(h) {
@@ -205,7 +206,7 @@ test("PNG export", async (t) => {
     assert.equal(h.canvas().height, Math.round(css.height * 2));
   });
 
-  await t.test("the downloaded file declares the size it should print at", () => {
+  await t.test("the downloaded file declares the size it should print at", async () => {
     const h = loadApp({ devicePixelRatio: 1 });
     t.after(() => h.close());
     // A just-intonation octave: the chart a page of the book would carry.
@@ -214,7 +215,7 @@ test("PNG export", async (t) => {
 
     savePng(h);
 
-    const physical = pngChunkData(bytesFromDataUrl(h.downloads[0].href), "pHYs");
+    const physical = pngChunkData((await savedFile(h)).bytes, "pHYs");
     assert.ok(physical, "no pHYs chunk: the file would place at a viewer's 72ppi default");
     const view = new DataView(physical.buffer, physical.byteOffset, physical.byteLength);
     const inchesTall = h.dataUrls[0].height / (view.getUint32(4) * 0.0254);
@@ -228,14 +229,14 @@ test("PNG export", async (t) => {
     closeTo(inchesTall, 6.9, 0.05, "an octave should place as a full-page figure");
   });
 
-  await t.test("the downloaded file says what its colours mean", () => {
+  await t.test("the downloaded file says what its colours mean", async () => {
     const h = loadApp();
     t.after(() => h.close());
 
     savePng(h);
 
     assert.ok(
-      pngChunkData(bytesFromDataUrl(h.downloads[0].href), "sRGB"),
+      pngChunkData((await savedFile(h)).bytes, "sRGB"),
       "no sRGB chunk: a print workflow has to guess how to separate the colours"
     );
   });

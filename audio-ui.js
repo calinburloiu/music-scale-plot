@@ -441,26 +441,9 @@ async function saveAudioFile() {
   }
 }
 
-/**
- * The fallback, for Firefox, Safari and every file:// page.
- *
- * A Blob and an object URL, not the data: URL the other two saves use: an
- * eight-degree scale is 882 KB, which base64 inflates to about 1.18 MB, and a
- * sixteen-degree one reaches 2.43 MB — past the point where data: downloads
- * are reliable.
- */
+/** The fallback, for Firefox, Safari and every file:// page. */
 function downloadAudioFile(fileName, bytes) {
-  const blob = new Blob([bytes], { type: "audio/wav" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.download = fileName;
-  link.href = url;
-  link.click();
-  // On the next macrotask, after the click has been dispatched: revoking
-  // synchronously can cancel the download.
-  setTimeout(function () {
-    URL.revokeObjectURL(url);
-  }, 0);
+  downloadBlob(fileName, new Blob([bytes], { type: "audio/wav" }));
 }
 
 document.getElementById("save-audio").addEventListener("click", saveAudioFile);
