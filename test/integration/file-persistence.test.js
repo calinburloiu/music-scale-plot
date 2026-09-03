@@ -205,6 +205,30 @@ test("escaping interval values that came from a file", async (t) => {
   // first caller that can pass an arbitrary string straight out of a file:
   // validateScaleDocument only requires an interval to be "a string or a
   // finite number" (persistence.js), with no character restrictions.
+  await t.test("paints the chart once, and never from the scale it is replacing", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // Build a scale, save it, then start from a different one so the outgoing
+    // rows are visibly not the incoming ones.
+    buildRelativeScale(h, ["9/8"]);
+    await saveScale(h);
+    const saved = savedScaleFile(h).text;
+
+    buildRelativeScale(h, ["5/4", "5/4", "5/4", "5/4"]);
+    h.ctx.reset();
+    await pickScaleFile(h, saved);
+
+    // render() clears once per paint. Two clears means the chart was drawn
+    // before #editor was rebuilt — the old rows read under the incoming mode
+    // and interval type, a full wasted paint of a scale nobody asked for.
+    assert.equal(
+      h.ctx.callsOf("clearRect").length,
+      1,
+      "Open must paint the chart once, after the editor is rebuilt"
+    );
+  });
+
   const TRICKY = '9"8<b>weird</b>';
 
   await t.test("round-trips a relative interval containing quote and angle-bracket characters", async () => {

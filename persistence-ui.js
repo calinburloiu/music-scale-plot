@@ -262,9 +262,12 @@ function applyDocumentState(doc) {
   edoSettingsRow.style.display = isEdo ? "" : "none";
   if (isEdo) updateEdoCentsLabel();
   updateZoom();
-  // For the editor's notation-generic / notation-byzantine class, which is all
-  // CSS needs to decide which half of every note row shows.
-  onNotationChange();
+  // The classes only, not onNotationChange(): that ends in render(), and #editor
+  // still holds the outgoing scale here — it would be painted under the
+  // incoming mode and interval type before being thrown away. The render() at
+  // the end of this function is the one paint an Open owes. closeAllDropdowns(),
+  // the other thing onNotationChange() does, already ran at the top.
+  applyNotationClasses();
 
   const mode = scaleModeSelect.value;
   const notes = editorDoc.noteProperties;

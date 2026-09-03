@@ -117,12 +117,23 @@ function onNotationChange() {
   // this is only reachable from the keyboard — which is reason to handle it,
   // not to leave it.
   closeAllDropdowns();
+  applyNotationClasses();
+  render();
+}
+
+/**
+ * The editor's notation class pair, which is all CSS needs to decide which half
+ * of every note row shows. Split out from onNotationChange() because Open wants
+ * the classes without the paint: applyDocumentState() sets them before it has
+ * rebuilt #editor, and rendering there would draw the outgoing scale read under
+ * the incoming settings.
+ */
+function applyNotationClasses() {
   const byzantine = getNotation() === "byzantine";
   // Both classes, because both halves of a note row need one to key off: the
   // accidental well and the name box in Generic, the three wells in Byzantine.
   editor.classList.toggle("notation-byzantine", byzantine);
   editor.classList.toggle("notation-generic", !byzantine);
-  render();
 }
 
 function getFrequencyForDegree(degree) {
