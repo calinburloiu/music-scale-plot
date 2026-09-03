@@ -2,9 +2,11 @@
 paths:
   - "app.js"
   - "byzantine.js"
-  - "byzantine-ui.js"
   - "smufl.js"
+  - "persistence.js"
   - "symbols-ui.js"
+  - "byzantine-ui.js"
+  - "persistence-ui.js"
   - "index.html"
   - "style.css"
   - "test/**/*.js"

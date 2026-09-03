@@ -1,7 +1,7 @@
 # Testing Guide
 
 This project was built without tests. That is now the main risk to its
-maintenance: the app is five classic scripts, over four thousand lines in all,
+maintenance: the app is seven classic scripts, over five thousand lines in all,
 whose behaviour lives in DOM side effects, and nothing catches a regression
 except a human clicking around. This document defines how the project is tested
 and how new work must be done.
@@ -34,8 +34,9 @@ step.
 
 `CLAUDE.md` says the app has no dependencies and no build step. That still
 holds: `index.html` opens in a browser and loads nothing but `style.css` and
-its own five scripts (`byzantine.js`, `smufl.js`, `symbols-ui.js`,
-`byzantine-ui.js`, `app.js`). `jsdom` is a **dev**-only dependency used by the
+its own seven scripts (`byzantine.js`, `smufl.js`, `persistence.js`,
+`symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `app.js`). `jsdom` is
+a **dev**-only dependency used by the
 test runner, and the test runner itself is the one built into Node
 (`node --test`). Nothing under `node_modules/` is ever shipped or referenced
 by the app.
@@ -47,10 +48,10 @@ without a concrete reason that cannot be met by the standard library.
 
 ## 2. Test-driven development is mandatory
 
-Every change to `app.js`, `byzantine.js`, `smufl.js`, `symbols-ui.js`,
-`byzantine-ui.js`, `index.html` or `style.css` that affects behaviour follows
-the red/green/refactor loop. No exceptions for "small" changes; small changes
-are where regressions hide.
+Every change to `app.js`, `byzantine.js`, `smufl.js`, `persistence.js`,
+`symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `index.html` or
+`style.css` that affects behaviour follows the red/green/refactor loop. No
+exceptions for "small" changes; small changes are where regressions hide.
 
 ### RED — write a failing test first
 
@@ -110,7 +111,9 @@ willingness to follow it.
 
 `.claude/rules/testing.md` closes that gap. It is a
 [path-scoped rule](https://code.claude.com/docs/en/memory): its `paths:`
-frontmatter lists `app.js`, `byzantine.js`, `smufl.js`, `symbols-ui.js`, `byzantine-ui.js`, `index.html`, `style.css` and `test/**/*.js`, and it
+frontmatter lists `app.js`, `byzantine.js`, `smufl.js`, `persistence.js`,
+`symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `index.html`,
+`style.css` and `test/**/*.js`, and it
 `@`-imports this guide. The moment Claude reads any guarded file, the rule loads
 and pulls this document into context with it — no separate step that could be
 skipped. Rules without `paths:` load every session; this one costs nothing until
@@ -233,7 +236,10 @@ test/
 │   ├── png-metadata.test.js        the print chunks the exported PNG carries
 │   ├── byzantine-symbols.test.js   the tables, the resolvers, the ladder
 │   ├── smufl-accidentals.test.js   the 28-category catalogue and its resolvers
-│   └── symbol-search.test.js       normalizeForSearch, matchesQuery
+│   ├── symbol-search.test.js       normalizeForSearch, matchesQuery
+│   └── scale-file-format.test.js   the .musp.json format: serialize/parse/
+│                                    validate, with no page — enum maps, default
+│                                    omission, cardinality, every validation rule
 └── integration/         behaviour that spans the editor, the model and the chart
     ├── harness.test.js
     ├── editor.test.js
@@ -249,8 +255,21 @@ test/
     │                               symbol state, readScaleData, font loading
     ├── byzantine-pickers.test.js   the alteration, fthora and martyria wells and
     │                               their picker panels
-    └── accidental-picker.test.js   the accidental well and its picker, including
-                                     search
+    ├── accidental-picker.test.js   the accidental well and its picker, including
+    │                               search
+    ├── toolbar.test.js             the toolbar itself: New/Open/Save wiring, the
+    │                               Save menu, the message bar and its dismiss,
+    │                               the keyboard shortcuts, and that the
+    │                               relocated buttons (Add note, Remove last
+    │                               note, Save as PNG) still work from their
+    │                               new home
+    ├── interval-validation.test.js the editor's invalid marking and the guard
+    │                               on both saves: what counts as unreadable in
+    │                               each interval type, which box gets marked,
+    │                               and what the message bar says
+    └── file-persistence.test.js    round trips through the real editor —
+                                     both notations' hidden state, both I/O
+                                     branches, a bad file, a cancelled picker
 ```
 
 Put a test where a maintainer would look for it: by the *feature* it covers,
@@ -261,8 +280,8 @@ a new file named after the feature.
 
 ## 5. How the harness works
 
-The app's scripts (`byzantine.js`, `smufl.js`, `symbols-ui.js`, `byzantine-ui.js`,
-`app.js`) are classic scripts with no exports: they read elements at the top level and wire up
+The app's scripts (`byzantine.js`, `smufl.js`, `persistence.js`, `symbols-ui.js`,
+`byzantine-ui.js`, `persistence-ui.js`, `app.js`) are classic scripts with no exports: they read elements at the top level and wire up
 listeners as a side effect of loading. Rather than restructure the app to
 suit the tests, `test/helpers/harness.js` loads it the way a browser does.
 
@@ -295,14 +314,16 @@ window.__app = { get intervalToCents() { return intervalToCents; }, /* … */ };
 
 Two consequences worth knowing:
 
-- **Any new top-level `function` or `const` in *any* of the app's scripts is
-  testable automatically.** Nothing needs registering. Keep logic in named
-  top-level functions rather than burying it in a listener callback, and it
-  stays reachable from tests. Classic scripts share one global lexical
-  environment, so a `const` in `byzantine.js` is visible to `app.js` and to
-  the epilogue exactly as if it were declared in the same file — but it also
-  means no top-level name may be declared in two of the scripts, or loading
-  throws a `SyntaxError` before any test runs.
+- **Any new top-level `function`, `async function` or `const` in *any* of the
+  app's scripts is testable automatically.** Nothing needs registering. Keep
+  logic in named top-level functions rather than burying it in a listener
+  callback, and it stays reachable from tests — `persistence-ui.js`'s
+  `async function saveScaleFile` and `async function openScaleFile` are
+  exported the same way their synchronous neighbours are. Classic scripts
+  share one global lexical environment, so a `const` in `byzantine.js` is
+  visible to `app.js` and to the epilogue exactly as if it were declared in
+  the same file — but it also means no top-level name may be declared in two
+  of the scripts, or loading throws a `SyntaxError` before any test runs.
 - The getters are live, so `h.app.displayZoom` reflects the current value, not
   a snapshot from load time.
 
@@ -318,6 +339,7 @@ Two consequences worth knowing:
 | `HTMLAnchorElement.click` | records `{download, href}` | jsdom cannot navigate or download. |
 | `window.devicePixelRatio` | `2` by default | `loadApp({ devicePixelRatio: 3 })` to vary it. |
 | `document.fonts` | `load()` and `ready` both resolve immediately | jsdom implements no `FontFaceSet`, and `app.js` waits on one before its first real paint. `loadApp({ fonts: false })` removes `document.fonts` entirely, to exercise the codepath that guards against browsers (and jsdom's own default state) with no `FontFaceSet` at all; `loadApp({ fonts: "reject" })` makes every face fail to load, as a missing or corrupt font file would; `loadApp({ fonts: { reject: ["Bravura Text"] } })` fails only the faces named, because one file can go missing without the other; `loadApp({ fonts: "ready-reject" })` lets the faces load but never lets the set become ready, which is the plainest way to the tail of the chain. |
+| `window.showSaveFilePicker` / `showOpenFilePicker` | **absent by default** | Neither exists on the harness's `window` unless a test opts in with `loadApp({ fileSystemAccess: … })`. That is deliberate: Firefox, Safari and every `file://` page reach neither, so leaving them undefined by default means most tests exercise the fallback (`<a download>` for Save, the hidden file input for Open) — the path every browser reaches. Opting in installs stubs that record every picker call and either resolve with a canned handle/file or reject with an `AbortError` (a cancelled dialog) or a plain `Error` (a real failure), per the options `loadApp` documents. |
 
 Because `measureText` is a model rather than real metrics, a test that needs an
 expected canvas size or ink box computes it with the exported
@@ -328,12 +350,13 @@ number.
 
 | Helper | Purpose |
 |---|---|
-| `loadApp(options)` | Fresh window. One per test — never share. `restored: { "#scale-mode": "absolute" }` writes values into the matching controls *before* the scripts run, the way Firefox restores form state across a soft reload. `inkMetrics: "union"` reports every ink box unioned with the text's advance rect and its baseline, the way WebKit does — the engine difference behind `scanInkBox`. |
+| `loadApp(options)` | Fresh window. One per test — never share. `restored: { "#scale-mode": "absolute" }` writes values into the matching controls *before* the scripts run, the way Firefox restores form state across a soft reload. `inkMetrics: "union"` reports every ink box unioned with the text's advance rect and its baseline, the way WebKit does — the engine difference behind `scanInkBox`. `fileSystemAccess: true` (or an options object) installs the `showSaveFilePicker`/`showOpenFilePicker` stubs described above; pass `{ text }` for what Open hands back, `{ saveAborts }`/`{ openAborts }` for a cancelled dialog, `{ saveFails }`/`{ openFails }` for a real failure. |
 | `restoreFormState(h, values)` | The other restore order: writes the values *after* load and fires `pageshow`, the way Chromium restores form state. |
 | `buildRelativeScale(h, intervals, extra)` | Build a scale in relative mode; `extra` takes `names`, `labels`, `colors`. |
 | `buildAbsoluteScale(h, absolutes, extra)` | Same for absolute mode. |
 | `setNoteCount(h, n)` | Click add/remove until the editor holds `n` notes. |
 | `typeInto(h, el, value)` | Set a value and dispatch `input`, like a user typing. |
+| `pressKey(h, el, key)` | Press a key on an element, bubbling and cancelable, the way a user with focus there does; returns whether the default was prevented. |
 | `selectOption(h, id, value)` | Change a `<select>` and dispatch `change`. |
 | `pickColor(h, row, hex)` | Open a row's dropdown and click a swatch. |
 | `noteRows(h)` / `intervalRows(h)` | The editor's rows, in order. |
@@ -345,6 +368,8 @@ number.
 | `pickMartyria(h, row, { note, genus, ticks, dismiss })` | Open the martyria picker, click a letter, then click a genus — the click that commits and propagates the ladder. `genus` defaults to None rather than being skipped, because a letter alone never reaches the row; `note: ""` clears the well and returns. `dismiss` stops after the letter and leaves by that gesture instead. |
 | `searchPicker(h, row, kind, query)` | Open `kind`'s picker and type `query` into its `.sym-search` field, the way a user does; returns the panel so a test can count what survived. |
 | `dismissPicker(h, row, how, kind)` | Leave a picker without picking: `"outside"` and `"well"` are the two gestures that discard, `"none"` leaves the panel open to inspect. There is no `"apply"` and no `"cancel"` — clicking a row *is* the commit, so the only way not to commit is not to click one. |
+| `pickScaleFile(h, text, fileName)` | Hands the hidden `#open-file-input` a file (`text`, defaulting `fileName` to `"scale.musp.json"`) and fires `change`, the way the fallback Open dialog does; returns a promise to `await` since the handler reads the file asynchronously. Pass an `Error` as `text` to make the file's own `.text()` reject, as a real read failure would. (Named `pickScaleFile`, not `openScaleFile`, to avoid colliding with `persistence-ui.js`'s own `openScaleFile` function.) |
+| `savedScaleFile(h)` | The scale document the app last handed to `<a download>`, decoded back out of the `data:` URL — `{ name, text }`. Reads the same recorded anchor click `downloads` already exposes, so no separate stub was needed for Save's fallback path. |
 
 Everything goes through real DOM events. Do not call the app's internal
 functions to *set up* state when a helper can drive the UI — a test that
@@ -411,7 +436,7 @@ Conventions:
    model, or the chart's geometry. That tells you which test file to open.
 3. **Write the failing test.** Run it. Watch it fail for the right reason.
 4. Implement the minimum that makes it pass, as a **named top-level function**
-   in whichever of the five scripts it belongs to (top-level functions are
+   in whichever of the seven scripts it belongs to (top-level functions are
    auto-exported to tests; logic buried inside an event listener is not).
 5. Run `npm test`. Fix anything you broke.
 6. Refactor under a green suite.

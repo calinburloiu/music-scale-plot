@@ -50,8 +50,24 @@ test("ratio arithmetic", async (t) => {
       assert.equal(app.parseRatioPair("9/0"), null, "zero denominator");
     });
 
-    await t.test("keeps negative numbers (rejected later, as a non-positive ratio)", () => {
-      equalArray(app.parseRatioPair("-9/8"), [-9, 8]);
+    await t.test("rejects terms that are not whole numbers", () => {
+      // parseInt used to stop where the digits did, so "9.5/8" parsed as 9/8
+      // and "9x/8" as 9/8 — the chart drew a value nobody typed. A ratio is a
+      // pair of integers or it is not a ratio.
+      assert.equal(app.parseRatioPair("9.5/8"), null, "fractional numerator");
+      assert.equal(app.parseRatioPair("9/8.5"), null, "fractional denominator");
+      assert.equal(app.parseRatioPair("9x/8"), null, "trailing junk on the numerator");
+      assert.equal(app.parseRatioPair("9/8x"), null, "trailing junk on the denominator");
+    });
+
+    await t.test("rejects a signed term, since neither sign names a pitch", () => {
+      // These used to parse and were turned away one layer later, by
+      // intervalToCents refusing a non-positive ratio. Turning them away here
+      // makes "parses" and "is a usable interval" the same question, which is
+      // what the editor's invalid marking and the save guard both ask.
+      assert.equal(app.parseRatioPair("-9/8"), null, "negative numerator");
+      assert.equal(app.parseRatioPair("9/-8"), null, "negative denominator");
+      assert.equal(app.parseRatioPair("+9/8"), null, "explicit plus");
     });
   });
 

@@ -63,6 +63,7 @@ const orientationSelect = document.getElementById("orientation");
 const styleSelect = document.getElementById("chart-style");
 const scaleModeSelect = document.getElementById("scale-mode");
 const notationSelect = document.getElementById("notation");
+const scaleNameInput = document.getElementById("scale-name");
 
 const LINE_STYLE_WIDTH = 3;
 const TICK_LENGTH = 28;
@@ -92,8 +93,13 @@ function getAudioContext() {
 }
 
 function getBaseFrequency() {
+  // Semitones above C. The wrap keeps the audible range at A220 … G#415, which
+  // is exactly the octave the old A-based encoding spanned — so every note that
+  // could be chosen before still sounds at the pitch it did. C=0 is the
+  // conventional pitch class, and it is what the .musp.json file stores, so the
+  // DOM and the file need no translation between them.
   const semitones = parseInt(baseNoteSelect.value, 10);
-  return 220 * Math.pow(2, semitones / 12);
+  return 220 * Math.pow(2, ((semitones + 3) % 12) / 12);
 }
 
 function getScaleMode() {
@@ -111,12 +117,23 @@ function onNotationChange() {
   // this is only reachable from the keyboard — which is reason to handle it,
   // not to leave it.
   closeAllDropdowns();
+  applyNotationClasses();
+  render();
+}
+
+/**
+ * The editor's notation class pair, which is all CSS needs to decide which half
+ * of every note row shows. Split out from onNotationChange() because Open wants
+ * the classes without the paint: applyDocumentState() sets them before it has
+ * rebuilt #editor, and rendering there would draw the outgoing scale read under
+ * the incoming settings.
+ */
+function applyNotationClasses() {
   const byzantine = getNotation() === "byzantine";
   // Both classes, because both halves of a note row need one to key off: the
   // accidental well and the name box in Generic, the three wells in Byzantine.
   editor.classList.toggle("notation-byzantine", byzantine);
   editor.classList.toggle("notation-generic", !byzantine);
-  render();
 }
 
 function getFrequencyForDegree(degree) {
@@ -202,12 +219,23 @@ function gcd(a, b) {
   return a || 1;
 }
 
+/**
+ * A ratio is a pair of whole numbers, both above zero, or it is not a ratio.
+ *
+ * Matched whole rather than parsed term by term: parseInt stops where the
+ * digits do, so "9.5/8" used to read as 9/8 and "9x/8" as 9/8 — the chart drew
+ * a value nobody typed. Neither sign is accepted either; a descending interval
+ * is 8/9, not -9/8.
+ *
+ * RATIO_PATTERN is persistence.js's, so the arithmetic here and the file
+ * format's own check are reading a ratio by one definition.
+ */
 function parseRatioPair(str) {
-  const parts = str.split("/");
-  if (parts.length !== 2) return null;
-  const p = parseInt(parts[0], 10);
-  const q = parseInt(parts[1], 10);
-  if (!p || !q || isNaN(p) || isNaN(q)) return null;
+  const terms = RATIO_PATTERN.exec(String(str));
+  if (!terms) return null;
+  const p = parseInt(terms[1], 10);
+  const q = parseInt(terms[2], 10);
+  if (!p || !q) return null;
   return [p, q];
 }
 
@@ -268,6 +296,20 @@ function computeRelativeDisplay(prevAbsStr, nextAbsStr) {
   return value === "" ? "" : intervalToDisplayString(value);
 }
 
+/**
+ * Escapes a value for safe interpolation into an HTML attribute inside a
+ * string later assigned to `innerHTML`. `makeNoteRowHTML`'s absolute branch
+ * and `makeIntervalRowHTML`'s relative branch are the only two sites that
+ * interpolate a caller-supplied value into an attribute; every other value
+ * built here is app-computed. `applyDocumentState` (persistence-ui.js) is the
+ * first caller able to pass an arbitrary string straight out of a file, so an
+ * unescaped `"` truncated the attribute (silent data loss) and an unescaped
+ * `<` let a crafted file inject a live element into #editor.
+ */
+function escapeAttribute(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+}
+
 function makeNoteRowHTML(degree, mode, absoluteValue) {
   const playBtn = '<button class="play-note" title="Play note">&#9654;</button>';
   const labelHtml = "<label>Note " + degree + "</label>";
@@ -281,7 +323,7 @@ function makeNoteRowHTML(degree, mode, absoluteValue) {
     const isFirst = degree === 1;
     const val = isFirst ? getUnisonValue() : (absoluteValue !== undefined ? absoluteValue : "");
     const absInput = '<input type="text" class="absolute-interval" placeholder="' +
-      getIntervalPlaceholder() + '" value="' + val + '"' + (isFirst ? " disabled" : "") + ">";
+      getIntervalPlaceholder() + '" value="' + escapeAttribute(val) + '"' + (isFirst ? " disabled" : "") + ">";
     return playBtn + labelHtml + absInput + '<span class="abs-cents-label"></span>' + nameBlock;
   }
   return playBtn + labelHtml + '<span class="cumulative-cents"></span>' + nameBlock;
@@ -305,9 +347,33 @@ function makeIntervalRowHTML(value, mode) {
     return '<span class="relative-cents-display"></span>' + labelCluster;
   }
   return '<input type="text" class="interval" placeholder="' +
-    getIntervalPlaceholder() + '" value="' + value + '">' +
+    getIntervalPlaceholder() + '" value="' + escapeAttribute(value) + '">' +
     '<span class="cents-label"></span>' +
     labelCluster;
+}
+
+/**
+ * A note row, built and painted but not yet in the document.
+ *
+ * `resetScaleToDefault`, `addNote` and `applyDocumentState` all want the same
+ * six lines — element, classes, degree, markup, wells — so they say it once
+ * here. `refreshNoteRowWells` works on a detached row: it measures on its own
+ * offscreen context and never reads layout.
+ */
+function makeNoteRowElement(degree, mode, absoluteValue) {
+  const row = document.createElement("div");
+  row.className = "row note-row";
+  row.dataset.degree = degree;
+  row.innerHTML = makeNoteRowHTML(degree, mode, absoluteValue);
+  refreshNoteRowWells(row);
+  return row;
+}
+
+function makeIntervalRowElement(value, mode) {
+  const row = document.createElement("div");
+  row.className = "row interval-row";
+  row.innerHTML = makeIntervalRowHTML(value, mode);
+  return row;
 }
 
 function getDefaultAbsoluteForNewNote() {
@@ -335,16 +401,9 @@ function addNote() {
   const defaultVal = getDefaultIntervalValue();
   const prevNoteRow = [...editor.querySelectorAll(".note-row")].at(-1);
 
-  const intervalRow = document.createElement("div");
-  intervalRow.className = "row interval-row";
-  intervalRow.innerHTML = makeIntervalRowHTML(defaultVal, mode);
-
-  const noteRow = document.createElement("div");
-  noteRow.className = "row note-row";
-  noteRow.dataset.degree = degree;
+  const intervalRow = makeIntervalRowElement(defaultVal, mode);
   const absVal = mode === "absolute" ? getDefaultAbsoluteForNewNote() : undefined;
-  noteRow.innerHTML = makeNoteRowHTML(degree, mode, absVal);
-  refreshNoteRowWells(noteRow);
+  const noteRow = makeNoteRowElement(degree, mode, absVal);
 
   editor.appendChild(intervalRow);
   editor.appendChild(noteRow);
@@ -468,21 +527,27 @@ function ratioToCents(r) {
   return 1200 * Math.log2(r);
 }
 
+/**
+ * The cents a box is worth, or NaN when it holds nothing readable.
+ *
+ * Validity is persistence.js's isValidIntervalItem() rather than a second rule
+ * restated here, so "the chart can plot it", "the editor leaves it unmarked"
+ * and "a file may carry it" are one question with one answer.
+ */
 function intervalToCents(str) {
   const type = getIntervalType();
-  const trimmed = str.trim();
+  const trimmed = String(str).trim();
+  if (!isValidIntervalItem(trimmed, type)) return NaN;
   if (type === "ratio") {
     const r = parseRatioPair(trimmed);
-    if (!r) return NaN;
-    const v = r[0] / r[1];
-    return (v <= 0) ? NaN : ratioToCents(v);
+    return ratioToCents(r[0] / r[1]);
   } else if (type === "edo") {
-    const steps = parseInt(trimmed, 10);
-    return isNaN(steps) ? NaN : steps * getCentsPerEdoDivision();
-  } else {
-    const c = parseFloat(trimmed);
-    return isNaN(c) ? NaN : c;
+    // Number(), not parseInt(): the validity rule reads the whole string, so
+    // parseInt would disagree with it on a spelling like "1e3" — validated as
+    // 1000 steps, drawn as 1.
+    return Number(trimmed) * getCentsPerEdoDivision();
   }
+  return Number(trimmed);
 }
 
 function intervalToDisplayString(str) {
@@ -1134,6 +1199,78 @@ function updateAllLabels() {
     updateAbsCentsLabels();
     updateRelativeCentsDisplays();
   }
+  markInvalidIntervals();
+}
+
+/**
+ * Whether a box holds something this app can read as an interval.
+ *
+ * One question with one answer: parsing is strict enough that "has cents" and
+ * "is a usable interval" are the same thing, so the chart can never draw a box
+ * the editor has painted red. An empty box names no interval and is invalid
+ * too — saving a scale with a hole in it would lose the hole.
+ */
+function isValidIntervalValue(value) {
+  return isValidIntervalItem(value, getIntervalType());
+}
+
+/**
+ * Paints every interval box that does not parse, and unpaints the rest.
+ *
+ * Called from updateAllLabels(), which already runs on every editor input, on
+ * add and remove note, on a mode or type switch, and at the end of an Open — so
+ * a value is marked however it arrived, whether the user typed it or a
+ * hand-edited file brought it in.
+ *
+ * Note 1's absolute box is skipped: it is disabled and the editor pins it to
+ * getUnisonValue(), so there is nothing there the user could have got wrong.
+ */
+function markInvalidIntervals() {
+  let anyInvalid = false;
+  for (const input of editor.querySelectorAll(".interval, .absolute-interval")) {
+    const invalid = !input.disabled && !isValidIntervalValue(input.value);
+    input.classList.toggle("is-invalid", invalid);
+    anyInvalid = anyInvalid || invalid;
+  }
+  // The save guard's complaint describes a state the editor is in, so it stops
+  // being true the moment that state does; leaving it up would have the bar
+  // contradicting the boxes it is describing. Scoped by kind, because a file
+  // that failed to open is still a thing that happened and fixing an interval
+  // says nothing about it.
+  if (!anyInvalid) clearToolbarMessageOfKind(INVALID_SCALE_MESSAGE);
+}
+
+function joinWithAnd(items) {
+  if (items.length < 2) return items.join("");
+  return items.slice(0, -1).join(", ") + " and " + items[items.length - 1];
+}
+
+/**
+ * Why the scale cannot be saved, or null when it can.
+ *
+ * Positions are counted in the units the user is looking at: interval rows in
+ * relative mode, note rows in absolute, where the value lives on the note
+ * itself. Every offending row is named rather than just the first — the red
+ * boxes show which, but a long scale scrolls past the fold and the bar is what
+ * stays on screen.
+ */
+function invalidIntervalMessage() {
+  const absolute = getScaleMode() === "absolute";
+  const rows = [...editor.querySelectorAll(absolute ? ".note-row" : ".interval-row")];
+  const positions = [];
+  rows.forEach(function (row, i) {
+    const input = row.querySelector(absolute ? ".absolute-interval" : ".interval");
+    if (!input || input.disabled) return;
+    if (!isValidIntervalValue(input.value)) positions.push(i + 1);
+  });
+  if (positions.length === 0) return null;
+
+  const nouns = INTERVAL_TYPE_NOUNS[getIntervalType()];
+  const thing = absolute ? "note" : "interval";
+  if (positions.length === 1) {
+    return `Cannot save: ${thing} ${positions[0]} is not a valid ${nouns[0]}.`;
+  }
+  return `Cannot save: ${thing}s ${joinWithAnd(positions)} are not valid ${nouns[1]}.`;
 }
 
 function updateCumulativeCents() {
@@ -1198,26 +1335,10 @@ function resetScaleToDefault() {
 
   editor.innerHTML = "";
 
-  const noteRow1 = document.createElement("div");
-  noteRow1.className = "row note-row";
-  noteRow1.dataset.degree = 1;
-  noteRow1.innerHTML = makeNoteRowHTML(1, mode);
-  refreshNoteRowWells(noteRow1);
-
-  const intervalRow = document.createElement("div");
-  intervalRow.className = "row interval-row";
-  intervalRow.innerHTML = makeIntervalRowHTML(defaultVal, mode);
-
-  const noteRow2 = document.createElement("div");
-  noteRow2.className = "row note-row";
-  noteRow2.dataset.degree = 2;
-  // In absolute mode, Note 2's absolute = the relative default (stacked on unison)
-  noteRow2.innerHTML = makeNoteRowHTML(2, mode, defaultVal);
-  refreshNoteRowWells(noteRow2);
-
-  editor.appendChild(noteRow1);
-  editor.appendChild(intervalRow);
-  editor.appendChild(noteRow2);
+  editor.appendChild(makeNoteRowElement(1, mode));
+  editor.appendChild(makeIntervalRowElement(defaultVal, mode));
+  // In absolute mode, Note 2's absolute = the relative default (stacked on unison).
+  editor.appendChild(makeNoteRowElement(2, mode, defaultVal));
 
   updateRemoveBtn();
   updateAllLabels();
@@ -1252,7 +1373,7 @@ function resetControlsToDefaults() {
     const markupDefault = Array.from(select.options).find(o => o.defaultSelected) || select.options[0];
     if (markupDefault) select.value = markupDefault.value;
   }
-  for (const input of [edoDivisionsInput, zoomSlider]) {
+  for (const input of [scaleNameInput, edoDivisionsInput, zoomSlider]) {
     input.value = input.defaultValue;
   }
 }
@@ -1542,6 +1663,13 @@ function base64FromBytes(bytes) {
 }
 
 function savePNG() {
+  // A PNG is a picture of the scale, and a scale with a hole in it is not one
+  // the app should hand out in any format.
+  const problem = invalidIntervalMessage();
+  if (problem) {
+    showToolbarMessage(problem, INVALID_SCALE_MESSAGE);
+    return;
+  }
   const link = document.createElement("a");
   link.download = "scale.png";
   // Redraw at the export scale for the bitmap, then put the screen back: the
@@ -1597,6 +1725,7 @@ function closeAllDropdowns() {
     if (row) row.classList.remove("dropdown-open");
   }
   closeSymbolPickers();
+  closeSaveMenu();
 }
 
 function setSwatchColor(swatch, hex) {
@@ -1761,6 +1890,36 @@ editor.addEventListener("input", function (e) {
   render();
 });
 
+/**
+ * The row text boxes where Enter means "give me another note".
+ *
+ * Not #scale-name or #edo-divisions: those describe the whole scale rather than
+ * one note, and they sit outside #editor anyway, so this delegated listener
+ * never sees them.
+ */
+const NOTE_ENTRY_SELECTOR = ".interval, .absolute-interval, .note-name, .interval-label";
+
+/**
+ * Puts the cursor where the next value goes — the interval box of the row the
+ * user is now building, so a scale can be typed value, Enter, value, Enter
+ * without reaching for the mouse. In relative mode that box is on the new
+ * interval row; in absolute mode the value lives on the note row itself.
+ */
+function focusNewestIntervalInput() {
+  const selector = getScaleMode() === "absolute" ? ".absolute-interval" : ".interval";
+  const inputs = editor.querySelectorAll(selector);
+  const last = inputs[inputs.length - 1];
+  if (last) last.focus();
+}
+
+function handleEditorEnter(e) {
+  if (e.key !== "Enter" || !e.target || typeof e.target.matches !== "function") return;
+  if (!e.target.matches(NOTE_ENTRY_SELECTOR)) return;
+  e.preventDefault();
+  addNote();
+  focusNewestIntervalInput();
+}
+
 function handlePlayStart(e) {
   const btn = e.target.closest(".play-note");
   if (!btn) return;
@@ -1771,6 +1930,7 @@ function handlePlayStart(e) {
   startTone(getFrequencyForDegree(degree));
 }
 
+editor.addEventListener("keydown", handleEditorEnter);
 editor.addEventListener("mousedown", handlePlayStart);
 editor.addEventListener("touchstart", handlePlayStart);
 document.addEventListener("mouseup", stopTone);

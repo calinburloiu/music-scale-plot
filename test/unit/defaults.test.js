@@ -92,25 +92,49 @@ test("getDefaultAbsoluteForNewNote stacks the default interval on the last note"
   });
 });
 
-test("getBaseFrequency follows the base note selector", async (t) => {
-  const h = loadApp();
-  t.after(() => h.close());
+test("the base note selector", async (t) => {
+  await t.test("offers all twelve chromatic notes, C first", () => {
+    const h = loadApp();
+    t.after(() => h.close());
 
-  await t.test("A is 220 Hz", () => {
-    selectOption(h, "base-note", "0");
-    closeTo(h.app.getBaseFrequency(), 220);
+    // The list is also the file format's vocabulary: settings.baseNote is this
+    // value verbatim, so nothing translates at the boundary.
+    assert.deepEqual(
+      [...h.document.getElementById("base-note").options].map((o) => o.value),
+      ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"]
+    );
   });
 
-  await t.test("other notes are equal-tempered semitones above A", () => {
-    const cases = { 2: "B", 3: "C", 5: "D", 7: "E", 8: "F", 10: "G" };
-    for (const [semitones, name] of Object.entries(cases)) {
-      selectOption(h, "base-note", semitones);
+  await t.test("every one of the twelve sounds at the pitch it names", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // Semitones above C, wrapped onto A220 … G#415 — exactly the octave the
+    // old A-based encoding spanned, so every note that could be chosen before
+    // still sounds at the pitch it did.
+    const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    for (let s = 0; s < 12; s++) {
+      selectOption(h, "base-note", String(s));
       closeTo(
         h.app.getBaseFrequency(),
-        220 * Math.pow(2, Number(semitones) / 12),
+        220 * Math.pow(2, ((s + 3) % 12) / 12),
         1e-9,
-        `base note ${name}`
+        `base note ${names[s]}`
       );
     }
+  });
+
+  await t.test("A is still 220 Hz, now at value 9", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    selectOption(h, "base-note", "9");
+    closeTo(h.app.getBaseFrequency(), 220, 1e-9);
+  });
+
+  await t.test("the default is C, at 261.63 Hz", () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    assert.equal(h.document.getElementById("base-note").value, "0", "C is the first option");
+    closeTo(h.app.getBaseFrequency(), 261.6255653, 1e-6);
   });
 });

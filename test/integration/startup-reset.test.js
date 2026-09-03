@@ -20,7 +20,7 @@ const { closeTo } = require("../helpers/assertions.js");
  */
 const RESTORED = {
   "#notation": "byzantine",
-  "#base-note": "3",
+  "#base-note": "3", // D#/Eb — anything but the default, which is now C
   "#interval-type": "edo",
   "#edo-divisions": "53",
   "#scale-mode": "absolute",
@@ -29,6 +29,7 @@ const RESTORED = {
   "#zoom": "50",
   "#editor .interval": "7/6",
   "#editor .note-name": "Pa",
+  "#scale-name": "a name the browser restored",
   "#editor .interval-label": "restored label",
 };
 
@@ -57,13 +58,14 @@ for (const [when, boot] of Object.entries(RESTORE_POINTS)) {
 
       const valueOf = (id) => h.document.getElementById(id).value;
       assert.equal(valueOf("notation"), "generic");
-      assert.equal(valueOf("base-note"), "0");
+      assert.equal(valueOf("base-note"), "0", "0 is C now, not A: the list is chromatic from C");
       assert.equal(valueOf("interval-type"), "ratio");
       assert.equal(valueOf("edo-divisions"), "12");
       assert.equal(valueOf("scale-mode"), "relative");
       assert.equal(valueOf("chart-style"), "boxes");
       assert.equal(valueOf("orientation"), "vertical");
       assert.equal(valueOf("zoom"), "100");
+      assert.equal(valueOf("scale-name"), "", "the scale name is part of the reset too");
     });
 
     await t.test("rebuilds the default two-note scale, discarding restored text", () => {

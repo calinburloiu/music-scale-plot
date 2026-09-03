@@ -36,8 +36,13 @@ function scriptPaths(html) {
   return [...html.matchAll(SCRIPT_SRC)].map((m) => path.join(ROOT, m[1]));
 }
 
-/** Matches a top-level (column 0) declaration in a script. */
-const TOP_LEVEL_DECLARATION = /^(?:function|const|let|var)\s+([A-Za-z_$][\w$]*)/gm;
+/**
+ * Matches a top-level (column 0) declaration in a script — including an
+ * `async function`, so `async function saveScaleFile` and its Open-side
+ * sibling `openScaleFile` are exported to tests exactly like any other
+ * top-level function (docs/TESTING.md §5).
+ */
+const TOP_LEVEL_DECLARATION = /^(?:async\s+)?(?:function|const|let|var)\s+([A-Za-z_$][\w$]*)/gm;
 
 function topLevelNames(source) {
   const names = new Set();
@@ -70,6 +75,14 @@ function buildExportEpilogue(names) {
  *   restores form state across a soft reload
  * @param {string} [options.inkMetrics="exact"] `"union"` reports every ink box
  *   unioned with the text's advance rect and its baseline, the way WebKit does
+ * @param {boolean|object} [options.fileSystemAccess] installs `showSaveFilePicker`
+ *   and `showOpenFilePicker` stubs. **Absent by default**, so most tests exercise
+ *   the download / file-input fallback — the path every browser reaches. Pass
+ *   `{ text }` to say what the open picker hands back, `{ saveAborts: true }` or
+ *   `{ openAborts: true }` to have the picker reject with an AbortError, the way
+ *   a cancelled dialog does, or `{ saveFails: true }` / `{ openFails: true }` to
+ *   have it reject with an ordinary Error, the way a real failure (permission
+ *   denied, disk full, a broken handle) does — distinct from a cancelled dialog
  * @returns {object} harness
  */
 function loadApp(options = {}) {
@@ -172,6 +185,42 @@ function loadApp(options = {}) {
     downloads.push({ download: this.download, href: this.href });
   };
 
+  // --- File System Access -------------------------------------------------
+  // Absent unless a test asks for it: Firefox, Safari and every file:// page
+  // reach the fallback, so that is the path most tests should be on.
+  const writtenFiles = [];
+  const filePickerCalls = [];
+  if (options.fileSystemAccess) {
+    const settings = options.fileSystemAccess === true ? {} : options.fileSystemAccess;
+    const abort = () =>
+      Promise.reject(new window.DOMException("The user aborted a request.", "AbortError"));
+    const fail = (message) => Promise.reject(new Error(message));
+
+    window.showSaveFilePicker = function showSaveFilePicker(pickerOptions) {
+      filePickerCalls.push({ picker: "save", options: pickerOptions });
+      if (settings.saveAborts) return abort();
+      if (settings.saveFails) return fail("stub: showSaveFilePicker failed");
+      return Promise.resolve({
+        createWritable: () =>
+          Promise.resolve({
+            write: (data) => {
+              writtenFiles.push({ name: pickerOptions.suggestedName, text: String(data) });
+              return Promise.resolve();
+            },
+            close: () => Promise.resolve(),
+          }),
+      });
+    };
+
+    window.showOpenFilePicker = function showOpenFilePicker(pickerOptions) {
+      filePickerCalls.push({ picker: "open", options: pickerOptions });
+      if (settings.openAborts) return abort();
+      if (settings.openFails) return fail("stub: showOpenFilePicker failed");
+      const text = settings.text === undefined ? "" : settings.text;
+      return Promise.resolve([{ getFile: () => Promise.resolve({ text: () => Promise.resolve(text) }) }]);
+    };
+  }
+
   // Written before any script runs — Firefox restores form state while parsing,
   // so the app can boot against controls that already carry the user's values.
   applyRestoredState(document, options.restored);
@@ -210,6 +259,10 @@ function loadApp(options = {}) {
     ctx: context,
     /** `{ download, href }` for every anchor click (i.e. every PNG export). */
     downloads,
+    /** `{ name, text }` for every file written through showSaveFilePicker. */
+    writtenFiles,
+    /** `{ picker, options }` for every File System Access picker call. */
+    filePickerCalls,
     /** Every `toDataURL()` call made on the chart canvas. */
     dataUrls,
     /** Every font spec passed to `document.fonts.load()`. */
@@ -275,6 +328,24 @@ function fireClick(harness, element) {
 function typeInto(harness, element, value) {
   element.value = value;
   fireInput(harness, element);
+}
+
+/**
+ * Presses a key on `element`, the way a user with focus there does.
+ *
+ * Bubbling and cancelable, because both matter: the app's key handlers are
+ * delegated to #editor or to document, and they call preventDefault() to keep
+ * the browser's own behaviour off the page. Returns whether the default was
+ * prevented, so a test can assert that too.
+ */
+function pressKey(harness, element, key) {
+  const event = new harness.window.KeyboardEvent("keydown", {
+    key: key,
+    bubbles: true,
+    cancelable: true,
+  });
+  element.dispatchEvent(event);
+  return event.defaultPrevented;
 }
 
 /** Picks `value` in a `<select>` and dispatches the `change` event. */
@@ -361,6 +432,45 @@ function pickColor(harness, intervalRow, hex) {
   if (!option) throw new Error(`No colour option ${hex} in the active palette`);
   fireClick(harness, option);
   return option;
+}
+
+/**
+ * The scale document the app last handed to `<a download>`, read back out of
+ * the data: URL — the same mechanism savePNG() uses, so no URL.createObjectURL
+ * shim is needed and the existing anchor recorder does the work.
+ */
+function savedScaleFile(harness) {
+  const download = harness.downloads[harness.downloads.length - 1];
+  if (!download) throw new Error("Nothing was downloaded");
+  const comma = download.href.indexOf(",");
+  return { name: download.download, text: decodeURIComponent(download.href.slice(comma + 1)) };
+}
+
+/**
+ * Hands the hidden file input a file and fires `change`, the way a browser does
+ * once the user has picked one in the fallback dialog. The handler reads the
+ * file asynchronously, so this resolves on the next macrotask — `await` it.
+ *
+ * Pass an `Error` as `text` to make the file's own `text()` reject with it,
+ * the way a real read failure would — everything else about the call stays
+ * the same.
+ *
+ * Named `pickScaleFile`, not `openScaleFile`: persistence-ui.js's own
+ * top-level `async function openScaleFile` is auto-exported to `h.app` under
+ * that same name (docs/TESTING.md §5), so a test file that imported both
+ * would have two `openScaleFile`s with different signatures in scope — a
+ * maintainer writing `openScaleFile(h)` expecting the app's Open flow would
+ * silently get this fallback-input helper instead.
+ */
+function pickScaleFile(harness, text, fileName = "scale.musp.json") {
+  const input = harness.document.getElementById("open-file-input");
+  const file = {
+    name: fileName,
+    text: () => (text instanceof Error ? Promise.reject(text) : Promise.resolve(text)),
+  };
+  Object.defineProperty(input, "files", { value: [file], configurable: true });
+  fireChange(harness, input);
+  return new Promise((resolve) => harness.window.setTimeout(resolve, 0));
 }
 
 /**
@@ -463,6 +573,7 @@ module.exports = {
   fireChange,
   fireClick,
   typeInto,
+  pressKey,
   selectOption,
   setNotation,
   noteRows,
@@ -471,6 +582,8 @@ module.exports = {
   buildRelativeScale,
   buildAbsoluteScale,
   pickColor,
+  savedScaleFile,
+  pickScaleFile,
   openWell,
   pickAlteration,
   pickAccidental,

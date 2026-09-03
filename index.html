@@ -7,6 +7,39 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="toolbar-bar">
+    <div id="toolbar" role="toolbar" aria-label="File and scale actions">
+      <button type="button" id="new-file" class="toolbar-btn" aria-label="New" title="New">
+        <img src="icons/new.svg" alt="">
+      </button>
+      <button type="button" id="open-file" class="toolbar-btn" aria-label="Open" title="Open">
+        <img src="icons/open.svg" alt="">
+      </button>
+      <div class="save-menu-wrapper">
+        <button type="button" id="save-menu" class="toolbar-btn has-caret" aria-label="Save" title="Save"
+                aria-haspopup="menu" aria-expanded="false">
+          <img src="icons/save.svg" alt="">
+        </button>
+        <div class="save-menu-panel" id="save-menu-panel">
+          <button type="button" id="save-scale">Save As Music Scale Plot file</button>
+          <hr>
+          <button type="button" id="save-png">Save As PNG</button>
+        </div>
+      </div>
+      <span class="toolbar-separator"></span>
+      <button type="button" id="add-note" class="toolbar-btn" aria-label="Add note" title="Add note">
+        <img src="icons/add-note.svg" alt="">
+      </button>
+      <button type="button" id="remove-note" class="toolbar-btn" aria-label="Remove last note" title="Remove last note">
+        <img src="icons/remove-note.svg" alt="">
+      </button>
+      <input type="file" id="open-file-input" accept=".musp.json,application/json" hidden>
+    </div>
+    <div id="toolbar-message" role="alert" hidden>
+      <span id="toolbar-message-text"></span>
+      <button type="button" id="toolbar-message-dismiss" aria-label="Dismiss message"></button>
+    </div>
+  </div>
   <div class="container">
     <div class="left-column">
     <div class="panel settings-panel">
@@ -21,19 +54,31 @@
       <div class="base-note-row">
         <label for="base-note">Base Note</label>
         <select id="base-note">
-          <option value="0">A</option>
-          <option value="2">B</option>
-          <option value="3">C</option>
-          <option value="5">D</option>
-          <option value="7">E</option>
-          <option value="8">F</option>
-          <option value="10">G</option>
+          <option value="0">C</option>
+          <option value="1">C&#9839;/D&#9837;</option>
+          <option value="2">D</option>
+          <option value="3">D&#9839;/E&#9837;</option>
+          <option value="4">E</option>
+          <option value="5">F</option>
+          <option value="6">F&#9839;/G&#9837;</option>
+          <option value="7">G</option>
+          <option value="8">G&#9839;/A&#9837;</option>
+          <option value="9">A</option>
+          <option value="10">A&#9839;/B&#9837;</option>
+          <option value="11">B</option>
         </select>
+      </div>
+    </div>
+    <div class="panel editor-panel">
+      <h2>Scale Editor</h2>
+      <div class="scale-name-row">
+        <label for="scale-name">Name</label>
+        <input type="text" id="scale-name" placeholder="untitled">
       </div>
       <div class="interval-type-row">
         <label for="interval-type">Interval Type</label>
         <select id="interval-type">
-          <option value="ratio">Ratios</option>
+          <option value="ratio">Ratio</option>
           <option value="edo">Equal Division of the Octave (EDO)</option>
           <option value="cents">Cents</option>
         </select>
@@ -45,9 +90,6 @@
           <span id="edo-cents-label"></span>
         </div>
       </div>
-    </div>
-    <div class="panel editor-panel">
-      <h2>Scale Editor</h2>
       <div class="scale-mode-row">
         <label for="scale-mode">Mode</label>
         <select id="scale-mode">
@@ -112,23 +154,16 @@
           </div>
         </div>
       </div>
-      <div class="editor-controls">
-        <button id="add-note">Add note</button>
-        <button id="remove-note">Remove last note</button>
-      </div>
     </div>
     </div>
     <div class="panel chart-panel">
       <h2>Chart</h2>
       <div class="chart-toolbar">
         <div class="chart-toolbar-row">
-          <button id="save-png">Save as PNG</button>
-        </div>
-        <div class="chart-toolbar-row">
           <label for="chart-style">Style</label>
           <select id="chart-style">
             <option value="boxes">Boxes</option>
-            <option value="lines">Line</option>
+            <option value="lines">Segments</option>
           </select>
         </div>
         <div class="chart-toolbar-row">
@@ -149,8 +184,10 @@
   </div>
   <script src="byzantine.js" defer></script>
   <script src="smufl.js" defer></script>
+  <script src="persistence.js" defer></script>
   <script src="symbols-ui.js" defer></script>
   <script src="byzantine-ui.js" defer></script>
+  <script src="persistence-ui.js" defer></script>
   <script src="app.js" defer></script>
 </body>
 </html>

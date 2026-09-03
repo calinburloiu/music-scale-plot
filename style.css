@@ -134,32 +134,17 @@ body {
 /* --- Settings Panel --- */
 
 .notation-row,
-.base-note-row,
-.interval-type-row,
-.edo-settings-row {
+.base-note-row {
   display: flex;
   align-items: center;
   gap: 0.65rem;
 }
 
-/* Every settings row after the first is spaced the same way; only the EDO row,
-   which appears and disappears under Interval Type, sits slightly closer. */
-.base-note-row,
-.interval-type-row { margin-top: 0.85rem; }
-.edo-settings-row  { margin-top: 0.65rem; align-items: flex-start; }
-
-.edo-input-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.35rem;
-  min-width: 0;
-}
+/* Every settings row after the first is spaced the same way. */
+.base-note-row { margin-top: 0.85rem; }
 
 .notation-row label,
-.base-note-row label,
-.interval-type-row label,
-.edo-settings-row label {
+.base-note-row label {
   font-weight: 500;
   font-size: 0.72rem;
   flex: 0 0 auto;
@@ -170,9 +155,7 @@ body {
 }
 
 .notation-row select,
-.base-note-row select,
-.interval-type-row select,
-.edo-settings-row input {
+.base-note-row select {
   flex: 0 0 auto;
   width: 17rem;
   padding: 0.45rem 0.7rem;
@@ -187,58 +170,62 @@ body {
 }
 
 .notation-row select:hover,
-.base-note-row select:hover,
-.interval-type-row select:hover,
-.edo-settings-row input:hover {
+.base-note-row select:hover {
   border-color: var(--ink-soft);
 }
 
 .notation-row select:focus,
-.base-note-row select:focus,
-.interval-type-row select:focus,
-.edo-settings-row input:focus {
+.base-note-row select:focus {
   outline: none;
   border-color: var(--ink);
   background: #fff;
   box-shadow: 0 0 0 3px var(--focus-glow);
 }
 
-.edo-settings-row input {
-  cursor: text;
-}
-
-#edo-cents-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.76rem;
-  color: var(--ink-soft);
-  white-space: nowrap;
-  padding-top: 0.05rem;
-}
-
 /* === Editor Panel ============================================ */
 
 .editor-panel { position: relative; }
 
+/* One visual family for the editor's own settings: Name, Interval Type, EDO
+   Divisions and Mode. They share a label column and a full-width control, and
+   Mode carries the rule that separates them from the rows below. */
+.scale-name-row,
+.interval-type-row,
+.edo-settings-row,
 .scale-mode-row {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  margin-bottom: 0.7rem;
+}
+
+.edo-settings-row { align-items: flex-start; }
+
+.scale-mode-row {
   margin-bottom: 1.1rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--rule);
 }
 
+.scale-name-row label,
+.interval-type-row label,
+.edo-settings-row label,
 .scale-mode-row label {
   font-weight: 500;
   font-size: 0.72rem;
   flex: 0 0 auto;
+  width: 9.5rem;
   color: var(--ink-soft);
   text-transform: uppercase;
   letter-spacing: 0.09em;
 }
 
+.scale-name-row input,
+.interval-type-row select,
+.edo-settings-row input,
 .scale-mode-row select {
   flex: 1 1 auto;
+  min-width: 0;
   padding: 0.45rem 0.7rem;
   border: 1px solid var(--rule);
   border-radius: 3px;
@@ -250,13 +237,39 @@ body {
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
+.scale-name-row input,
+.edo-settings-row input { cursor: text; }
+
+.scale-name-row input:hover,
+.interval-type-row select:hover,
+.edo-settings-row input:hover,
 .scale-mode-row select:hover { border-color: var(--ink-soft); }
 
+.scale-name-row input:focus,
+.interval-type-row select:focus,
+.edo-settings-row input:focus,
 .scale-mode-row select:focus {
   outline: none;
   border-color: var(--ink);
   background: #fff;
   box-shadow: 0 0 0 3px var(--focus-glow);
+}
+
+.edo-input-stack {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+#edo-cents-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.76rem;
+  color: var(--ink-soft);
+  white-space: nowrap;
+  padding-top: 0.05rem;
 }
 
 /* --- Absolute mode: absolute-interval input on note-row --- */
@@ -946,6 +959,26 @@ body {
   box-shadow: 0 0 0 3px var(--focus-glow);
 }
 
+/* A box the app cannot read as an interval. The rules sit after the :hover and
+   :focus above so the tint survives both — a user fixing the value is looking
+   at the box with the cursor in it, which is exactly when the mark has to stay
+   visible. --accent is the same red the message bar and the cents labels use.
+
+   Both selectors are needed: the relative value lives on the interval row, the
+   absolute one on the note row. */
+.interval-row .interval.is-invalid,
+.note-row .absolute-interval.is-invalid {
+  border-color: var(--accent);
+  background: rgba(138, 46, 26, 0.12);
+}
+
+.interval-row .interval.is-invalid:focus,
+.note-row .absolute-interval.is-invalid:focus {
+  border-color: var(--accent);
+  background: rgba(138, 46, 26, 0.12);
+  box-shadow: 0 0 0 3px rgba(138, 46, 26, 0.18);
+}
+
 .interval-row .cents-label {
   flex: 0 0 auto;
   min-width: 70px;
@@ -1079,76 +1112,189 @@ body {
   box-shadow: 0 0 0 1.5px var(--ink);
 }
 
-/* --- Editor controls --- */
+/* === Toolbar ================================================= */
 
-.editor-controls {
+/* The sticky element is the wrapper, not #toolbar itself. The alert bar has to
+   stay outside role="toolbar"'s accessible subtree — that subtree is for
+   widgets, not a live region — yet it still has to ride on screen, because it
+   is the only channel a rejected file reports through and Ctrl/Cmd+O works
+   however far down the page the user has scrolled. Sticking the pair together
+   also survives the toolbar wrapping onto a second row, which a fixed `top`
+   offset on the bar alone would not.
+
+   z-index 200 clears the symbol pickers' 100. Both live in the root stacking
+   context — a picker escapes the editor panel into it (see Motion, below) — so
+   200 is the number "always on top" actually has to beat. */
+#toolbar-bar {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  background: var(--paper-warm);
+  border-bottom: 1px solid var(--rule);
+  box-shadow: 0 2px 10px -8px rgba(30, 20, 10, 0.55);
+}
+
+#toolbar {
   display: flex;
-  gap: 0.55rem;
-  margin-top: 1.5rem;
-  padding-top: 1.1rem;
-  border-top: 1px solid var(--rule);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem 2rem;
 }
 
-#add-note,
-#remove-note {
-  padding: 0.55rem 1.05rem;
+/* An SVG loaded through <img> renders in an isolated document that no page CSS
+   reaches, so `currentColor` never resolves and each file's ink is baked at
+   --ink. Every state is therefore opacity plus the button's own background —
+   which is also why all five buttons share one treatment rather than Add note
+   keeping its old filled-primary emphasis. */
+.toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.15rem;
+  height: 2.15rem;
+  padding: 0;
+  border: 0;
   border-radius: 3px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition: background 0.18s, color 0.18s, border-color 0.18s, transform 0.18s, box-shadow 0.18s;
-}
-
-#add-note {
-  background: var(--ink);
-  color: var(--paper);
-  border: 1px solid var(--ink);
-  box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.28);
-}
-
-#add-note::before,
-#remove-note::before {
-  display: inline-block;
-  margin-right: 0.45em;
-  font-family: 'Fraunces', serif;
-  font-weight: 400;
-  font-size: 1.1em;
-  line-height: 0;
-  vertical-align: -1px;
-}
-
-#add-note::before    { content: '+'; }
-#remove-note::before { content: '\2212'; } /* − minus */
-
-#add-note:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 14px -4px rgba(138, 46, 26, 0.42);
-}
-
-#add-note:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.28);
-}
-
-#remove-note {
   background: transparent;
-  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.toolbar-btn img {
+  width: 1.2rem;
+  height: 1.2rem;
+  opacity: 0.72;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+.toolbar-btn:hover:not(:disabled),
+.toolbar-btn:focus-visible,
+.toolbar-btn:active:not(:disabled) { background: var(--paper-deep); }
+
+.toolbar-btn:hover:not(:disabled) img,
+.toolbar-btn:focus-visible img { opacity: 1; }
+
+.toolbar-btn:disabled { background: transparent; cursor: not-allowed; }
+.toolbar-btn:disabled img { opacity: 0.3; }
+
+.save-menu-wrapper { position: relative; }
+
+/* The caret is a CSS triangle rather than a sixth .svg, so it follows the
+   button's own colour instead of being baked like the icons. */
+.toolbar-btn.has-caret::after {
+  content: '';
+  margin-left: 0.15rem;
+  border: 3px solid transparent;
+  border-top-color: var(--ink);
+  border-bottom: 0;
+  opacity: 0.72;
+}
+
+.save-menu-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  left: 0;
+  min-width: 15rem;
+  padding: 0.3rem;
+  background: var(--paper-fade);
   border: 1px solid var(--rule);
+  border-radius: 3px;
+  box-shadow: 0 10px 24px -12px rgba(30, 20, 10, 0.5);
 }
 
-#remove-note:hover:not(:disabled) {
-  background: var(--paper-deep);
+.save-menu-panel.open { display: block; }
+
+.save-menu-panel button {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 0.55rem;
+  border: 0;
+  border-radius: 3px;
+  background: none;
   color: var(--ink);
-  border-color: var(--ink-soft);
+  font-family: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-#remove-note:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
+.save-menu-panel button:hover { background: var(--paper-deep); }
+
+.save-menu-panel hr {
+  margin: 0.25rem 0.3rem;
+  border: 0;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.toolbar-separator {
+  width: 1px;
+  height: 1.4rem;
+  margin: 0 0.35rem;
+  background: var(--rule);
+}
+
+/* A sibling of #toolbar, not a flex child of it (a role="toolbar" accessible
+   subtree is meant to hold widgets, not a role="alert" live region) — the
+   side margins reproduce the inset the toolbar's own 2rem padding used to
+   give it, so it appears in the same place it always did. No top margin:
+   #toolbar's own bottom padding is already the gap above it. The bottom margin
+   is what holds it off #toolbar-bar's rule when it shows. */
+/* `display: flex` below is an id selector, which outranks the UA stylesheet's
+   `[hidden] { display: none }` — so without this rule the bar ignores its own
+   hidden attribute and sits on the page as an empty strip from load onwards,
+   with the × setting an attribute that changes nothing. Anything that gives
+   #toolbar-message a display value has to restate this. */
+#toolbar-message[hidden] {
+  display: none;
+}
+
+#toolbar-message {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin: 0 2rem 0.45rem;
+  padding: 0.4rem 0.6rem;
+  border-radius: 3px;
+  background: rgba(138, 46, 26, 0.1);
+  color: var(--accent);
+  font-size: 0.82rem;
+}
+
+#toolbar-message-text {
+  flex: 1;
+}
+
+/* The × is drawn here rather than written in the markup so the button carries
+   no text node: #toolbar-message is the role="alert" live region, and a glyph
+   inside it would be read out along with the message. The accessible name comes
+   from the button's aria-label instead.
+
+   `line-height: 1` on a 1rem glyph keeps the button's box the height of the
+   character, so it sits on the message's first line however many lines the
+   message wraps to. */
+#toolbar-message-dismiss {
+  flex: none;
+  padding: 0 0.2rem;
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.65;
+}
+
+#toolbar-message-dismiss::before {
+  content: "\00d7";
+}
+
+#toolbar-message-dismiss:hover,
+#toolbar-message-dismiss:focus-visible {
+  opacity: 1;
 }
 
 /* === Chart Panel ============================================ */
@@ -1196,11 +1342,6 @@ body {
   letter-spacing: 0.09em;
 }
 
-/* Save button row has no label — indent so it lines up with the dropdowns below */
-.chart-toolbar #save-png {
-  margin-left: calc(7rem + 0.6rem);
-}
-
 .chart-toolbar select {
   flex: 0 0 auto;
   width: 10rem;
@@ -1236,35 +1377,6 @@ body {
   min-width: 3em;
   text-align: right;
   color: var(--ink-soft);
-}
-
-.chart-toolbar button {
-  flex: 0 0 auto;
-  width: 10rem;
-  padding: 0.55rem 1.1rem;
-  background: var(--ink);
-  color: var(--paper);
-  border: 1px solid var(--ink);
-  border-radius: 3px;
-  font-family: 'DM Sans', sans-serif;
-  font-size: 0.82rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  transition: background 0.18s, border-color 0.18s, transform 0.18s, box-shadow 0.18s;
-  box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.28);
-}
-
-.chart-toolbar button:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  transform: translateY(-1px);
-  box-shadow: 0 6px 14px -4px rgba(138, 46, 26, 0.42);
-}
-
-.chart-toolbar button:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px -2px rgba(0, 0, 0, 0.28);
 }
 
 #chart {
@@ -1321,31 +1433,38 @@ body {
 
   /* Settings rows: stack label above full-width input */
   .notation-row,
-  .base-note-row,
-  .interval-type-row,
-  .edo-settings-row {
+  .base-note-row {
     flex-direction: column;
     align-items: stretch;
     gap: 0.35rem;
   }
   .notation-row label,
-  .base-note-row label,
-  .interval-type-row label,
-  .edo-settings-row label {
+  .base-note-row label {
     width: auto;
     font-size: 0.68rem;
   }
   .notation-row select,
-  .base-note-row select,
-  .interval-type-row select,
-  .edo-settings-row input {
+  .base-note-row select {
     width: 100%;
   }
-  .edo-input-stack { width: 100%; }
 
-  /* Scale mode row stays inline but label shrinks */
-  .scale-mode-row { gap: 0.5rem; }
-  .scale-mode-row label { font-size: 0.68rem; }
+  /* Editor settings rows: stack label above full-width control, like Settings */
+  .scale-name-row,
+  .interval-type-row,
+  .edo-settings-row,
+  .scale-mode-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+  }
+  .scale-name-row label,
+  .interval-type-row label,
+  .edo-settings-row label,
+  .scale-mode-row label {
+    width: auto;
+    font-size: 0.68rem;
+  }
+  .edo-input-stack { width: 100%; }
 
   /* Editor rows: shrink note-name and right-cluster, tighten gaps.
      --row-gap moves here too: .row's own gap reads var(--row-gap) already
@@ -1420,20 +1539,6 @@ body {
     width: auto;
     flex: 1 1 0;
     min-width: 0;
-  }
-  .chart-toolbar button {
-    width: auto;
-    flex: 1 1 0;
-  }
-  .chart-toolbar #save-png {
-    margin-left: calc(5.25rem + 0.45rem);
-  }
-
-  /* Editor controls: stack neatly */
-  #add-note,
-  #remove-note {
-    padding: 0.5rem 0.85rem;
-    font-size: 0.78rem;
   }
 }
 
