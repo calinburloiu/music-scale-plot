@@ -6,7 +6,7 @@ Supports scales from various traditions including Byzantine/psaltic music, Ottom
 
 ## Usage
 
-Open `index.html` in a browser. No build step or server required. The page loads `style.css` and, in order, `byzantine.js`, `smufl.js`, `persistence.js`, `symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js` and `app.js` (all `defer`), from the same directory.
+Open `index.html` in a browser. No build step or server required. The page loads `style.css` and, in order, `byzantine.js`, `smufl.js`, `persistence.js`, `symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js` and `app.js` (all `defer`), from the same directory. It also needs the `icons/` and `fonts/` directories beside it — the toolbar's five buttons are `<img>`-loaded SVGs, and the Byzantine and Generic symbols are drawn in the vendored fonts.
 
 1. Use the scale editor to define notes and intervals.
 2. The chart updates in real-time as you type.
@@ -47,3 +47,8 @@ vendored file is upstream's own woff2 build, byte for byte; see
 [fonts/README.md](fonts/README.md) for the sha256 and the full terms.
 
 See [fonts/README.md](fonts/README.md) for both fonts' provenance and terms.
+
+The five toolbar glyphs in `icons/` are **not** third-party: they were drawn for this
+project and are covered by the Apache-2.0 licence above. They read like Feather or Lucide
+because they share that idiom — a 24×24 box, a rounded 2-unit stroke — and not because
+they were taken from either; no icon set's notice applies here.
