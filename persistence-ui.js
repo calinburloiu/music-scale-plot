@@ -226,27 +226,13 @@ async function saveScaleFile() {
     return;
   }
 
-  const text = serializeScaleDocument(collectDocumentState());
-  const fileName = suggestedFileName(scaleNameInput.value);
-
-  if (typeof window.showSaveFilePicker === "function") {
-    try {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: fileName,
-        types: SCALE_FILE_PICKER_TYPES,
-      });
-      const writable = await handle.createWritable();
-      await writable.write(text);
-      await writable.close();
-    } catch (error) {
-      // A cancelled dialog is not an error to report: the user chose not to save.
-      if (error && error.name === "AbortError") return;
-      showToolbarMessage("Could not save the file.");
-    }
-    return;
-  }
-
-  downloadScaleFile(fileName, text);
+  await saveFileAs({
+    name: suggestedFileName(scaleNameInput.value),
+    contents: serializeScaleDocument(collectDocumentState()),
+    type: "application/json",
+    pickerTypes: SCALE_FILE_PICKER_TYPES,
+    failureMessage: "Could not save the file.",
+  });
 }
 
 /**
@@ -277,9 +263,42 @@ function downloadBlob(fileName, blob) {
   }, 0);
 }
 
-/** The fallback, for Firefox, Safari and every file:// page. */
-function downloadScaleFile(fileName, text) {
-  downloadBlob(fileName, new Blob([text], { type: "application/json" }));
+/**
+ * Save `contents` under `fileName`, by whichever route the browser offers.
+ *
+ * Every save in the app goes through here — the `.musp.json` document, the
+ * chart's PNG and the audio's WAV — so all three propose the same name in the
+ * same dialog and fail the same way. Only what each one hands over differs:
+ * the bytes (or text), the media type, the picker's file-type list and the
+ * wording of the failure.
+ *
+ * Where `window.showSaveFilePicker` exists — Chromium, and not on a `file://`
+ * page — the user gets the browser's own Save dialog with `file.name` already
+ * filled in. Everywhere else the anchor's `download` attribute carries that
+ * same name, which is the only proposal that path can make.
+ *
+ * `file.contents` reaches the writable untouched, as the string or the bytes
+ * the caller built; the fallback wraps it in a Blob of `file.type`.
+ */
+async function saveFileAs(file) {
+  if (typeof window.showSaveFilePicker !== "function") {
+    downloadBlob(file.name, new Blob([file.contents], { type: file.type }));
+    return;
+  }
+
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: file.name,
+      types: file.pickerTypes,
+    });
+    const writable = await handle.createWritable();
+    await writable.write(file.contents);
+    await writable.close();
+  } catch (error) {
+    // A cancelled dialog is not an error to report: the user chose not to save.
+    if (error && error.name === "AbortError") return;
+    showToolbarMessage(file.failureMessage);
+  }
 }
 
 saveScaleItem.addEventListener("click", saveScaleFile);

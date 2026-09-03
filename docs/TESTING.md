@@ -273,8 +273,9 @@ test/
     │                               and what the message bar says
     ├── file-downloads.test.js      how a saved file reaches the browser: that
     │                               all three saves hand over a Blob object URL
-    │                               and never a data: URL, and when each one
-    │                               revokes it
+    │                               and never a data: URL, when each one revokes
+    │                               it, and the one name and one dialog all
+    │                               three of them propose
     ├── file-persistence.test.js    round trips through the real editor —
     │                               both notations' hidden state, both I/O
     │                               branches, a bad file, a cancelled picker

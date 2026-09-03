@@ -9,6 +9,7 @@ const {
   typeInto,
   buildRelativeScale,
   savedFile,
+  pickScaleFile,
 } = require("../helpers/harness.js");
 
 /**
@@ -134,5 +135,127 @@ test("every save releases its object URL once the click is away", async (t) => {
 
     await tick(h);
     assert.equal(entry.revoked, true, "a live object URL holds its Blob for the document's life");
+  });
+});
+
+// --- the name every save proposes -------------------------------------------
+
+/** Clicks Save ▸ one of the three items, the way a user reaches it. */
+async function saveThrough(h, itemId) {
+  fireClick(h, h.document.getElementById("save-menu"));
+  fireClick(h, h.document.getElementById(itemId));
+  // Two, because the audio export awaits its offline render before the save.
+  await tick(h);
+  await tick(h);
+}
+
+function messageText(h) {
+  return h.document.getElementById("toolbar-message-text").textContent;
+}
+
+test("every save proposes a file name slugged from the scale name", async (t) => {
+  // One slug rule, one mechanism, three files. A chart saved beside its scale
+  // and its audio should land as three files with one name and three
+  // extensions — not two named for the scale and a third called "scale.png".
+  await t.test("Save Chart As PNG", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    typeInto(h, h.document.getElementById("scale-name"), "Hicaz Hümayun");
+
+    await saveThrough(h, "save-png");
+
+    assert.equal((await savedFile(h)).name, "hicaz-humayun.png");
+  });
+
+  await t.test("Save As Music Scale Plot file", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    typeInto(h, h.document.getElementById("scale-name"), "Hicaz Hümayun");
+
+    await saveThrough(h, "save-scale");
+
+    assert.equal((await savedFile(h)).name, "hicaz-humayun.musp.json");
+  });
+
+  await t.test("Save Audio As WAV", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+    typeInto(h, h.document.getElementById("scale-name"), "Hicaz Hümayun");
+
+    await saveThrough(h, "save-audio");
+
+    assert.equal((await savedFile(h)).name, "hicaz-humayun.wav");
+  });
+
+  await t.test("an unnamed scale still falls back to the default stem", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    await saveThrough(h, "save-png");
+
+    assert.equal((await savedFile(h)).name, "scale.png");
+  });
+});
+
+test("the PNG save goes through the same file picker as the other two", async (t) => {
+  await t.test("offers the proposed name to the browser's own Save dialog", async () => {
+    const h = loadApp({ fileSystemAccess: true });
+    t.after(() => h.close());
+    typeInto(h, h.document.getElementById("scale-name"), "Rast");
+
+    await saveThrough(h, "save-png");
+
+    assert.equal(h.filePickerCalls.length, 1);
+    assert.equal(h.filePickerCalls[0].picker, "save");
+    assert.equal(h.filePickerCalls[0].options.suggestedName, "rast.png");
+    // JSON round-trip strips the jsdom realm's prototypes, which assert/strict's
+    // deepEqual otherwise rejects (docs/TESTING.md §5, "Cross-realm gotcha").
+    assert.deepEqual(JSON.parse(JSON.stringify(h.filePickerCalls[0].options.types)), [
+      { description: "PNG image", accept: { "image/png": [".png"] } },
+    ]);
+    assert.equal(h.downloads.length, 0, "no anchor fallback when a picker exists");
+    assert.deepEqual(
+      Array.from(h.writtenFiles[0].data.subarray(0, 8)),
+      PNG_SIGNATURE,
+      "the bytes written through the picker are not a PNG"
+    );
+  });
+
+  await t.test("says nothing when the dialog is cancelled", async () => {
+    const h = loadApp({ fileSystemAccess: { saveAborts: true } });
+    t.after(() => h.close());
+
+    await saveThrough(h, "save-png");
+
+    assert.equal(h.writtenFiles.length, 0);
+    assert.equal(messageText(h), "", "choosing not to save is not an error to report");
+  });
+
+  await t.test("reports a dialog that genuinely failed", async () => {
+    const h = loadApp({ fileSystemAccess: { saveFails: true } });
+    t.after(() => h.close());
+
+    await saveThrough(h, "save-png");
+
+    assert.equal(h.writtenFiles.length, 0);
+    assert.equal(messageText(h), "Could not save the image.");
+  });
+});
+
+test("the PNG save takes down a stale message, as the other two do", async (t) => {
+  await t.test("a complaint from an earlier action does not outlive the save", async () => {
+    const h = loadApp();
+    t.after(() => h.close());
+
+    // The bar describes what just happened, so a save has to clear it before it
+    // starts — otherwise a chart saved after a bad file leaves the reader with
+    // a message about the file, sitting over a save that went perfectly well.
+    await pickScaleFile(h, "this is not a scale document");
+    assert.notEqual(messageText(h), "", "sanity: the bad file complained about something");
+
+    await saveThrough(h, "save-png");
+
+    assert.equal(messageText(h), "");
+    assert.equal(h.document.getElementById("toolbar-message").hidden, true);
   });
 });

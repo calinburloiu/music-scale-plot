@@ -153,7 +153,7 @@ async function saveAudio(h) {
   fireClick(h, h.document.getElementById("save-menu"));
   fireClick(h, h.document.getElementById("save-audio"));
   // Two ticks, not one. saveAudioFile() suspends on the offline render, so the
-  // timer below is registered *before* downloadAudioFile() registers its own
+  // timer below is registered *before* downloadBlob() registers its own
   // setTimeout(revoke, 0) — and timers fire in registration order. One tick
   // reaches the download; the second reaches the revoke.
   await tick(h);

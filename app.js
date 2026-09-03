@@ -21,6 +21,10 @@ const CSS_PX_PER_INCH = 180;
 const EXPORT_PPI = CSS_PX_PER_INCH * EXPORT_SCALE;
 // pHYs counts pixels per metre, in whole numbers.
 const EXPORT_PIXELS_PER_METRE = Math.round(EXPORT_PPI / 0.0254);
+// Beside the format it names, the way persistence.js holds SCALE_FILE_EXTENSION
+// and audio.js AUDIO_FILE_EXTENSION. The picker's file-type list stays beside
+// savePNG(), where the dialog that uses it lives.
+const PNG_FILE_EXTENSION = ".png";
 // sRGB rendering intents, per the PNG specification. A chart of flat, chosen
 // colours wants its colours matched (1, relative colorimetric), not adapted to
 // the output gamut the way a photograph does (0, perceptual).
@@ -1632,7 +1636,13 @@ function bytesFromBase64(base64) {
   return bytes;
 }
 
-function savePNG() {
+const PNG_FILE_PICKER_TYPES = [
+  { description: "PNG image", accept: { "image/png": [".png"] } },
+];
+
+async function savePNG() {
+  clearToolbarMessage();
+
   // A PNG is a picture of the scale, and a scale with a hole in it is not one
   // the app should hand out in any format.
   const problem = invalidIntervalMessage();
@@ -1655,7 +1665,17 @@ function savePNG() {
     renderScale = DPR;
     render();
   }
-  downloadBlob("scale.png", new Blob([png], { type: "image/png" }));
+  // The same save every other format in the app gets: the browser's own dialog
+  // where there is one, an <a download> where there is not, and either way a
+  // name proposed from the scale's — a chart saved beside its scale and its
+  // audio should land as three files with one name and three extensions.
+  await saveFileAs({
+    name: suggestedFileName(scaleNameInput.value, PNG_FILE_EXTENSION),
+    contents: png,
+    type: "image/png",
+    pickerTypes: PNG_FILE_PICKER_TYPES,
+    failureMessage: "Could not save the image.",
+  });
 }
 
 function getActivePalette() {

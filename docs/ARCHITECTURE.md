@@ -645,10 +645,10 @@ little-endian PCM. Samples are clamped to [−1, 1] and scaled asymmetrically �
 practice (one voice at a time, peak gain 0.3, no overlap); the clamp is there
 because an encoder that trusts its input produces a file that clicks.
 
-The download goes out through `downloadBlob()`, the one mechanism every save in
-the app shares — see [Handing the browser a file](#handing-the-browser-a-file).
-The file is named after the scale through `suggestedFileName()`, so it shares its
-slug rule and diacritic folding with the `.musp.json` save.
+The file goes out through `saveFileAs()`, the one mechanism every save in the
+app shares — see [Handing the browser a file](#handing-the-browser-a-file). It is
+named after the scale through `suggestedFileName()`, so it shares its slug rule
+and diacritic folding with the `.musp.json` and PNG saves.
 
 ### Why WAV, and not a compressed format
 
@@ -767,8 +767,9 @@ binds only on charts spanning several octaves.
 
 A **Save as PNG** button calls `canvas.toDataURL("image/png")` — the only encoder
 a canvas has synchronously — decodes the base64 back to bytes, splices in the two
-print chunks, and hands the result to `downloadBlob()` as an `image/png` Blob. No
-server is involved. The `data:` URL `toDataURL` returns is never used as the
+print chunks, and hands the result to `saveFileAs()` as `image/png`, under a name
+`suggestedFileName()` slugs from `#scale-name` exactly as the other two saves do.
+No server is involved. The `data:` URL `toDataURL` returns is never used as the
 download's `href`; see
 [Handing the browser a file](#handing-the-browser-a-file) for why that matters.
 `withPrintMetadata()` takes and returns bytes rather than a `data:` URL, so the
@@ -856,18 +857,30 @@ User picks a file (File System Access picker, or the hidden <input type=file>)
 **Save** (always Save As — no dirty tracking, no remembered handle):
 
 ```
-collectDocumentState()  ──►  serializeScaleDocument()  ──►  JSON text
-                                                                │
-                                                                ▼
+collectDocumentState() → serializeScaleDocument()  ──►  JSON text ──┐
+savePNG(): render at EXPORT_SCALE → toDataURL      ──►  PNG bytes ──┤
+renderScaleWav(): OfflineAudioContext → encodeWav  ──►  WAV bytes ──┤
+                                                                    ▼
+                              saveFileAs({ fileName: suggestedFileName(…), … })
+                                                 │
                           window.showSaveFilePicker exists?
                                  │                    │
                                 yes                   no
                                  │                    │
                                  ▼                    ▼
-                      picker → createWritable   downloadScaleFile()
-                      → write → close           (downloadBlob(): <a download>
-                                                 + a Blob object URL)
+                      picker → createWritable   downloadBlob(): <a download>
+                      → write → close           + a Blob object URL
 ```
+
+All three formats meet at `saveFileAs()` in `persistence-ui.js`, which is what
+makes the name in the dialog the same for all of them: `suggestedFileName()`
+slugs `#scale-name` once and only the extension differs, so a chart saved
+beside its scale and its audio lands as three files with one name — `rast.png`,
+`rast.musp.json`, `rast.wav`. A caller passes only what is its own: the bytes
+(or the text), the media type, the picker's file-type list, and the wording of
+the failure to show in the message bar. `saveFileAs()` reports that failure
+itself and stays silent on an `AbortError`, which is the user closing the
+dialog rather than anything going wrong.
 
 ### Handing the browser a file
 
@@ -892,10 +905,11 @@ Each of those three details is load-bearing:
   click, and so leaves nothing to clean up.
 
 This is only the fallback half. Where `window.showSaveFilePicker` exists —
-Chromium, and not on a `file://` page — the scale and audio saves write through
-the File System Access API instead and never build an anchor at all. Firefox,
-Safari, every iPhone and every `file://` page reach `downloadBlob()`, which makes
-it the path most users are actually on.
+Chromium, and not on a `file://` page — all three saves write through the File
+System Access API instead and never build an anchor at all. Firefox, Safari,
+every iPhone and every `file://` page reach `downloadBlob()`, which makes it the
+path most users are actually on. Both halves propose the same name: the picker
+as its `suggestedName`, the anchor as its `download` attribute.
 
 ## Styling
 
@@ -929,7 +943,7 @@ it the path most users are actually on.
 | State management | DOM is the source of truth; read inputs on each change |
 | Rendering | HTML5 Canvas 2D API |
 | Reactivity | Single `input` event listener on the editor container (event delegation) |
-| Export | `canvas.toDataURL()` for the chart, `OfflineAudioContext` + a hand-written WAV encoder for the audio; every save then goes out as a `Blob` object URL through `downloadBlob()` |
+| Export | `canvas.toDataURL()` for the chart, `OfflineAudioContext` + a hand-written WAV encoder for the audio; every save then goes through `saveFileAs()` — the browser's own dialog where there is one, otherwise a `Blob` object URL through `downloadBlob()` |
 | Dependencies | None |
 | Build step | None — open `index.html` in a browser |
 | Code organisation | Separate `index.html`, `style.css` files and nine classic scripts (`byzantine.js`, `smufl.js`, `persistence.js`, `audio.js`, `symbols-ui.js`, `byzantine-ui.js`, `persistence-ui.js`, `audio-ui.js`, `app.js`) — no modules |

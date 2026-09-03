@@ -401,6 +401,10 @@ const AUDIO_FILE_PICKER_TYPES = [
   { description: "WAV audio", accept: { "audio/wav": [".wav"] } },
 ];
 
+// One wording for both halves of the save: the render and the dialog fail the
+// same way as far as the user is concerned.
+const AUDIO_SAVE_FAILURE = "Could not save the audio file.";
+
 /** Always Save-As, like the other two: no dirty tracking, no remembered handle. */
 async function saveAudioFile() {
   closeSaveMenu();
@@ -413,37 +417,27 @@ async function saveAudioFile() {
     return;
   }
 
-  // The render sits inside the same try/catch as the dialog: a rejection here
-  // (an OfflineAudioContext that fails to render) must report exactly the
-  // same message as a failed dialog, not slip out as an unhandled rejection.
-  // It never raises AbortError itself, so that branch still means only what
-  // it always has — the user cancelled the dialog.
+  // A rejection here (an OfflineAudioContext that fails to render) must report
+  // exactly the same message a failed dialog does, rather than slip out as an
+  // unhandled rejection — the user asked for one file and did not get it, and
+  // which half of the work failed is not something they can act on. The save
+  // itself reports its own failures, and says nothing about a cancelled
+  // dialog; see saveFileAs() in persistence-ui.js.
+  let bytes;
   try {
-    const bytes = await renderScaleWav();
-    const fileName = suggestedFileName(scaleNameInput.value, AUDIO_FILE_EXTENSION);
-
-    if (typeof window.showSaveFilePicker === "function") {
-      const handle = await window.showSaveFilePicker({
-        suggestedName: fileName,
-        types: AUDIO_FILE_PICKER_TYPES,
-      });
-      const writable = await handle.createWritable();
-      await writable.write(bytes);
-      await writable.close();
-      return;
-    }
-
-    downloadAudioFile(fileName, bytes);
-  } catch (error) {
-    // A cancelled dialog is not an error to report: the user chose not to save.
-    if (error && error.name === "AbortError") return;
-    showToolbarMessage("Could not save the audio file.");
+    bytes = await renderScaleWav();
+  } catch {
+    showToolbarMessage(AUDIO_SAVE_FAILURE);
+    return;
   }
-}
 
-/** The fallback, for Firefox, Safari and every file:// page. */
-function downloadAudioFile(fileName, bytes) {
-  downloadBlob(fileName, new Blob([bytes], { type: "audio/wav" }));
+  await saveFileAs({
+    name: suggestedFileName(scaleNameInput.value, AUDIO_FILE_EXTENSION),
+    contents: bytes,
+    type: "audio/wav",
+    pickerTypes: AUDIO_FILE_PICKER_TYPES,
+    failureMessage: AUDIO_SAVE_FAILURE,
+  });
 }
 
 document.getElementById("save-audio").addEventListener("click", saveAudioFile);
