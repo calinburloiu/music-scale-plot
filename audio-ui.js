@@ -190,3 +190,27 @@ function tickSoundingNote() {
   updateSoundingNote();
   if (playback) playback.frameId = requestAnimationFrame(tickSoundingNote);
 }
+
+// --- the audio export ------------------------------------------------------
+
+/**
+ * The scale as WAV bytes, rendered offline.
+ *
+ * The same scheduleScale() live playback uses, handed a different context and
+ * destination — so the file is what the reader heard rather than a second
+ * implementation of it. No scheduling lead: nothing can be late in a render
+ * that is not realtime, and the last note's release reaches zero exactly at
+ * the buffer's end, so nothing is cut off.
+ */
+async function renderScaleWav() {
+  const plan = scalePlaybackPlan(scaleFrequencies(readScaleData(), getBaseFrequency()));
+  const total = plan.length * QUARTER_SECONDS;
+  const offline = new OfflineAudioContext(
+    1,
+    Math.ceil(total * EXPORT_SAMPLE_RATE),
+    EXPORT_SAMPLE_RATE
+  );
+  scheduleScale(offline, plan, offline.destination, 0);
+  const buffer = await offline.startRendering();
+  return encodeWavMono16(buffer.getChannelData(0), EXPORT_SAMPLE_RATE);
+}

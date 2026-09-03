@@ -24,7 +24,7 @@ const vm = require("node:vm");
 const { JSDOM, VirtualConsole } = require("jsdom");
 
 const { RecordingContext2D, measureTextWidth, measureTextInk, pngFixture } = require("./canvas-stub.js");
-const { FakeAudioContext } = require("./audio-stub.js");
+const { FakeAudioContext, FakeOfflineAudioContext } = require("./audio-stub.js");
 
 const ROOT = path.resolve(__dirname, "..", "..");
 const HTML_PATH = path.join(ROOT, "index.html");
@@ -139,6 +139,13 @@ function loadApp(options = {}) {
     constructor() {
       super();
       audioContexts.push(this);
+    }
+  };
+  const offlineContexts = [];
+  window.OfflineAudioContext = class TrackedOfflineAudioContext extends FakeOfflineAudioContext {
+    constructor(numberOfChannels, length, sampleRate) {
+      super(numberOfChannels, length, sampleRate);
+      offlineContexts.push(this);
     }
   };
 
@@ -269,6 +276,8 @@ function loadApp(options = {}) {
     fontLoads,
     /** Every AudioContext the app constructed (it should only ever be one). */
     audioContexts,
+    /** Every OfflineAudioContext the app constructed, one per audio export. */
+    offlineContexts,
     /** Errors jsdom itself reported (unimplemented APIs, uncaught throws). */
     jsdomErrors,
     /** Every `console.warn()` the app made, as text. */

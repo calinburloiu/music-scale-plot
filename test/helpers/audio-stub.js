@@ -124,9 +124,82 @@ class FakeAudioContext {
   }
 }
 
+
+/**
+ * The value an automation curve holds at `time`, from the events recorded on
+ * the param: a linear ramp interpolates from the previous event, a
+ * setValueAtTime holds until its own time. Before the first event the param
+ * reads as its first scheduled value, which is how the app always starts a
+ * note — at silence.
+ */
+function envelopeValueAt(param, time) {
+  const events = param.events.filter((e) => e.type !== "cancelScheduledValues");
+  if (events.length === 0) return 0;
+  if (time <= events[0].time) return events[0].value;
+
+  let previous = events[0];
+  for (let i = 1; i < events.length; i++) {
+    const event = events[i];
+    if (time >= event.time) {
+      previous = event;
+      continue;
+    }
+    if (event.type === "linearRampToValueAtTime") {
+      const span = event.time - previous.time;
+      const ratio = span > 0 ? (time - previous.time) / span : 1;
+      return previous.value + (event.value - previous.value) * ratio;
+    }
+    return previous.value;
+  }
+  return previous.value;
+}
+
+/**
+ * A rendering stand-in for OfflineAudioContext.
+ *
+ * It interprets the schedule rather than synthesising audio: every oscillator
+ * is a constant 1.0 between its start and stop, multiplied by the envelope its
+ * gain node describes. So a test asserts the numbers the app handed the API,
+ * which is the same line docs/TESTING.md draws for the chart.
+ */
+class FakeOfflineAudioContext extends FakeAudioContext {
+  constructor(numberOfChannels, length, sampleRate) {
+    super();
+    this.numberOfChannels = numberOfChannels;
+    this.length = length;
+    this.sampleRate = sampleRate;
+    this.renderCalls = 0;
+  }
+
+  startRendering() {
+    this.renderCalls++;
+    const data = new Float32Array(this.length);
+    for (const osc of this.oscillators) {
+      const gain = osc.connectedTo[0];
+      if (!gain || !gain.gain) continue;
+      const from = Math.max(0, Math.round((osc.started || 0) * this.sampleRate));
+      const to =
+        osc.stopped === null
+          ? this.length
+          : Math.min(this.length, Math.round(osc.stopped * this.sampleRate));
+      for (let i = from; i < to; i++) {
+        data[i] += envelopeValueAt(gain.gain, i / this.sampleRate);
+      }
+    }
+    return Promise.resolve({
+      numberOfChannels: this.numberOfChannels,
+      length: this.length,
+      sampleRate: this.sampleRate,
+      getChannelData: () => data,
+    });
+  }
+}
+
 module.exports = {
   FakeAudioContext,
+  FakeOfflineAudioContext,
   FakeGainNode,
   FakeOscillatorNode,
   FakeAudioParam,
+  envelopeValueAt,
 };
